@@ -1,41 +1,15 @@
 import "regenerator-runtime/runtime";
 import React from "react";
-import { login, logout } from "./utils";
+import { login, logout, MAX_GAS } from "./utils";
 import "./global.css";
 
 import getConfig, { Env } from "./config";
 const { networkId } = getConfig((process.env.NODE_ENV as Env) || "development");
 
 export default function App() {
-  // use React Hooks to store greeting in component state
-  const [greeting, set_greeting] = React.useState();
-
-  // when the user has not yet interacted with the form, disable the button
-  const [buttonDisabled, setButtonDisabled] = React.useState(true);
-
   // after submitting the form, we want to show Notification
   const [showNotification, setShowNotification] = React.useState(false);
-
-  // The useEffect hook can be used to fire side-effects during render
-  // Learn more: https://reactjs.org/docs/hooks-intro.html
-  React.useEffect(
-    () => {
-      // in this case, we only care to query the contract when signed in
-      if (window.walletConnection.isSignedIn()) {
-        // window.contract is set by initContract in index.js
-        window.contract
-          .get_greeting({ account_id: window.accountId })
-          .then((greetingFromContract: any) => {
-            set_greeting(greetingFromContract);
-          });
-      }
-    },
-
-    // The second argument to useEffect tells React when to re-run the effect
-    // Use an empty array to specify "only run on first render"
-    // This works because signing into NEAR Wallet reloads the page
-    []
-  );
+  const [loading, setLoading] = React.useState(false);
 
   // if not signed in, return early with sign-in prompt
   if (!window.walletConnection.isSignedIn()) {
@@ -67,55 +41,39 @@ export default function App() {
         Sign out
       </button>
       <main>
-        <h1>
-          <label
-            htmlFor="greeting"
-            style={{
-              color: "var(--secondary)",
-              borderBottom: "2px solid var(--secondary)",
-            }}
-          >
-            {greeting}
-          </label>
-          {
-            " " /* React trims whitespace around tags; insert literal space character when needed */
-          }
-          {window.accountId}!
-        </h1>
+        <h1>Welcome {window.accountId}!</h1>
         <form
           onSubmit={async (event) => {
             event.preventDefault();
 
-            // get elements from the form using their id attribute
-            const { fieldset, greeting } = event.target.elements;
-
-            // hold onto new user-entered value from React's SynthenticEvent for use after `await` call
-            const newGreeting = greeting.value;
-
-            // disable the form while the value gets updated on-chain
-            fieldset.disabled = true;
-
+            const { fieldset } = event.target.elements;
+            setLoading(true);
             try {
+              fieldset.disabled = true;
               // make an update call to the smart contract
-              await window.contract.run_ephemeral({
-                splitter: {
-                  owner: "levtester.testnet",
-                  split_sum: 200,
-                  splits: [100, 100],
-                  nodes: [
-                    {
-                      SimpleTransferLeaf: {
-                        recipient: "lev.testnet",
+              const ret = await window.contract.run_ephemeral(
+                {
+                  splitter: {
+                    owner: "levtester.testnet",
+                    split_sum: 200,
+                    splits: [100, 100],
+                    nodes: [
+                      {
+                        SimpleTransferLeaf: {
+                          recipient: "lev.testnet",
+                        },
                       },
-                    },
-                    {
-                      SimpleTransferLeaf: {
-                        recipient: "lev.testnet",
+                      {
+                        SimpleTransferLeaf: {
+                          recipient: "lev.testnet",
+                        },
                       },
-                    },
-                  ],
+                    ],
+                  },
                 },
-              });
+                MAX_GAS,
+                100000
+              );
             } catch (e) {
               alert(
                 "Something went wrong! " +
@@ -124,93 +82,31 @@ export default function App() {
               );
               throw e;
             } finally {
+              console.log("AAAA");
               // re-enable the form, whether the call succeeded or failed
+              setLoading(false);
               fieldset.disabled = false;
             }
-
-            // update local `greeting` variable to match persisted value
-            set_greeting(newGreeting);
+            console.log("AAAA");
 
             // show Notification
             setShowNotification(true);
+            console.log("AAAA");
 
             // remove Notification again after css animation completes
             // this allows it to be shown again next time the form is submitted
             setTimeout(() => {
+              console.log("AAAA");
               setShowNotification(false);
             }, 11000);
           }}
         >
           <fieldset id="fieldset">
-            <label
-              htmlFor="greeting"
-              style={{
-                display: "block",
-                color: "var(--gray)",
-                marginBottom: "0.5em",
-              }}
-            >
-              Change greeting
-            </label>
             <div style={{ display: "flex" }}>
-              <input
-                autoComplete="off"
-                defaultValue={greeting}
-                id="greeting"
-                onChange={(e) => setButtonDisabled(e.target.value === greeting)}
-                style={{ flex: 1 }}
-              />
-              <button
-                disabled={buttonDisabled}
-                style={{ borderRadius: "0 5px 5px 0" }}
-              >
-                Save
-              </button>
+              <button disabled={loading}>Execute the test!</button>
             </div>
           </fieldset>
         </form>
-        <p>
-          Look at that! A Hello World app! This greeting is stored on the NEAR
-          blockchain. Check it out:
-        </p>
-        <ol>
-          <li>
-            Look in <code>src/App.js</code> and <code>src/utils.js</code> –
-            you'll see <code>get_greeting</code> and <code>set_greeting</code>{" "}
-            being called on <code>contract</code>. What's this?
-          </li>
-          <li>
-            Ultimately, this <code>contract</code> code is defined in{" "}
-            <code>assembly/main.ts</code> – this is the source code for your{" "}
-            <a
-              target="_blank"
-              rel="noreferrer"
-              href="https://docs.near.org/docs/develop/contracts/overview"
-            >
-              smart contract
-            </a>
-            .
-          </li>
-          <li>
-            When you run <code>yarn dev</code>, the code in{" "}
-            <code>assembly/main.ts</code> gets deployed to the NEAR testnet. You
-            can see how this happens by looking in <code>package.json</code> at
-            the <code>scripts</code> section to find the <code>dev</code>{" "}
-            command.
-          </li>
-        </ol>
-        <hr />
-        <p>
-          To keep learning, check out{" "}
-          <a target="_blank" rel="noreferrer" href="https://docs.near.org">
-            the NEAR docs
-          </a>{" "}
-          or look through some{" "}
-          <a target="_blank" rel="noreferrer" href="https://examples.near.org">
-            example apps
-          </a>
-          .
-        </p>
       </main>
       {showNotification && <Notification />}
     </>
@@ -232,7 +128,7 @@ function Notification() {
       {
         " " /* React trims whitespace around tags; insert literal space character when needed */
       }
-      called method: 'set_greeting' in contract:{" "}
+      called method: 'run_ephemeral' in contract:{" "}
       <a
         target="_blank"
         rel="noreferrer"

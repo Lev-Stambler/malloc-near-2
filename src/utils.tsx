@@ -4,6 +4,9 @@ import { MallocContract } from "./types";
 
 const nearConfig = getConfig((process.env.NODE_ENV as Env) || "development");
 
+export const MAX_GAS = "300000000000000";
+
+
 // Initialize contract & set global variables
 export async function initContract() {
   // Initialize connection to the NEAR testnet
