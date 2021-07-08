@@ -1,0 +1,2 @@
+cargo:rustc-env=TYPENUM_BUILD_CONSTS=/home/lev/code/near/malloc-near-2/contract/target/wasm32-unknown-unknown/release/build/typenum-da61160f9666f448/out/consts.rs
+cargo:rustc-env=TYPENUM_BUILD_OP=/home/lev/code/near/malloc-near-2/contract/target/wasm32-unknown-unknown/release/build/typenum-da61160f9666f448/out/op.rs
