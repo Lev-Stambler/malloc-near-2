@@ -1,11 +1,18 @@
-import { connect, Contract, keyStores, WalletConnection } from "near-api-js";
-import getConfig, { Env } from "./config";
+import {
+  connect,
+  Contract,
+  keyStores,
+  providers,
+  WalletConnection,
+} from "near-api-js";
+import getConfig, { env, Env } from "./config";
 import { MallocContract } from "./types";
 
 const nearConfig = getConfig((process.env.NODE_ENV as Env) || "development");
 
 export const MAX_GAS = "300000000000000";
 
+export const provider = new providers.JsonRpcProvider(getConfig(env).nodeUrl);
 
 // Initialize contract & set global variables
 export async function initContract() {

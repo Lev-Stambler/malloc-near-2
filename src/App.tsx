@@ -1,15 +1,17 @@
 import "regenerator-runtime/runtime";
-import React from "react";
-import { login, logout, MAX_GAS } from "./utils";
+import React, { useEffect, useState } from "react";
+import { login, logout, MAX_GAS, provider } from "./utils";
 import "./global.css";
 
-import getConfig, { Env } from "./config";
-const { networkId } = getConfig((process.env.NODE_ENV as Env) || "development");
+import getConfig, { env, Env } from "./config";
+import { transactions } from "near-api-js";
+const { networkId } = getConfig(env);
 
 export default function App() {
   // after submitting the form, we want to show Notification
   const [showNotification, setShowNotification] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
+  const [explorerLink, setExplorerLink] = useState("");
 
   // if not signed in, return early with sign-in prompt
   if (!window.walletConnection.isSignedIn()) {
@@ -34,6 +36,47 @@ export default function App() {
     );
   }
 
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const txHash = url.searchParams.get("transactionHashes");
+    if (!txHash) return;
+    (async () => {
+      const result = await provider.txStatus(txHash, window.accountId);
+      console.log(result);
+      url.searchParams.delete("transactionHashes");
+      let newurl =
+        window.location.protocol +
+        "//" +
+        window.location.host +
+        window.location.pathname +
+        "?" +
+        url.searchParams.toString();
+      window.history.pushState({ path: newurl }, "", newurl);
+
+      setExplorerLink(`${getConfig(env).explorerUrl}/transactions/${txHash}`);
+      setShowNotification(true);
+    })();
+  }, []);
+
+
+const defaultSplitter = `{
+  "owner": "levtester.testnet",
+  "split_sum": 200,
+  "splits": [100, 100],
+  "nodes": [
+    {
+      "SimpleTransferLeaf": {
+        "recipient": "lev.testnet"
+      }
+    },
+    {
+      "SimpleTransferLeaf": {
+        "recipient": "lev.testnet"
+      }
+    }
+  ]
+}`
+
   return (
     // use React Fragment, <>, to avoid wrapping elements in unnecessary divs
     <>
@@ -46,30 +89,14 @@ export default function App() {
           onSubmit={async (event) => {
             event.preventDefault();
 
-            const { fieldset } = event.target.elements;
+            const { fieldset, splitter } = event.target.elements;
             setLoading(true);
             try {
               fieldset.disabled = true;
               // make an update call to the smart contract
               const ret = await window.contract.run_ephemeral(
                 {
-                  splitter: {
-                    owner: "levtester.testnet",
-                    split_sum: 200,
-                    splits: [100, 100],
-                    nodes: [
-                      {
-                        SimpleTransferLeaf: {
-                          recipient: "lev.testnet",
-                        },
-                      },
-                      {
-                        SimpleTransferLeaf: {
-                          recipient: "lev.testnet",
-                        },
-                      },
-                    ],
-                  },
+                  splitter: JSON.parse(splitter.value.toString()),
                 },
                 MAX_GAS,
                 100000
@@ -82,64 +109,52 @@ export default function App() {
               );
               throw e;
             } finally {
-              console.log("AAAA");
               // re-enable the form, whether the call succeeded or failed
               setLoading(false);
               fieldset.disabled = false;
             }
-            console.log("AAAA");
 
             // show Notification
             setShowNotification(true);
-            console.log("AAAA");
 
             // remove Notification again after css animation completes
             // this allows it to be shown again next time the form is submitted
             setTimeout(() => {
-              console.log("AAAA");
               setShowNotification(false);
             }, 11000);
           }}
         >
           <fieldset id="fieldset">
+            <textarea name="" defaultValue={defaultSplitter} id="splitter" cols="60" rows="30"></textarea>
             <div style={{ display: "flex" }}>
               <button disabled={loading}>Execute the test!</button>
             </div>
           </fieldset>
         </form>
       </main>
-      {showNotification && <Notification />}
+      {showNotification && <Notification explorerLink={explorerLink} />}
     </>
   );
 }
 
+interface NotificationProps {
+  explorerLink: string;
+}
+
 // this component gets rendered by App after the form is submitted
-function Notification() {
-  const urlPrefix = `https://explorer.${networkId}.near.org/accounts`;
+function Notification({ explorerLink }: NotificationProps) {
   return (
     <aside>
-      <a
-        target="_blank"
-        rel="noreferrer"
-        href={`${urlPrefix}/${window.accountId}`}
-      >
-        {window.accountId}
+      called method: 'run_ephemeral' in contract:
+      {` ${window.contract.contractId}`}
+      <br />
+      <a target="_blank" rel="noreferrer" href={explorerLink}>
+        See the explorer link
       </a>
-      {
-        " " /* React trims whitespace around tags; insert literal space character when needed */
-      }
-      called method: 'run_ephemeral' in contract:{" "}
-      <a
-        target="_blank"
-        rel="noreferrer"
-        href={`${urlPrefix}/${window.contract.contractId}`}
-      >
-        {window.contract.contractId}
-      </a>
-      <footer>
+      {/* <footer>
         <div>✔ Succeeded</div>
         <div>Just now</div>
-      </footer>
+      </footer> */}
     </aside>
   );
 }

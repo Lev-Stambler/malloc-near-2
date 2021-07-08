@@ -1,5 +1,6 @@
 const CONTRACT_NAME = process.env.CONTRACT_NAME || "malloc-near";
 
+export const env: Env = (process.env.NODE_ENV as Env) || "development";
 export type Env =
   | "production"
   | "development"
