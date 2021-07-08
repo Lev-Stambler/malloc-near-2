@@ -11,9 +11,12 @@
  *
  */
 
+use std::usize;
+
 // To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, Vector};
+use near_sdk::env::predecessor_account_id;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{env, near_bindgen, serde, setup_alloc, AccountId, PanicOnDefault, Promise};
 
@@ -45,55 +48,88 @@ pub struct SerializedSplitter {
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
-pub struct State {
+pub struct Contract {
     splitters: UnorderedMap<AccountId, Vector<Splitter>>,
 }
 
 pub trait SplitterTrait {
     // fn run(&self, account_id: AccountId, splitter_idx: usize);
-    fn run_ephemeral(&mut self, splitter: SerializedSplitter);
+    fn run_ephemeral(&mut self, splitter: SerializedSplitter) -> Promise;
     // fn store(&mut self, splitter: SerializedSplitter, owner: AccountId);
 }
 
 #[near_bindgen]
-impl SplitterTrait for State {
+impl SplitterTrait for Contract {
     #[payable]
-    fn run_ephemeral(&mut self, splitter: SerializedSplitter) {
+    fn run_ephemeral(&mut self, splitter: SerializedSplitter) -> Promise {
         let deserialized = self.deserialize(splitter, true);
         // TODO: make it so its not j attached deposit but via an NEP4 contract
-        self._run(deserialized, env::attached_deposit());
+        let (prom, _) = self._run(deserialized, env::attached_deposit());
+        prom.then(Promise::new(env::predecessor_account_id()))
+            .as_return()
     }
 }
 
-impl State {
+impl Contract {
     // This call on _run assumes a well formed splitter
     // Returns a refunded amount
-    fn _run(&self, splitter: Splitter, amount: u128) -> u128 {
+    fn _run(&self, splitter: Splitter, amount: u128) -> (Promise, u128) {
         let numb_endpoints = splitter.endpoints.len();
-        let mut amount_used: u128 = 0;
-        for i in 0..numb_endpoints {
-            let frac = (splitter.splits.get(i).unwrap() as f64) / (splitter.split_sum as f64);
-            let transfer_amount_float = frac * amount as f64;
-            let transfer_amount = transfer_amount_float.floor() as u128;
-            State::handle_endpoint(transfer_amount, splitter.endpoints.get(i).unwrap());
-            amount_used += transfer_amount;
+        if numb_endpoints < 1 {
+            panic!("TODO: err");
         }
+        let (ret_prom, amount_used) = Contract::handle_splits(&splitter, None, 0, amount, 0);
+
         if amount_used > amount {
-            panic!("TODO");
+            panic!("TODO:Eerr");
         }
-        amount - amount_used
+        (ret_prom, amount - amount_used)
+    }
+
+    /// handle_splits handles a split by returning a promise for when all the splits are done
+    /// handle_splits assumes a well formed splitter, so splitter len > 0, thus the unwrap is ok as
+    /// prior_prom should only be null when i = 0
+    fn handle_splits(
+        splitter: &Splitter,
+        prior_prom: Option<Promise>,
+        amount_used: u128,
+        amount_deposited: u128,
+        i: u64,
+    ) -> (Promise, u128) {
+        if i == splitter.splits.len() {
+            return (prior_prom.unwrap(), amount_used);
+        }
+        let frac = (splitter.splits.get(i).unwrap() as f64) / (splitter.split_sum as f64);
+        let transfer_amount_float = frac * amount_deposited as f64;
+        let transfer_amount = transfer_amount_float.floor() as u128;
+        let prom = Contract::handle_endpoint(transfer_amount, splitter.endpoints.get(i).unwrap());
+        // (prom, transfer_amount)
+        let next_prom = match prior_prom {
+            Some(p) => prom.and(p),
+            None => prom,
+        };
+        Contract::handle_splits(
+            splitter,
+            Some(next_prom),
+            amount_used + transfer_amount,
+            amount_deposited,
+            i + 1,
+        )
     }
 
     fn handle_endpoint(amount: u128, endpoint: Endpoint) -> Promise {
         match endpoint {
-            Endpoint::SimpleTransferLeaf { recipient } => Promise::new(recipient).transfer(amount),
+            Endpoint::SimpleTransferLeaf { recipient } => {
+                println!("{} {} {}", amount, recipient, predecessor_account_id());
+                Promise::new(recipient).transfer(amount)
+            }
         }
     }
 }
 
-impl State {
+impl Contract {
     pub(crate) fn deserialize(&self, splitter: SerializedSplitter, ephemeral: bool) -> Splitter {
-        if !State::check_splits(splitter.split_sum, &splitter.splits) {
+        if !Contract::check_splits(splitter.split_sum, &splitter.splits) {
             panic!("TODO: error handling");
         }
         if splitter.splits.len() != splitter.nodes.len() {
@@ -114,8 +150,8 @@ impl State {
         let splits_prefix = format!("{}-splits", prefix_base);
         Splitter {
             split_sum: splitter.split_sum,
-            endpoints: State::vec_to_vector(splitter.nodes, node_prefix.as_bytes()),
-            splits: State::vec_to_vector(splitter.splits, splits_prefix.as_bytes()),
+            endpoints: Contract::vec_to_vector(splitter.nodes, node_prefix.as_bytes()),
+            splits: Contract::vec_to_vector(splitter.splits, splits_prefix.as_bytes()),
             owner: splitter.owner,
         }
     }
@@ -138,11 +174,65 @@ impl State {
 }
 
 #[near_bindgen]
-impl State {
+impl Contract {
     #[init]
     pub fn new() -> Self {
-        State {
+        Contract {
             splitters: UnorderedMap::new("splitters".as_bytes()),
         }
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    const INIT_ACCOUNT_BAL: u128 = 10_000;
+
+    use core::time;
+    use std::thread;
+
+    use super::*;
+    use near_sdk::json_types::ValidAccountId;
+    use near_sdk::test_utils::{accounts, VMContextBuilder};
+    use near_sdk::testing_env;
+    use near_sdk::MockedBlockchain;
+
+    // mock the context for testing, notice "signer_account_id" that was accessed above from env::
+    fn get_context(predecessor_account_id: ValidAccountId) -> VMContextBuilder {
+        let mut builder = VMContextBuilder::new();
+        builder
+            .current_account_id(accounts(0))
+            .signer_account_id(predecessor_account_id.clone())
+            .predecessor_account_id(predecessor_account_id)
+            .account_balance(INIT_ACCOUNT_BAL);
+        builder
+    }
+
+    #[test]
+    fn test_simple_transfers_success() {
+        let mut context = get_context(accounts(0));
+        testing_env!(context.build());
+        let splitter = SerializedSplitter {
+            nodes: vec![
+                Endpoint::SimpleTransferLeaf {
+                    recipient: accounts(1).to_string(),
+                },
+                Endpoint::SimpleTransferLeaf {
+                    recipient: accounts(2).to_string(),
+                },
+            ],
+            splits: vec![100, 100],
+            split_sum: 200,
+            owner: accounts(0).to_string(),
+        };
+        let mut contract = Contract::new();
+        testing_env!(context
+            .storage_usage(env::storage_usage())
+            .attached_deposit(100)
+            .predecessor_account_id(accounts(0))
+            .build());
+        let prom = contract.run_ephemeral(splitter);
+        let sleep_time = time::Duration::from_millis(10);
+        thread::sleep(sleep_time);
+        assert_eq!(env::account_balance(), INIT_ACCOUNT_BAL - 100);
     }
 }
