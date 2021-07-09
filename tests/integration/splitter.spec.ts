@@ -27,7 +27,7 @@ let contract: MallocContract;
 let wNearContract: Contract & any;
 let contractName: string;
 
-jest.setTimeout(30000);
+jest.setTimeout(60000);
 
 beforeAll(async () => {
   near = await createNear({
@@ -105,7 +105,7 @@ it.only("should send wrapped near to Alice and Bob", async () => {
     tester.account_id,
     masterAccount,
     true,
-    amount
+    amount + 20
   );
   await setupWNearAccount(wNearContract, alice.accountId, alice);
   await setupWNearAccount(wNearContract, bob.accountId, bob);
@@ -113,14 +113,15 @@ it.only("should send wrapped near to Alice and Bob", async () => {
 
   const transferContractRet = await masterAccount.functionCall({
     contractId: "wrap.testnet",
-    methodName: "ft_transfer_call",
+    methodName: "ft_transfer",
     args: {
       receiver_id: contractName,
-      amount: (amount).toString(),
+      amount: (amount + 20).toString(),
       msg: "",
       memo: "",
     },
     gas: MAX_GAS,
+    // The attached deposit has to be greater than the number of contract calls
     attachedDeposit: new BN(1),
   });
   await getResults(
@@ -152,16 +153,47 @@ it.only("should send wrapped near to Alice and Bob", async () => {
       amount,
     },
     gas: MAX_GAS,
-    attachedDeposit: new BN(amount),
+    attachedDeposit: new BN(3),
   });
+
   const results = await getResults(ret.transaction.hash, tester.account_id);
+  // TODO: transfer from bob and alice
+  const bobBal = await wNearContract.ft_balance_of({
+    account_id: bob.accountId,
+  });
+  const aliceBal = await wNearContract.ft_balance_of({
+    account_id: alice.accountId,
+  });
+
+  await bob.functionCall({
+    contractId: "wrap.testnet",
+    methodName: "ft_transfer",
+    args: {
+      receiver_id: tester.account_id,
+      amount: bobBal.toString(),
+      msg: "",
+      memo: "",
+    },
+    attachedDeposit: new BN(1),
+    gas: MAX_GAS,
+  });
+
+  await alice.functionCall({
+    contractId: "wrap.testnet",
+    methodName: "ft_transfer",
+    args: {
+      receiver_id: tester.account_id,
+      amount: aliceBal.toString(),
+      msg: "",
+      memo: "",
+    },
+    attachedDeposit: new BN(1),
+    gas: MAX_GAS,
+  });
+
   expect(allResultsSuccess(results)).toBeTruthy();
-
-  const bobBal = wNearContract.ft_balance_of({account_id: bob.accountId})
-  expect(bobBal).toEqual(0.75 * amount)
-  const aliceBal = wNearContract.ft_balance_of({account_id: alice.accountId})
-  expect(aliceBal).toEqual(0.25 * amount)
-
+  expect(bobBal).toEqual(0.75 * amount);
+  expect(aliceBal).toEqual(0.25 * amount);
 });
 
 afterAll(async () => {
