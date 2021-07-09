@@ -5,7 +5,7 @@ type AccountId = string;
 
 // Enum endpoint
 interface Endpoint {
-  SimpleTransferLeaf?: { recipient: AccountId };
+  SimpleTransfer?: { recipient: AccountId };
 }
 
 interface SerializedSplitter {

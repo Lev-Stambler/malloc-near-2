@@ -65,12 +65,12 @@ const defaultSplitter = `{
   "splits": [100, 100],
   "nodes": [
     {
-      "SimpleTransferLeaf": {
+      "SimpleTransfer": {
         "recipient": "lev.testnet"
       }
     },
     {
-      "SimpleTransferLeaf": {
+      "SimpleTransfer": {
         "recipient": "lev.testnet"
       }
     }

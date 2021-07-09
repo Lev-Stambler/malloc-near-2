@@ -1,0 +1,13 @@
+{
+  "owner": "levtester.testnet",
+  "split_sum": 100,
+  "splits": [100],
+  "nodes": [
+    {
+      "FTTransfer": {
+        "recipient": "lev.testnet"
+      }
+    }
+  ],
+  "ft_contract_id": "wrap.testnet"
+}

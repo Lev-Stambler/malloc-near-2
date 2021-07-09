@@ -17,16 +17,47 @@ use std::usize;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, Vector};
 use near_sdk::env::predecessor_account_id;
+use near_sdk::json_types::{ValidAccountId, U128};
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{env, near_bindgen, serde, setup_alloc, AccountId, PanicOnDefault, Promise};
+use near_sdk::serde_json::json;
+use near_sdk::{env, near_bindgen, serde, setup_alloc, AccountId, Gas, PanicOnDefault, Promise};
 
 setup_alloc!();
+
+const BASIC_GAS: Gas = 5_000_000_000_000;
+
+// From Ref Fi
+// pub struct SwapAction {
+//     /// Pool which should be used for swapping.
+//     pub pool_id: u64,
+//     /// Token to swap from.
+//     pub token_in: ValidAccountId,
+//     /// Amount to exchange.
+//     /// If amount_in is None, it will take amount_out from previous step.
+//     pub amount_in: Option<U128>,
+
+//     /// Will fail if amount_in is None on the first step.
+//     pub token_out: ValidAccountId,
+//     /// Required minimum amount of token_out.
+//     pub min_amount_out: U128,
+// }
+// pub fn swap(&mut self, actions: Vec<SwapAction>, referral_id: Option<ValidAccountId>) -> U128
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub enum Endpoint {
-    SimpleTransferLeaf { recipient: AccountId },
-    // TODO: make a trade
+    SimpleTransfer {
+        recipient: AccountId,
+    },
+    FTTransfer {
+        recipient: AccountId,
+    },
+    REFSWap {
+        pool_id: u64,
+        token_in: AccountId,
+        token_out: AccountId,
+        min_amount_out: u128,
+    }, // TODO: make a trade
 }
 
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -35,6 +66,7 @@ pub struct Splitter {
     splits: Vector<u128>,
     owner: AccountId,
     split_sum: u128,
+    ft_contract_id: Option<AccountId>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -44,6 +76,7 @@ pub struct SerializedSplitter {
     splits: Vec<u128>,
     owner: AccountId,
     split_sum: u128,
+    ft_contract_id: Option<AccountId>,
 }
 
 #[near_bindgen]
@@ -102,7 +135,11 @@ impl Contract {
         let frac = (splitter.splits.get(i).unwrap() as f64) / (splitter.split_sum as f64);
         let transfer_amount_float = frac * amount_deposited as f64;
         let transfer_amount = transfer_amount_float.floor() as u128;
-        let prom = Contract::handle_endpoint(transfer_amount, splitter.endpoints.get(i).unwrap());
+        let prom = Contract::handle_endpoint(
+            transfer_amount,
+            splitter.endpoints.get(i).unwrap(),
+            &splitter.ft_contract_id,
+        );
         // (prom, transfer_amount)
         let next_prom = match prior_prom {
             Some(p) => prom.and(p),
@@ -117,11 +154,47 @@ impl Contract {
         )
     }
 
-    fn handle_endpoint(amount: u128, endpoint: Endpoint) -> Promise {
+    // TODO: how to make sure all one input token type for a splitter?
+    fn handle_endpoint(
+        amount: u128,
+        endpoint: Endpoint,
+        contract_id: &Option<AccountId>,
+    ) -> Promise {
         match endpoint {
-            Endpoint::SimpleTransferLeaf { recipient } => {
-                println!("{} {} {}", amount, recipient, predecessor_account_id());
-                Promise::new(recipient).transfer(amount)
+            Endpoint::SimpleTransfer { recipient } => Promise::new(recipient).transfer(amount),
+            Endpoint::FTTransfer { recipient } => {
+                // ft_transfer(receiver_id: string, amount: string, memo: string|null
+                Promise::new(contract_id.clone().unwrap()).function_call(
+                    "ft_transfer".to_string().into_bytes(),
+                    format!(
+                        "{{\"receiver_id\": \"{}\", \"amount\": \"{}\"}}",
+                        recipient, amount
+                    )
+                    .into_bytes(),
+                    1,
+                    BASIC_GAS,
+                )
+            }
+            Endpoint::REFSWap {
+                pool_id,
+                token_in,
+                token_out,
+                min_amount_out,
+            } => {
+                let data = json!({
+                    "pool_id": pool_id,
+                    "token_in": token_in,
+                    "token_out": token_out,
+                    "min_amount_out": min_amount_out,
+                    "amount_in": amount
+                });
+                // TODO: err
+                Promise::new(contract_id.clone().unwrap()).function_call(
+                    "swap".to_string().into_bytes(),
+                    data.to_string().into_bytes(),
+                    0,
+                    BASIC_GAS,
+                )
             }
         }
     }
@@ -153,6 +226,7 @@ impl Contract {
             endpoints: Contract::vec_to_vector(splitter.nodes, node_prefix.as_bytes()),
             splits: Contract::vec_to_vector(splitter.splits, splits_prefix.as_bytes()),
             owner: splitter.owner,
+            ft_contract_id: splitter.ft_contract_id,
         }
     }
 
@@ -213,16 +287,17 @@ mod tests {
         testing_env!(context.build());
         let splitter = SerializedSplitter {
             nodes: vec![
-                Endpoint::SimpleTransferLeaf {
+                Endpoint::SimpleTransfer {
                     recipient: accounts(1).to_string(),
                 },
-                Endpoint::SimpleTransferLeaf {
+                Endpoint::SimpleTransfer {
                     recipient: accounts(2).to_string(),
                 },
             ],
             splits: vec![100, 100],
             split_sum: 200,
             owner: accounts(0).to_string(),
+            ft_contract_id: None,
         };
         let mut contract = Contract::new();
         testing_env!(context
