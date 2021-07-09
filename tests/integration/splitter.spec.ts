@@ -192,8 +192,8 @@ it.only("should send wrapped near to Alice and Bob", async () => {
   });
 
   expect(allResultsSuccess(results)).toBeTruthy();
-  expect(bobBal).toEqual(0.75 * amount);
-  expect(aliceBal).toEqual(0.25 * amount);
+  expect(bobBal).toEqual((0.75 * amount).toString());
+  expect(aliceBal).toEqual((0.25 * amount).toString());
 });
 
 afterAll(async () => {
