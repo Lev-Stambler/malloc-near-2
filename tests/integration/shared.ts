@@ -67,13 +67,13 @@ export const setupWNearAccount = async (
     const wNearbal = await wNearContract.ft_balance_of({
       account_id: accountId,
     });
-    if (wNearbal < 1)
+    if (wNearbal < amountInitDeposit)
       await caller.functionCall({
         contractId: "wrap.testnet",
         methodName: "near_deposit",
         args: {},
         gas: MAX_GAS,
-        attachedDeposit: new BN(amountInitDeposit),
+        attachedDeposit: new BN(amountInitDeposit - wNearbal),
       });
   }
 };

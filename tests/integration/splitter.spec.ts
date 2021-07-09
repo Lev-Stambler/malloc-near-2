@@ -83,8 +83,11 @@ it("should send near to Alice and Bob", async () => {
     gas: MAX_GAS,
     attachedDeposit: new BN(amount),
   });
-  const results = await getResults(ret.transaction.hash as string, tester.account_id);
-  expect(allResultsSuccess(results)).toBeTruthy()
+  const results = await getResults(
+    ret.transaction.hash as string,
+    tester.account_id
+  );
+  expect(allResultsSuccess(results)).toBeTruthy();
   const newBal = await alice.getAccountBalance();
   expect(new BN(newBal.total).sub(new BN(priorBal.total)).toNumber()).toEqual(
     100
@@ -92,26 +95,28 @@ it("should send near to Alice and Bob", async () => {
 });
 
 it.only("should send wrapped near to Alice and Bob", async () => {
-  const amount = 150;
+  const amount = 152;
   const masterAccount = await near.account(tester.account_id);
   const alice = await newRandAccount(masterAccount);
+  const bob = await newRandAccount(masterAccount);
 
   await setupWNearAccount(
     wNearContract,
     tester.account_id,
     masterAccount,
     true,
-    amount + 2
+    amount
   );
   await setupWNearAccount(wNearContract, alice.accountId, alice);
-  await setupWNearAccount(wNearContract, contractName, masterAccount)
+  await setupWNearAccount(wNearContract, bob.accountId, bob);
+  await setupWNearAccount(wNearContract, contractName, masterAccount);
 
   const transferContractRet = await masterAccount.functionCall({
     contractId: "wrap.testnet",
-    methodName: "ft_transfer",
+    methodName: "ft_transfer_call",
     args: {
       receiver_id: contractName,
-      amount: (amount + 1).toString(),
+      amount: (amount).toString(),
       msg: "",
       memo: "",
     },
@@ -122,16 +127,20 @@ it.only("should send wrapped near to Alice and Bob", async () => {
     transferContractRet.transaction.hash as string,
     tester.account_id
   );
-  console.log("GOT HERE");
   const ret = await masterAccount.functionCall({
     contractId: contractName,
     methodName: "run_ephemeral",
     args: {
       splitter: {
         owner: "levtester.testnet",
-        split_sum: 100,
-        splits: [100],
+        split_sum: 4,
+        splits: [3, 1],
         nodes: [
+          {
+            FTTransfer: {
+              recipient: bob.accountId,
+            },
+          },
           {
             FTTransfer: {
               recipient: alice.accountId,
@@ -146,11 +155,13 @@ it.only("should send wrapped near to Alice and Bob", async () => {
     attachedDeposit: new BN(amount),
   });
   const results = await getResults(ret.transaction.hash, tester.account_id);
+  expect(allResultsSuccess(results)).toBeTruthy();
 
-  expect(allResultsSuccess(results)).toBeTruthy()
-  // High key just use baf wall near here
-  // await checkReceipts(receiptMsgToReceipts(receiptMsg));
-  // near.anumber
+  const bobBal = wNearContract.ft_balance_of({account_id: bob.accountId})
+  expect(bobBal).toEqual(0.75 * amount)
+  const aliceBal = wNearContract.ft_balance_of({account_id: alice.accountId})
+  expect(aliceBal).toEqual(0.25 * amount)
+
 });
 
 afterAll(async () => {
