@@ -7,6 +7,7 @@ import getConfig, { env, Env } from "./config";
 import { transactions } from "near-api-js";
 const { networkId } = getConfig(env);
 
+
 export default function App() {
   // after submitting the form, we want to show Notification
   const [showNotification, setShowNotification] = React.useState(false);

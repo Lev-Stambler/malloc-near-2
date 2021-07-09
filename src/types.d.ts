@@ -19,7 +19,7 @@ interface SerializedSplitter {
 
 export interface MallocContract extends Contract {
   run_ephemeral: (
-    args: { splitter: SerializedSplitter },
+    args: { splitter: SerializedSplitter, amount?: BigNumberish },
     gas?: BigNumberish,
     attachedDeposit?: BigNumberish
   ) => Promise<any>;

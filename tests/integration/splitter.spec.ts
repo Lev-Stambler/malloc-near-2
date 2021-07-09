@@ -1,59 +1,40 @@
 import { readFileSync } from "fs";
+import {
+  allResultsSuccess,
+  cleanUp,
+  createNear,
+  getContract,
+  getResults,
+  MAX_GAS,
+  newRandAccount,
+  provider,
+  setupWNearAccount,
+} from "./shared";
 import * as NearAPI from "near-api-js";
 import bs58 from "bs58";
-import { InMemoryKeyStore } from "near-api-js/lib/key_stores";
-import { KeyPair, KeyPairEd25519 } from "near-api-js/lib/utils";
+import { InMemoryKeyStore, KeyStore } from "near-api-js/lib/key_stores";
+import { KeyPair, KeyPairEd25519, PublicKey } from "near-api-js/lib/utils";
 import "regenerator-runtime/runtime";
-import type { MallocContract } from "../../src/types";
+import type { AccountId, MallocContract } from "../../src/types";
 import BASIC_FT from "../__mocks__/basic-ft.json";
 import tester from "./tester-malloc2.levtester.testnet.json";
+import { Account, Contract, providers, utils } from "near-api-js";
 
 import "near-cli/test_environment";
+import BN from "bn.js";
 let near: NearAPI.Near;
 let contract: MallocContract;
+let wNearContract: Contract & any;
 let contractName: string;
-let accountId: string;
 
 jest.setTimeout(30000);
 
-const setup = async () => {
-  const createFakeStorage = () => {
-    let store = {};
-    return {
-      getItem: function (key) {
-        return store[key];
-      },
-      setItem: function (key, value) {
-        store[key] = value.toString();
-      },
-      clear: function () {
-        store = {};
-      },
-      removeItem: function (key) {
-        delete store[key];
-      },
-    };
-  };
-  const contractName = readFileSync("neardev/dev-account").toString();
-  accountId = tester.account_id;
-  const keyStore = new NearAPI.keyStores.InMemoryKeyStore();
-  const keyPair = KeyPair.fromString(tester.private_key);
-  await keyStore.setKey("testnet", tester.account_id, keyPair);
-
-  const near = await NearAPI.connect({
-    networkId: "testnet",
-    nodeUrl: "https://rpc.testnet.near.org",
-    masterAccount: tester.account_id,
-    keyPath: `${__dirname}/tester-malloc2.levtester.testnet.json`,
-    keyStore: keyStore,
-  });
-  return { near, contractName };
-};
-
 beforeAll(async () => {
-  const { near: _near, contractName: _contractName } = await setup();
-  near = _near;
-  contractName = _contractName;
+  near = await createNear({
+    privateKey: tester.private_key,
+    accountId: tester.account_id,
+  });
+  contractName = getContract();
   contract = new NearAPI.Contract(
     await near.account(tester.account_id),
     contractName,
@@ -62,23 +43,116 @@ beforeAll(async () => {
       viewMethods: [],
     }
   ) as MallocContract;
+  wNearContract = new NearAPI.Contract(
+    await near.account(tester.account_id),
+    "wrap.testnet",
+    {
+      changeMethods: ["near_deposit", "storage_deposit", "ft_transfer_call"],
+      viewMethods: ["ft_balance_of", "storage_balance_of"],
+    }
+  );
 });
 
-it("send one message and retrieve it", async () => {
-  const ret = await contract.run_ephemeral({
-    splitter: {
-      owner: "levtester.testnet",
-      split_sum: 100,
-      splits: [100],
-      nodes: [
-        {
-          FTTransfer: {
-            recipient: "lev.testnet",
+it("should send near to Alice and Bob", async () => {
+  const amount = 150;
+  const masterAccount = await near.account(tester.account_id);
+  const alice = await newRandAccount(masterAccount);
+  const priorBal = await alice.getAccountBalance();
+  const ret = await masterAccount.functionCall({
+    contractId: contractName,
+    methodName: "run_ephemeral",
+    args: {
+      splitter: {
+        owner: "levtester.testnet",
+        split_sum: 150,
+        splits: [100, 50],
+        nodes: [
+          {
+            SimpleTransfer: {
+              recipient: alice.accountId,
+            },
           },
-        },
-      ],
-      ft_contract_id: "wrap.testnet",
+          {
+            SimpleTransfer: {
+              recipient: "lev.testnet",
+            },
+          },
+        ],
+      },
     },
+    gas: MAX_GAS,
+    attachedDeposit: new BN(amount),
   });
-  console.log(ret)
+  const results = await getResults(ret.transaction.hash as string, tester.account_id);
+  expect(allResultsSuccess(results)).toBeTruthy()
+  const newBal = await alice.getAccountBalance();
+  expect(new BN(newBal.total).sub(new BN(priorBal.total)).toNumber()).toEqual(
+    100
+  );
+});
+
+it.only("should send wrapped near to Alice and Bob", async () => {
+  const amount = 150;
+  const masterAccount = await near.account(tester.account_id);
+  const alice = await newRandAccount(masterAccount);
+
+  await setupWNearAccount(
+    wNearContract,
+    tester.account_id,
+    masterAccount,
+    true,
+    amount + 2
+  );
+  await setupWNearAccount(wNearContract, alice.accountId, alice);
+  await setupWNearAccount(wNearContract, contractName, masterAccount)
+
+  const transferContractRet = await masterAccount.functionCall({
+    contractId: "wrap.testnet",
+    methodName: "ft_transfer",
+    args: {
+      receiver_id: contractName,
+      amount: (amount + 1).toString(),
+      msg: "",
+      memo: "",
+    },
+    gas: MAX_GAS,
+    attachedDeposit: new BN(1),
+  });
+  await getResults(
+    transferContractRet.transaction.hash as string,
+    tester.account_id
+  );
+  console.log("GOT HERE");
+  const ret = await masterAccount.functionCall({
+    contractId: contractName,
+    methodName: "run_ephemeral",
+    args: {
+      splitter: {
+        owner: "levtester.testnet",
+        split_sum: 100,
+        splits: [100],
+        nodes: [
+          {
+            FTTransfer: {
+              recipient: alice.accountId,
+            },
+          },
+        ],
+        ft_contract_id: "wrap.testnet",
+      },
+      amount,
+    },
+    gas: MAX_GAS,
+    attachedDeposit: new BN(amount),
+  });
+  const results = await getResults(ret.transaction.hash, tester.account_id);
+
+  expect(allResultsSuccess(results)).toBeTruthy()
+  // High key just use baf wall near here
+  // await checkReceipts(receiptMsgToReceipts(receiptMsg));
+  // near.anumber
+});
+
+afterAll(async () => {
+  await cleanUp(tester.account_id);
 });

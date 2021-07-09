@@ -20,7 +20,9 @@ use near_sdk::env::predecessor_account_id;
 use near_sdk::json_types::{ValidAccountId, U128};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::serde_json::json;
-use near_sdk::{env, near_bindgen, serde, setup_alloc, AccountId, Gas, PanicOnDefault, Promise};
+use near_sdk::{
+    env, log, near_bindgen, serde, setup_alloc, AccountId, Gas, PanicOnDefault, Promise,
+};
 
 setup_alloc!();
 
@@ -87,17 +89,23 @@ pub struct Contract {
 
 pub trait SplitterTrait {
     // fn run(&self, account_id: AccountId, splitter_idx: usize);
-    fn run_ephemeral(&mut self, splitter: SerializedSplitter) -> Promise;
+    fn run_ephemeral(&mut self, splitter: SerializedSplitter, amount: Option<u128>) -> Promise;
     // fn store(&mut self, splitter: SerializedSplitter, owner: AccountId);
 }
 
 #[near_bindgen]
 impl SplitterTrait for Contract {
     #[payable]
-    fn run_ephemeral(&mut self, splitter: SerializedSplitter) -> Promise {
+    fn run_ephemeral(&mut self, splitter: SerializedSplitter, amount: Option<u128>) -> Promise {
+        let amount = if let Some(i) = amount {
+            log!("GOT HERE");
+            i
+        } else {
+            env::attached_deposit()
+        };
         let deserialized = self.deserialize(splitter, true);
         // TODO: make it so its not j attached deposit but via an NEP4 contract
-        let (prom, _) = self._run(deserialized, env::attached_deposit());
+        let (prom, _) = self._run(deserialized, amount);
         prom.then(Promise::new(env::predecessor_account_id()))
             .as_return()
     }
@@ -135,6 +143,11 @@ impl Contract {
         let frac = (splitter.splits.get(i).unwrap() as f64) / (splitter.split_sum as f64);
         let transfer_amount_float = frac * amount_deposited as f64;
         let transfer_amount = transfer_amount_float.floor() as u128;
+        log!(
+            "transfering {} rounded from {}",
+            transfer_amount,
+            transfer_amount_float
+        );
         let prom = Contract::handle_endpoint(
             transfer_amount,
             splitter.endpoints.get(i).unwrap(),
@@ -167,7 +180,7 @@ impl Contract {
                 Promise::new(contract_id.clone().unwrap()).function_call(
                     "ft_transfer".to_string().into_bytes(),
                     format!(
-                        "{{\"receiver_id\": \"{}\", \"amount\": {}}}",
+                        "{{\"receiver_id\": \"{}\", \"amount\": \"{}\"}}",
                         recipient, amount
                     )
                     .into_bytes(),
@@ -305,7 +318,7 @@ mod tests {
             .attached_deposit(100)
             .predecessor_account_id(accounts(0))
             .build());
-        let prom = contract.run_ephemeral(splitter);
+        let prom = contract.run_ephemeral(splitter, None);
         let sleep_time = time::Duration::from_millis(10);
         thread::sleep(sleep_time);
         assert_eq!(env::account_balance(), INIT_ACCOUNT_BAL - 100);
