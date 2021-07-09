@@ -6,6 +6,7 @@ type AccountId = string;
 // Enum endpoint
 interface Endpoint {
   SimpleTransfer?: { recipient: AccountId };
+  FTTransfer?: { recipient: AccountId };
 }
 
 interface SerializedSplitter {
@@ -13,6 +14,7 @@ interface SerializedSplitter {
   splits: BigNumberish[];
   owner: AccountId;
   split_sum: BigNumberish;
+  ft_contract_id?: AccountId;
 }
 
 export interface MallocContract extends Contract {
@@ -20,7 +22,7 @@ export interface MallocContract extends Contract {
     args: { splitter: SerializedSplitter },
     gas?: BigNumberish,
     attachedDeposit?: BigNumberish
-  ) => Promise<any>
+  ) => Promise<any>;
 }
 declare global {
   interface Window {

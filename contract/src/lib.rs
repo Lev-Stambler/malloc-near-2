@@ -114,7 +114,7 @@ impl Contract {
         let (ret_prom, amount_used) = Contract::handle_splits(&splitter, None, 0, amount, 0);
 
         if amount_used > amount {
-            panic!("TODO:Eerr");
+            panic!("TODO:Err");
         }
         (ret_prom, amount - amount_used)
     }
@@ -167,7 +167,7 @@ impl Contract {
                 Promise::new(contract_id.clone().unwrap()).function_call(
                     "ft_transfer".to_string().into_bytes(),
                     format!(
-                        "{{\"receiver_id\": \"{}\", \"amount\": \"{}\"}}",
+                        "{{\"receiver_id\": \"{}\", \"amount\": {}}}",
                         recipient, amount
                     )
                     .into_bytes(),
