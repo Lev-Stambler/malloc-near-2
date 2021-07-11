@@ -4,6 +4,7 @@ import { login } from "./utils";
 import "./index.css";
 import "./near.css";
 
+import { logout } from './utils';
 
 export default function App() {
 
@@ -30,6 +31,19 @@ export default function App() {
     );
   }
 
-  return <Splitter/>
+  return (
+		// use React Fragment, <>, to avoid wrapping elements in unnecessary divs
+		<>
+			<button className="link" style={{ float: "right" }} onClick={logout}>
+				Sign out
+			</button>
+			<main>
+				<h1>Welcome {window.accountId}!</h1>
+        <Splitter
+          
+        />
+			</main>
+		</>
+  )
 }
 

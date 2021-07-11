@@ -11,6 +11,7 @@ export type Env =
   | "local"
   | "ci-betanet"
   | "ci";
+
 export default function getConfig(env: Env) {
   switch (env) {
     case "production":

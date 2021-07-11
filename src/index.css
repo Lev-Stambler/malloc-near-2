@@ -1,12 +1,21 @@
 :root {
-  --bg: #efefef;
+  /* white */
+  --bg: #FFFFFF;
+  /* ambrosia */
+  --primary: #503CCF;
+  /* helios */
+  --secondary: #F1D262;
+  /* palladium */
+  --light-gray: #F4F4F4;
+  /* nimbus */
+  --mid-gray: #C0C0C0;
   --fg: #1e1e1e;
   --gray: #555;
-  --light-gray: #ccc;
   --shadow: #e6e6e6;
   --success: rgb(90, 206, 132);
-  --primary: #FF585D;
-  --secondary: #0072CE;
+
+  --phaethon-gradient: linear-gradient(180deg, rgba(241, 193, 98, 0.41) 0%, rgba(196, 196, 196, 0) 100%);
+
   --border-radius: 10px;
   --speed: 500ms;
 }

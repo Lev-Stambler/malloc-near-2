@@ -1,32 +1,65 @@
 import React, { useEffect, useState} from 'react';
-import { Notification } from '../components/Notification';
-import { logout, MAX_GAS, provider } from "../utils";
+import "../splitter.css";
 
-import { transactions } from "near-api-js";
+import { Chain } from '@baf-wallet/interfaces';
+import { TokenInfo } from '@baf-wallet/chain-info';
+import { Tokens } from '../components/CoinPicker';
+
+import { Notification } from '../components/Notification';
+import { SplitterItem } from '../components/SplitterItem';
+import { SplitterTopItem } from '../components/SplitterTopItem';
 
 import getConfig, { env, Env } from "../config";
+import { transactions } from "near-api-js";
+import { MAX_GAS, provider } from "../utils";
+
 const { networkId } = getConfig(env);
+
+// TODO: grab from bafnetwork/assets
+const supportedTokens: Tokens = {
+	"LEV": {
+		name: "Lev's Cool Test Fungible Token",
+		description: "Lev's very own test token",
+		explorer: "https://explorer.near.org/",
+		symbol: "LEV",
+		type: "COIN",
+		chain: Chain.NEAR,
+		decimals: 8,
+		status: "active"
+	}
+}
+
+interface Split {
+	amount: number;
+	percent: number;
+	token: TokenInfo;
+}
+
+const defaultToken = supportedTokens["LEV"];
 
 export function Splitter() {
 	// after submitting the form, we want to show Notification
-	const [showNotification, setShowNotification] = React.useState(false);
-	const [loading, setLoading] = React.useState(false);
+	const [showNotification, setShowNotification] = useState(false);
 	const [explorerLink, setExplorerLink] = useState("");
+	const [splits, setSplits] = useState<Split[]>([]);
+	const [inputAmount, setInputAmount] = useState<number>(0);
+	const [inputToken, setInputToken] = useState<TokenInfo>(defaultToken);
 
-	const defaultSplitter = `{
+	const defaultSplitter = `
+	{
 		"owner": "levtester.testnet",
 		"split_sum": 200,
 		"splits": [100, 100],
 		"nodes": [
 			{
-			"SimpleTransfer": {
-				"recipient": "lev.testnet"
-			}
-			},
-			{
-			"SimpleTransfer": {
-				"recipient": "lev.testnet"
-			}
+				"SimpleTransfer": {
+					"recipient": "lev.testnet"
+				}
+				},
+				{
+				"SimpleTransfer": {
+					"recipient": "lev.testnet"
+				}
 			}
 		]
 	}`
@@ -54,62 +87,58 @@ export function Splitter() {
 		})();
 	}, []);
 
+	const onPercentChange = (idx: number) => {
+		return (percent: number) => {
+			const newSplits = Array.from(splits);
+			newSplits[idx] = {
+				...newSplits[idx],
+				amount: inputAmount * (percent / 100),
+				percent,
+			}
+			setSplits(newSplits);
+		}
+	}
+
+
+	const onTokenChange = (idx: number) => {
+		return (token: TokenInfo) => {
+			const newSplits = Array.from(splits);
+			newSplits[idx] = {
+				...newSplits[idx],
+				token
+			}
+			setSplits(newSplits);
+		}
+	}
+
   	return (
-		// use React Fragment, <>, to avoid wrapping elements in unnecessary divs
 		<>
-			<button className="link" style={{ float: "right" }} onClick={logout}>
-				Sign out
-			</button>
-			<main>
-				<h1>Welcome {window.accountId}!</h1>
-				<form
-				onSubmit={async (event) => {
-					event.preventDefault();
-
-					const { fieldset, splitter } = event.target.elements;
-					setLoading(true);
-					try {
-					fieldset.disabled = true;
-					// make an update call to the smart contract
-					const ret = await window.contract.run_ephemeral(
-						{
-						splitter: JSON.parse(splitter.value.toString()),
-						},
-						MAX_GAS,
-						100000
-					);
-					} catch (e) {
-					alert(
-						"Something went wrong! " +
-						"Maybe you need to sign out and back in? " +
-						"Check your browser console for more info."
-					);
-					throw e;
-					} finally {
-					// re-enable the form, whether the call succeeded or failed
-					setLoading(false);
-					fieldset.disabled = false;
-					}
-
-					// show Notification
-					setShowNotification(true);
-
-					// remove Notification again after css animation completes
-					// this allows it to be shown again next time the form is submitted
-					setTimeout(() => {
-					setShowNotification(false);
-					}, 11000);
-				}}
-				>
-				<fieldset id="fieldset">
-					<textarea name="" defaultValue={defaultSplitter} id="splitter" cols="60" rows="30"></textarea>
-					<div style={{ display: "flex" }}>
-					<button disabled={loading}>Execute the test!</button>
+			<div className="splitter-layout">
+				<div className="splitter-container">
+					<SplitterTopItem
+						supportedTokens={supportedTokens}	
+						defaultToken={defaultToken}
+						onAmountChange={setInputAmount}
+						onTokenChange={setInputToken}
+					/>
+					<div className="splitter-items">
+						{splits.map((split: Split, i: number) => (
+							<SplitterItem
+								supportedTokens={supportedTokens}
+								defaultToken={defaultToken}
+								amount={split.amount}
+								onPercentChange={onPercentChange(i)}
+								onTokenChange={onTokenChange(i)}
+								key={i}
+							/>
+						))}
 					</div>
-				</fieldset>
-				</form>
-			</main>
-			{showNotification && <Notification explorerLink={explorerLink} />}
+					<div className="add-new-splitter-item">
+						<span className="material-icons add-new-splitter-item-plus">add</span>
+					</div>
+				</div>
+			</div>
+		{showNotification && <Notification explorerLink={explorerLink} />}
 		</>
 	);
 }
