@@ -28,23 +28,6 @@ setup_alloc!();
 
 const BASIC_GAS: Gas = 5_000_000_000_000;
 
-// From Ref Fi
-// pub struct SwapAction {
-//     /// Pool which should be used for swapping.
-//     pub pool_id: u64,
-//     /// Token to swap from.
-//     pub token_in: ValidAccountId,
-//     /// Amount to exchange.
-//     /// If amount_in is None, it will take amount_out from previous step.
-//     pub amount_in: Option<U128>,
-
-//     /// Will fail if amount_in is None on the first step.
-//     pub token_out: ValidAccountId,
-//     /// Required minimum amount of token_out.
-//     pub min_amount_out: U128,
-// }
-// pub fn swap(&mut self, actions: Vec<SwapAction>, referral_id: Option<ValidAccountId>) -> U128
-
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub enum Endpoint {
@@ -54,12 +37,16 @@ pub enum Endpoint {
     FTTransfer {
         recipient: AccountId,
     },
-    REFSWap {
-        pool_id: u64,
-        token_in: AccountId,
-        token_out: AccountId,
-        min_amount_out: u128,
-    }, // TODO: make a trade
+    WCall {
+        contract_id: AccountId,
+        json_args: String,
+    },
+    // REFSWap {
+    //     pool_id: u64,
+    //     token_in: AccountId,
+    //     token_out: AccountId,
+    //     min_amount_out: u128,
+    // }, // TODO: make a trade
 }
 
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -188,27 +175,15 @@ impl Contract {
                     BASIC_GAS,
                 )
             }
-            Endpoint::REFSWap {
-                pool_id,
-                token_in,
-                token_out,
-                min_amount_out,
-            } => {
-                let data = json!({
-                    "pool_id": pool_id,
-                    "token_in": token_in,
-                    "token_out": token_out,
-                    "min_amount_out": min_amount_out,
-                    "amount_in": amount
-                });
-                // TODO: err
-                Promise::new(contract_id.clone().unwrap()).function_call(
-                    "swap".to_string().into_bytes(),
-                    data.to_string().into_bytes(),
-                    0,
-                    BASIC_GAS,
-                )
-            }
+            Endpoint::WCall {
+                contract_id,
+                json_args,
+            } => Promise::new(contract_id).function_call(
+                "wcall".to_string().into_bytes(),
+                format!("{{\"args\": {}}}", json_args).into_bytes(),
+                amount,
+                BASIC_GAS,
+            ),
         }
     }
 }

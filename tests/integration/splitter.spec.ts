@@ -128,7 +128,7 @@ it("should send wrapped near to Alice and Bob", async () => {
     methodName: "ft_transfer",
     args: {
       receiver_id: contractName,
-      amount,
+      amount: amount.toString(),
       msg: "",
       memo: "",
     },
