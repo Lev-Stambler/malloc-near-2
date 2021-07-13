@@ -5,6 +5,7 @@ import {
   cleanUp,
   createNear,
   getContract,
+  getFtContract,
   getResults,
   MAX_GAS,
   newRandAccount,
@@ -47,13 +48,9 @@ beforeAll(async () => {
       viewMethods: [],
     }
   ) as MallocContract;
-  wNearContract = new NearAPI.Contract(
+  wNearContract = await getFtContract(
     await near.account(tester.account_id),
-    "wrap.testnet",
-    {
-      changeMethods: ["near_deposit", "storage_deposit", "ft_transfer_call"],
-      viewMethods: ["ft_balance_of", "storage_balance_of"],
-    }
+    "wrap.testnet"
   );
 });
 

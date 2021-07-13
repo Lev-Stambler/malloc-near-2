@@ -20,13 +20,19 @@ const BASIC_GAS: Gas = 5_000_000_000_000;
 pub struct RefSwapArgs {
     pool_id: u64,
     token_out: AccountId,
-    min_amount_out: u128,
-    recipient: AccountId,
+    min_amount_out: String,
+    register_tokens: Vec<ValidAccountId>,
 }
 
 // TODO: its own crate
 pub trait WCall<T> {
-    fn wcall(&mut self, args: T, amount: String, token_contract: AccountId) -> Promise;
+    fn wcall(
+        &mut self,
+        args: T,
+        amount: String,
+        token_contract: AccountId,
+        recipient: AccountId,
+    ) -> Promise;
 }
 
 #[near_bindgen]
@@ -45,6 +51,16 @@ impl Contract {
         Promise::new(token_contract).function_call(
             "ft_transfer_call".to_string().into_bytes(),
             ft_transfer_data.to_string().into_bytes(),
+            1,
+            BASIC_GAS,
+        )
+    }
+
+    fn get_register_tokens(&mut self, tokens: &[ValidAccountId]) -> Promise {
+        let data = json!({ "token_ids": tokens });
+        Promise::new(self.ref_finance.to_owned()).function_call(
+            "register_tokens".to_string().into_bytes(),
+            data.to_string().into_bytes(),
             1,
             BASIC_GAS,
         )
@@ -95,11 +111,13 @@ impl Contract {
         swap_args: &RefSwapArgs,
     ) -> Promise {
         let data = json!({
-            "pool_id": swap_args.pool_id,
-            "token_in": token_contract,
-            "token_out": swap_args.token_out,
-            "min_amount_out": swap_args.min_amount_out,
-            "amount_in": amount
+            "actions": vec![json!({
+                "pool_id": swap_args.pool_id,
+                "token_in": token_contract,
+                "token_out": swap_args.token_out,
+                "min_amount_out": swap_args.min_amount_out,
+                "amount_in": amount
+            })]
         });
         Promise::new((&self.ref_finance).to_owned()).function_call(
             "swap".to_string().into_bytes(),
@@ -112,21 +130,22 @@ impl Contract {
 
 #[near_bindgen]
 impl WCall<RefSwapArgs> for Contract {
-    fn wcall(&mut self, args: RefSwapArgs, amount: String, token_contract: AccountId) -> Promise {
+    #[payable]
+    fn wcall(
+        &mut self,
+        args: RefSwapArgs,
+        amount: String,
+        token_contract: AccountId,
+        recipient: AccountId,
+    ) -> Promise {
         //    let swap_prom = Promise::new(self.ref_finance).function_call(method_name, arguments, amount, gas)
         let transfer_into =
             self.get_transfer_call(self.ref_finance.clone(), &amount, &token_contract);
-        let swap = self.get_swap(&amount, &token_contract, &args);
-        let transfer_out = self.get_withdraw(&args, token_contract.clone());
-        let transfer_to_recipient = self.get_transfer(
-            &args.recipient,
-            &args.min_amount_out.to_string(),
-            &args.token_out,
-        );
-        return transfer_into
-            .then(swap)
-            .then(transfer_out)
-            .then(transfer_to_recipient);
+        transfer_into
+            .then(self.get_register_tokens(&args.register_tokens))
+            .then(self.get_swap(&amount, &token_contract, &args))
+            .then(self.get_withdraw(&args, token_contract.clone()))
+            .then(self.get_transfer(&recipient, &args.min_amount_out, &args.token_out))
     }
 }
 

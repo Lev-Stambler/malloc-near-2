@@ -43,12 +43,22 @@ export const createNear = async (opts: CreateConnectionOpts): Promise<Near> => {
   return near;
 };
 
+export const getFtContract = async (
+  caller: Account,
+  contractId: string
+): Promise<Contract> => {
+  return new Contract(caller, contractId, {
+    changeMethods: ["near_deposit", "storage_deposit", "ft_transfer_call"],
+    viewMethods: ["ft_balance_of", "storage_balance_of"],
+  });
+};
+
 export const setupWNearAccount = async (
   wNearContract: Contract & any,
   accountId: string,
   caller: Account,
   initDeposit = false,
-  amountInitDeposit = 10000
+  amountInitDeposit: number | string = 10000
 ) => {
   const NEW_ACCOUNT_STORAGE_COST = utils.format.parseNearAmount("0.00125");
   const storageBal = await wNearContract.storage_balance_of({
@@ -67,14 +77,14 @@ export const setupWNearAccount = async (
     const wNearbal = await wNearContract.ft_balance_of({
       account_id: accountId,
     });
-    console.info("Current wNear balance of", wNearbal)
+    console.info("Current wNear balance of", wNearbal);
     if (wNearbal < amountInitDeposit)
       await caller.functionCall({
         contractId: "wrap.testnet",
         methodName: "near_deposit",
         args: {},
         gas: MAX_GAS,
-        attachedDeposit: new BN(amountInitDeposit - wNearbal),
+        attachedDeposit: (new BN(amountInitDeposit)).sub(new BN(wNearbal)),
       });
   }
 };
@@ -130,6 +140,9 @@ export const cleanUp = async (beneficiaryId: string) => {
   );
 };
 
-export const addBigNumberish = (a: string | BN | number, b: string | BN | number): string => {
-  return (new BN(a)).add(new BN(b)).toString()
-}
+export const addBigNumberish = (
+  a: string | BN | number,
+  b: string | BN | number
+): string => {
+  return new BN(a).add(new BN(b)).toString();
+};
