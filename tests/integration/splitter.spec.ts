@@ -1,5 +1,6 @@
-import { readFileSync } from "fs";
+import { Balances, runEphemeralTree } from "./test-framework";
 import {
+  addBigNumberish,
   allResultsSuccess,
   cleanUp,
   createNear,
@@ -15,8 +16,11 @@ import bs58 from "bs58";
 import { InMemoryKeyStore, KeyStore } from "near-api-js/lib/key_stores";
 import { KeyPair, KeyPairEd25519, PublicKey } from "near-api-js/lib/utils";
 import "regenerator-runtime/runtime";
-import type { AccountId, MallocContract } from "../../src/types";
-import BASIC_FT from "../__mocks__/basic-ft.json";
+import type {
+  AccountId,
+  MallocContract,
+  SerializedSplitter,
+} from "../../src/types";
 import tester from "./tester-malloc2.levtester.testnet.json";
 import { Account, Contract, providers, utils } from "near-api-js";
 
@@ -57,44 +61,52 @@ it("should send near to Alice and Bob", async () => {
   const amount = 150;
   const masterAccount = await near.account(tester.account_id);
   const alice = await newRandAccount(masterAccount);
-  const priorBal = await alice.getAccountBalance();
-  const ret = await masterAccount.functionCall({
-    contractId: contractName,
-    methodName: "run_ephemeral",
-    args: {
-      splitter: {
-        owner: "levtester.testnet",
-        split_sum: 150,
-        splits: [100, 50],
-        nodes: [
-          {
-            SimpleTransfer: {
-              recipient: alice.accountId,
-            },
-          },
-          {
-            SimpleTransfer: {
-              recipient: "lev.testnet",
-            },
-          },
-        ],
+  const bob = await newRandAccount(masterAccount);
+  const splitter = {
+    owner: "levtester.testnet",
+    split_sum: 150,
+    splits: [100, 50],
+    nodes: [
+      {
+        SimpleTransfer: {
+          recipient: alice.accountId,
+        },
       },
+      {
+        SimpleTransfer: {
+          recipient: bob.accountId,
+        },
+      },
+    ],
+  };
+  const expected: Balances = {};
+  expected[bob.accountId] = {
+    account: bob,
+    bal: {
+      nativeBal: addBigNumberish((await bob.getAccountBalance()).total, 50),
+      ftBals: {},
     },
-    gas: MAX_GAS,
-    attachedDeposit: new BN(amount),
-  });
-  const results = await getResults(
-    ret.transaction.hash as string,
-    tester.account_id
-  );
-  expect(allResultsSuccess(results)).toBeTruthy();
-  const newBal = await alice.getAccountBalance();
-  expect(new BN(newBal.total).sub(new BN(priorBal.total)).toNumber()).toEqual(
-    100
+  };
+  expected[alice.accountId] = {
+    account: alice,
+    bal: {
+      nativeBal: addBigNumberish((await alice.getAccountBalance()).total, 100),
+      ftBals: {},
+    },
+  };
+  await runEphemeralTree(
+    masterAccount,
+    contractName,
+    splitter,
+    amount,
+    amount,
+    expected,
+    near,
+    expect
   );
 });
 
-it.only("should send wrapped near to Alice and Bob", async () => {
+it("should send wrapped near to Alice and Bob", async () => {
   const amount = 152;
   const masterAccount = await near.account(tester.account_id);
   const alice = await newRandAccount(masterAccount);
@@ -111,66 +123,12 @@ it.only("should send wrapped near to Alice and Bob", async () => {
   await setupWNearAccount(wNearContract, bob.accountId, bob);
   await setupWNearAccount(wNearContract, contractName, masterAccount);
 
-  const transferContractRet = await masterAccount.functionCall({
+  await masterAccount.functionCall({
     contractId: "wrap.testnet",
     methodName: "ft_transfer",
     args: {
       receiver_id: contractName,
-      amount: (amount + 20).toString(),
-      msg: "",
-      memo: "",
-    },
-    gas: MAX_GAS,
-    // The attached deposit has to be greater than the number of contract calls
-    attachedDeposit: new BN(1),
-  });
-  await getResults(
-    transferContractRet.transaction.hash as string,
-    tester.account_id
-  );
-  const ret = await masterAccount.functionCall({
-    contractId: contractName,
-    methodName: "run_ephemeral",
-    args: {
-      splitter: {
-        owner: "levtester.testnet",
-        split_sum: 4,
-        splits: [3, 1],
-        nodes: [
-          {
-            FTTransfer: {
-              recipient: bob.accountId,
-            },
-          },
-          {
-            FTTransfer: {
-              recipient: alice.accountId,
-            },
-          },
-        ],
-        ft_contract_id: "wrap.testnet",
-      },
       amount,
-    },
-    gas: MAX_GAS,
-    attachedDeposit: new BN(3),
-  });
-
-  const results = await getResults(ret.transaction.hash, tester.account_id);
-  // TODO: transfer from bob and alice
-  const bobBal = await wNearContract.ft_balance_of({
-    account_id: bob.accountId,
-  });
-  const aliceBal = await wNearContract.ft_balance_of({
-    account_id: alice.accountId,
-  });
-
-  await bob.functionCall({
-    contractId: "wrap.testnet",
-    methodName: "ft_transfer",
-    args: {
-      receiver_id: tester.account_id,
-      amount: bobBal.toString(),
       msg: "",
       memo: "",
     },
@@ -178,24 +136,69 @@ it.only("should send wrapped near to Alice and Bob", async () => {
     gas: MAX_GAS,
   });
 
-  await alice.functionCall({
-    contractId: "wrap.testnet",
-    methodName: "ft_transfer",
-    args: {
-      receiver_id: tester.account_id,
-      amount: aliceBal.toString(),
-      msg: "",
-      memo: "",
+  const splitter = {
+    owner: "levtester.testnet",
+    split_sum: 4,
+    splits: [3, 1],
+    nodes: [
+      {
+        FTTransfer: {
+          recipient: bob.accountId,
+        },
+      },
+      {
+        FTTransfer: {
+          recipient: alice.accountId,
+        },
+      },
+    ],
+    ft_contract_id: "wrap.testnet",
+  };
+  const expected: Balances = {};
+  expected[bob.accountId] = {
+    account: bob,
+    bal: {
+      ftBals: {
+        "wrap.testnet": (0.75 * amount).toString(),
+      },
     },
-    attachedDeposit: new BN(1),
-    gas: MAX_GAS,
-  });
+  };
+  expected[alice.accountId] = {
+    account: alice,
+    bal: {
+      ftBals: {
+        "wrap.testnet": (0.25 * amount).toString(),
+      },
+    },
+  };
 
-  expect(allResultsSuccess(results)).toBeTruthy();
-  expect(bobBal).toEqual((0.75 * amount).toString());
-  expect(aliceBal).toEqual((0.25 * amount).toString());
+  await runEphemeralTree(
+    masterAccount,
+    contractName,
+    splitter,
+    amount,
+    3,
+    expected,
+    near,
+    expect
+  );
 });
 
 afterAll(async () => {
   await cleanUp(tester.account_id);
 });
+
+/*
+Arguments: {
+  "actions": [
+    {
+      "pool_id": 20,
+      "token_in": "wrap.testnet",
+      "token_out": "ndai.ft-fin.testnet",
+      "amount_in": "1000000000000000000000000",
+      "min_amount_out": "91479657"
+    }
+  ]
+}
+Swap from wNEAR to nDAI, then test with nDAI to nUSDC?
+*/

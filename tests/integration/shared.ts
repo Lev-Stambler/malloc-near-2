@@ -67,6 +67,7 @@ export const setupWNearAccount = async (
     const wNearbal = await wNearContract.ft_balance_of({
       account_id: accountId,
     });
+    console.info("Current wNear balance of", wNearbal)
     if (wNearbal < amountInitDeposit)
       await caller.functionCall({
         contractId: "wrap.testnet",
@@ -128,3 +129,7 @@ export const cleanUp = async (beneficiaryId: string) => {
     generatedAccounts.map((account) => account.deleteAccount(beneficiaryId))
   );
 };
+
+export const addBigNumberish = (a: string | BN | number, b: string | BN | number): string => {
+  return (new BN(a)).add(new BN(b)).toString()
+}
