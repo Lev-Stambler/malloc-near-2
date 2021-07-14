@@ -11,6 +11,7 @@ use near_sdk::{
     env, ext_contract, log, near_bindgen, serde, setup_alloc, AccountId, Gas, PanicOnDefault,
     Promise,
 };
+use wcall_core::WCall;
 
 setup_alloc!();
 
@@ -28,17 +29,7 @@ pub struct RefSwapArgs {
     token_out: AccountId,
     min_amount_out: String,
     register_tokens: Vec<ValidAccountId>,
-}
-
-// TODO: its own crate
-pub trait WCall<T> {
-    fn wcall(
-        &mut self,
-        args: T,
-        amount: String,
-        token_contract: AccountId,
-        recipient: AccountId,
-    ) -> Promise;
+    recipient: AccountId,
 }
 
 #[near_bindgen]
@@ -145,18 +136,12 @@ impl Contract {
 #[near_bindgen]
 impl WCall<RefSwapArgs> for Contract {
     #[payable]
-    fn wcall(
-        &mut self,
-        args: RefSwapArgs,
-        amount: String,
-        token_contract: AccountId,
-        recipient: AccountId,
-    ) -> Promise {
+    fn wcall(&mut self, args: RefSwapArgs, amount: String, token_contract: AccountId) -> Promise {
         self.get_transfer_call(self.ref_finance.clone(), &amount, &token_contract)
             .then(self.get_register_tokens(&args.register_tokens))
             .then(self.get_swap(&amount, &token_contract, &args))
             .then(self.get_withdraw(&args))
-            .then(self.get_transfer(&recipient, &args.min_amount_out, &args.token_out))
+            .then(self.get_transfer(&args.recipient, &args.min_amount_out, &args.token_out))
     }
 }
 

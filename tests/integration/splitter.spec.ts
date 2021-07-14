@@ -1,21 +1,14 @@
 import { Balances, runEphemeralTree } from "./test-framework";
 import {
   addBigNumberish,
-  allResultsSuccess,
   cleanUp,
   createNear,
   getContract,
-  getFtContract,
-  getResults,
   MAX_GAS,
   newRandAccount,
-  provider,
   setupWNearAccount,
 } from "./shared";
 import * as NearAPI from "near-api-js";
-import bs58 from "bs58";
-import { InMemoryKeyStore, KeyStore } from "near-api-js/lib/key_stores";
-import { KeyPair, KeyPairEd25519, PublicKey } from "near-api-js/lib/utils";
 import "regenerator-runtime/runtime";
 import type {
   AccountId,
@@ -23,14 +16,18 @@ import type {
   SerializedSplitter,
 } from "../../src/types";
 import tester from "./tester-malloc2.levtester.testnet.json";
-import { Account, Contract, providers, utils } from "near-api-js";
 
 import "near-cli/test_environment";
 import BN from "bn.js";
+import { readFileSync } from "fs";
+import { join } from "path";
 let near: NearAPI.Near;
 let contract: MallocContract;
-let wNearContract: Contract & any;
 let contractName: string;
+
+const WCALL_SEND_CONTRACT_ID = readFileSync(
+  join(__dirname, "../../wcalls/send-wcall/neardev/dev-account")
+).toString();
 
 jest.setTimeout(60000);
 
@@ -48,10 +45,6 @@ beforeAll(async () => {
       viewMethods: [],
     }
   ) as MallocContract;
-  wNearContract = await getFtContract(
-    await near.account(tester.account_id),
-    "wrap.testnet"
-  );
 });
 
 it("should send near to Alice and Bob", async () => {
@@ -97,6 +90,88 @@ it("should send near to Alice and Bob", async () => {
     splitter,
     amount,
     amount,
+    expected,
+    near,
+    expect
+  );
+});
+
+it.only("should send wrapped near to Alice and Bob via a Wcall", async () => {
+  const amount = 152;
+  const masterAccount = await near.account(tester.account_id);
+  const alice = await newRandAccount(masterAccount);
+  const bob = await newRandAccount(masterAccount);
+
+  await setupWNearAccount(
+    "wrap.testnet",
+    tester.account_id,
+    masterAccount,
+    true,
+    amount + 20
+  );
+  await setupWNearAccount("wrap.testnet", alice.accountId, alice);
+  await setupWNearAccount("wrap.testnet", bob.accountId, bob);
+  await setupWNearAccount("wrap.testnet", contractName, masterAccount);
+
+  await masterAccount.functionCall({
+    contractId: "wrap.testnet",
+    methodName: "ft_transfer",
+    args: {
+      receiver_id: contractName,
+      amount: amount.toString(),
+      msg: "",
+      memo: "",
+    },
+    attachedDeposit: new BN(1),
+    gas: MAX_GAS,
+  });
+
+  const splitter: SerializedSplitter = {
+    owner: "levtester.testnet",
+    split_sum: 4,
+    splits: [3, 1],
+    nodes: [
+      {
+        WCall: {
+          contract_id: WCALL_SEND_CONTRACT_ID,
+          json_args: JSON.stringify({
+            recipient: bob.accountId,
+          }),
+        },
+      },
+      {
+        WCall: {
+          contract_id: WCALL_SEND_CONTRACT_ID,
+          json_args: JSON.stringify({}),
+        },
+      },
+    ],
+    ft_contract_id: "wrap.testnet",
+  };
+  const expected: Balances = {};
+  expected[bob.accountId] = {
+    account: bob,
+    bal: {
+      ftBals: {
+        "wrap.testnet": (0.75 * amount).toString(),
+      },
+    },
+  };
+  expected[alice.accountId] = {
+    account: alice,
+    bal: {
+      ftBals: {
+        "wrap.testnet": (0.25 * amount).toString(),
+      },
+    },
+  };
+
+  await runEphemeralTree(
+    masterAccount,
+    contractName,
+    splitter,
+    amount,
+    3,
     expected,
     near,
     expect

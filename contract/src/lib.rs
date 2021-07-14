@@ -41,12 +41,6 @@ pub enum Endpoint {
         contract_id: AccountId,
         json_args: String,
     },
-    // REFSWap {
-    //     pool_id: u64,
-    //     token_in: AccountId,
-    //     token_out: AccountId,
-    //     min_amount_out: u128,
-    // }, // TODO: make a trade
 }
 
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -163,7 +157,6 @@ impl Contract {
         match endpoint {
             Endpoint::SimpleTransfer { recipient } => Promise::new(recipient).transfer(amount),
             Endpoint::FTTransfer { recipient } => {
-                // ft_transfer(receiver_id: string, amount: string, memo: string|null
                 Promise::new(contract_id.clone().unwrap()).function_call(
                     "ft_transfer".to_string().into_bytes(),
                     format!(

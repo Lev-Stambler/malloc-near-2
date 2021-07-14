@@ -23,6 +23,7 @@ export interface Balances {
  * Then transfer all the funds back to the caller
  * Then assert that all the resulting funds are correct
  */
+// TODO: add err optn
 export const runEphemeralTree = async (
   caller: Account,
   contractName: string,

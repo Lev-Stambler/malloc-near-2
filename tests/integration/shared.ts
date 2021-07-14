@@ -23,7 +23,7 @@ interface CreateConnectionOpts {
   accountId: string;
 }
 
-export const getContract = () => readFileSync("neardev/dev-account").toString();
+export const getContract = () => readFileSync("contract/neardev/dev-account").toString();
 export const createNear = async (opts: CreateConnectionOpts): Promise<Near> => {
   const keyStore = new keyStores.InMemoryKeyStore();
   const _keyPair =

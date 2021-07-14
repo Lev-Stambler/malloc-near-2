@@ -50,7 +50,9 @@ beforeAll(async () => {
   );
 });
 
-it("should swap wNEAR to DAI to USDC", async () => {
+// TODO: have a common utils file
+// TODO: swap back
+xit("should swap wNEAR to DAI and back", async () => {
   const masterAccount = await near.account(tester.account_id);
   const amountWNear = "10000000000000000000";
   const amountWNearPlus1 = "10000000000000000001";
@@ -121,8 +123,8 @@ it("should swap wNEAR to DAI to USDC", async () => {
         pool_id: wNearToDAIPoolId,
         min_amount_out: minDaiRetrun.toString(),
         register_tokens: [NDAI_CONTRACT_ID, WNEAR_CONTRACT_ID],
+        recipient: tester.account_id,
       },
-      recipient: tester.account_id,
       amount: amountWNear.toString(),
       token_contract: WNEAR_CONTRACT_ID,
     },
@@ -136,7 +138,7 @@ it("should swap wNEAR to DAI to USDC", async () => {
     "ft_balance_of",
     { account_id: masterAccount.accountId }
   );
-  expect((new BN(balDai)).gte(new BN(minDaiRetrun))).toBeTruthy()
+  expect(new BN(balDai).gte(new BN(minDaiRetrun))).toBeTruthy();
 });
 
 afterAll(async () => {
