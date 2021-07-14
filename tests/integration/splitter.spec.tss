@@ -110,15 +110,15 @@ it("should send wrapped near to Alice and Bob", async () => {
   const bob = await newRandAccount(masterAccount);
 
   await setupWNearAccount(
-    wNearContract,
+    "wrap.testnet",
     tester.account_id,
     masterAccount,
     true,
     amount + 20
   );
-  await setupWNearAccount(wNearContract, alice.accountId, alice);
-  await setupWNearAccount(wNearContract, bob.accountId, bob);
-  await setupWNearAccount(wNearContract, contractName, masterAccount);
+  await setupWNearAccount("wrap.testnet", alice.accountId, alice);
+  await setupWNearAccount("wrap.testnet", bob.accountId, bob);
+  await setupWNearAccount("wrap.testnet", contractName, masterAccount);
 
   await masterAccount.functionCall({
     contractId: "wrap.testnet",
@@ -185,17 +185,4 @@ afterAll(async () => {
   await cleanUp(tester.account_id);
 });
 
-/*
-Arguments: {
-  "actions": [
-    {
-      "pool_id": 20,
-      "token_in": "wrap.testnet",
-      "token_out": "ndai.ft-fin.testnet",
-      "amount_in": "1000000000000000000000000",
-      "min_amount_out": "91479657"
-    }
-  ]
-}
-Swap from wNEAR to nDAI, then test with nDAI to nUSDC?
-*/
+// TODO: test if transfer fails, no one gets the funds (atomicity)

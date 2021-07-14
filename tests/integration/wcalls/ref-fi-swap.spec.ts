@@ -9,6 +9,7 @@ import {
   MAX_GAS,
   newRandAccount,
   provider,
+  setupFT,
   setupWNearAccount,
 } from "../shared";
 import * as NearAPI from "near-api-js";
@@ -54,13 +55,26 @@ it("should swap wNEAR to DAI to USDC", async () => {
   const amountWNear = "10000000000000000000";
   const amountWNearPlus1 = "10000000000000000001";
   await setupWNearAccount(
-    wNearContract,
+    WNEAR_CONTRACT_ID,
     tester.account_id,
     masterAccount,
     true,
     amountWNearPlus1
   );
-  await setupWNearAccount(wNearContract, contractName, masterAccount);
+  await setupWNearAccount(WNEAR_CONTRACT_ID, contractName, masterAccount);
+  // The NDAI contract panics
+  try {
+    await setupFT(NDAI_CONTRACT_ID, contractName, masterAccount);
+  } catch (e) {
+    if (!(e.toString() as string).includes("account is already registered"))
+      throw e;
+  }
+  try {
+    await setupFT(NDAI_CONTRACT_ID, masterAccount.accountId, masterAccount);
+  } catch (e) {
+    if (!(e.toString() as string).includes("account is already registered"))
+      throw e;
+  }
   const tx = await masterAccount.functionCall({
     contractId: WNEAR_CONTRACT_ID,
     methodName: "ft_transfer",
@@ -73,6 +87,7 @@ it("should swap wNEAR to DAI to USDC", async () => {
     attachedDeposit: new BN(1),
     gas: MAX_GAS,
   });
+  console.log("AAAA", tx.transaction.hash);
   // 	pub fn get_return(
   // 		&self,
   // 		pool_id: u64,
@@ -116,6 +131,12 @@ it("should swap wNEAR to DAI to USDC", async () => {
   });
   const results = await getResults(wcallTx.transaction.hash, tester.account_id);
   expect(allResultsSuccess(results)).toBeTruthy();
+  const balDai = await masterAccount.viewFunction(
+    NDAI_CONTRACT_ID,
+    "ft_balance_of",
+    { account_id: masterAccount.accountId }
+  );
+  expect((new BN(balDai)).gte(new BN(minDaiRetrun))).toBeTruthy()
 });
 
 afterAll(async () => {

@@ -53,38 +53,49 @@ export const getFtContract = async (
   });
 };
 
-export const setupWNearAccount = async (
-  wNearContract: Contract & any,
+export const setupFT = async (
+  contractAddr: string,
   accountId: string,
-  caller: Account,
-  initDeposit = false,
-  amountInitDeposit: number | string = 10000
+  caller: Account
 ) => {
   const NEW_ACCOUNT_STORAGE_COST = utils.format.parseNearAmount("0.00125");
-  const storageBal = await wNearContract.storage_balance_of({
-    account_id: accountId,
-  });
+  const storageBal = await caller.viewFunction(
+    contractAddr,
+    "storage_balance_of",
+    {
+      account_id: accountId,
+    }
+  );
   if (!storageBal || storageBal.total === "0")
     await caller.functionCall({
-      contractId: "wrap.testnet",
+      contractId: contractAddr,
       methodName: "storage_deposit",
       args: { account_id: accountId },
       attachedDeposit: new BN(NEW_ACCOUNT_STORAGE_COST as string),
       gas: MAX_GAS,
     });
+};
 
+export const setupWNearAccount = async (
+  contractAddr: string,
+  accountId: string,
+  caller: Account,
+  initDeposit = false,
+  amountInitDeposit: number | string = 10000
+) => {
+  await setupFT(contractAddr, accountId, caller);
   if (initDeposit) {
-    const wNearbal = await wNearContract.ft_balance_of({
+    const wNearbal = await caller.viewFunction(contractAddr, "ft_balance_of", {
       account_id: accountId,
     });
     console.info("Current wNear balance of", wNearbal);
     if (wNearbal < amountInitDeposit)
       await caller.functionCall({
-        contractId: "wrap.testnet",
+        contractId: contractAddr,
         methodName: "near_deposit",
         args: {},
         gas: MAX_GAS,
-        attachedDeposit: (new BN(amountInitDeposit)).sub(new BN(wNearbal)),
+        attachedDeposit: new BN(amountInitDeposit).sub(new BN(wNearbal)),
       });
   }
 };

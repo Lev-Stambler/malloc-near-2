@@ -8,12 +8,18 @@ use near_sdk::json_types::{ValidAccountId, U128};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::serde_json::json;
 use near_sdk::{
-    env, log, near_bindgen, serde, setup_alloc, AccountId, Gas, PanicOnDefault, Promise,
+    env, ext_contract, log, near_bindgen, serde, setup_alloc, AccountId, Gas, PanicOnDefault,
+    Promise,
 };
 
 setup_alloc!();
 
+// See https://github.com/mikedotexe/nep-141-examples/blob/master/basic/src/fungible_token_core.rs
+const GAS_FOR_RESOLVE_TRANSFER: Gas = 5_000_000_000_000;
+const GAS_FOR_FT_TRANSFER_CALL: Gas = 25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER;
 const BASIC_GAS: Gas = 5_000_000_000_000;
+const SWAP_GAS: Gas = BASIC_GAS + BASIC_GAS;
+const WITHDRAW_GAS: Gas = BASIC_GAS + BASIC_GAS + BASIC_GAS + GAS_FOR_FT_TRANSFER_CALL;
 
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
@@ -41,18 +47,26 @@ pub struct Contract {
     ref_finance: AccountId,
 }
 
+#[ext_contract]
+pub trait RefFiContract {
+    fn mft_balance_of(&self, token_id: String, account_id: ValidAccountId) -> U128;
+}
+
 impl Contract {
-    fn get_withdraw(&mut self, swap_args: &RefSwapArgs, token_contract: AccountId) -> Promise {
-        let ft_transfer_data = json!({
-            "token_id": token_contract,
+    // TODO: get # of tokens and make unregister true
+    fn get_withdraw(&mut self, swap_args: &RefSwapArgs) -> Promise {
+        // ref_fi_contract.mft_balance_of(swap_args.token_out, env::current_account_id());
+        let withdraw_data = json!({
+            "token_id": swap_args.token_out,
             "amount": swap_args.min_amount_out,
-            "unregister": false
+            "unregister": false,
+            "msg": ""
         });
-        Promise::new(token_contract).function_call(
-            "ft_transfer_call".to_string().into_bytes(),
-            ft_transfer_data.to_string().into_bytes(),
+        Promise::new(self.ref_finance.to_owned()).function_call(
+            "withdraw".to_string().into_bytes(),
+            withdraw_data.to_string().into_bytes(),
             1,
-            BASIC_GAS,
+            WITHDRAW_GAS,
         )
     }
 
@@ -100,7 +114,7 @@ impl Contract {
             "ft_transfer_call".to_string().into_bytes(),
             ft_transfer_data.to_string().into_bytes(),
             1,
-            BASIC_GAS,
+            GAS_FOR_FT_TRANSFER_CALL + BASIC_GAS,
         )
     }
 
@@ -123,7 +137,7 @@ impl Contract {
             "swap".to_string().into_bytes(),
             data.to_string().into_bytes(),
             1,
-            BASIC_GAS,
+            SWAP_GAS,
         )
     }
 }
@@ -138,13 +152,10 @@ impl WCall<RefSwapArgs> for Contract {
         token_contract: AccountId,
         recipient: AccountId,
     ) -> Promise {
-        //    let swap_prom = Promise::new(self.ref_finance).function_call(method_name, arguments, amount, gas)
-        let transfer_into =
-            self.get_transfer_call(self.ref_finance.clone(), &amount, &token_contract);
-        transfer_into
+        self.get_transfer_call(self.ref_finance.clone(), &amount, &token_contract)
             .then(self.get_register_tokens(&args.register_tokens))
             .then(self.get_swap(&amount, &token_contract, &args))
-            .then(self.get_withdraw(&args, token_contract.clone()))
+            .then(self.get_withdraw(&args))
             .then(self.get_transfer(&recipient, &args.min_amount_out, &args.token_out))
     }
 }
