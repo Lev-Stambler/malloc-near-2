@@ -1,6 +1,7 @@
 {
   "packages": [
-    "packages/*"
+    "ts-packages/*",
+    "rust"
   ],
   "version": "0.0.0"
 }

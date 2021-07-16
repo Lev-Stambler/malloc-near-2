@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "jsx": "react-jsx",
+    "types": [
+      "./src/types.d.ts"
+    ] /* Type declaration files to be included in compilation. */
+  },
+  "include": ["./src"]
+}

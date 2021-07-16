@@ -1,4 +1,3 @@
-import BN from "bn.js";
 import type { Contract, WalletConnection } from "near-api-js";
 
 type BigNumberish = number | string;
@@ -10,8 +9,9 @@ interface Endpoint {
   FTTransfer?: { recipient: AccountId };
   WCall?: {
     contract_id: AccountId;
-    json_args: String;
-    gas: number
+    json_args: string;
+    gas: number;
+    attached_amount: number;
   };
 }
 
