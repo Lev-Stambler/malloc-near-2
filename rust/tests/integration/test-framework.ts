@@ -10,6 +10,7 @@ interface AccountBalance {
   };
 }
 
+// Change to an array
 export interface Balances {
   [recipientAccountId: string]: {
     bal: AccountBalance;
@@ -111,6 +112,7 @@ export const runEphemeralTree = async (
     );
     // Check that the ft token values are greater than or equal to the expected values
     // because swaps return a min amount of tokens, but it is not deterministic
+    console.log(currentBalsFlat.map(i => i.bal), expectedResults.map(i => i.bal))
     for (const contract in expectedResults[accountId].bal.ftBals) {
       expect(
         new BN(currentBalsFlat[accountId].bal.ftBals[contract]).gte(

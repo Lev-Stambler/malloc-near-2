@@ -11,7 +11,7 @@ use near_sdk::{
     env, ext_contract, log, near_bindgen, serde, setup_alloc, AccountId, Gas, PanicOnDefault,
     Promise,
 };
-use wcall_core::WCall;
+use wcall_core::WCallEndpoint;
 
 setup_alloc!();
 
@@ -134,7 +134,7 @@ impl Contract {
 }
 
 #[near_bindgen]
-impl WCall<RefSwapArgs> for Contract {
+impl WCallEndpoint<RefSwapArgs> for Contract {
     #[payable]
     fn wcall(&mut self, args: RefSwapArgs, amount: String, token_contract: AccountId) -> Promise {
         self.get_transfer_call(self.ref_finance.clone(), &amount, &token_contract)
@@ -142,6 +142,11 @@ impl WCall<RefSwapArgs> for Contract {
             .then(self.get_swap(&amount, &token_contract, &args))
             .then(self.get_withdraw(&args))
             .then(self.get_transfer(&args.recipient, &args.min_amount_out, &args.token_out))
+    }
+    fn metadata(&self) -> wcall_core::WCallEndpointMetadata {
+        wcall_core::WCallEndpointMetadata {
+            minimum_gas: 
+        }
     }
 }
 

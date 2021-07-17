@@ -1,14 +1,16 @@
-use near_sdk::{Promise, AccountId};
+use near_sdk::{AccountId, Promise};
 
-pub trait WCall<T> {
+pub struct WCallEndpointMetadata {
+    minimum_gas: Option<u128>,
+    minimum_attached_deposit: Option<u128>,
+}
+
+pub trait WCallEndpoint<T> {
     /// The wrapper function which takes in some amount of tokens which are
     /// defined by token_contract
-    fn wcall(
-        &mut self,
-        args: T,
-        amount: String,
-        token_contract: AccountId,
-    ) -> Promise;
+    fn wcall(&mut self, args: T, amount: String, token_contract: AccountId) -> Promise;
+
+    fn metadata(&self) -> WCallEndpointMetadata;
 }
 
 // TODO: make work
@@ -21,4 +23,3 @@ pub trait WCallChained<T> {
         token_contract_out: AccountId,
     ) -> Promise;
 }
-

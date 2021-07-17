@@ -22,5 +22,9 @@
   },
   "bugs": {
     "url": "https://github.com/Lev-Stambler/malloc-near-2/issues"
+  },
+  "dependencies": {
+    "borsh": "^0.4.0",
+    "near": "^0.2.2"
   }
 }

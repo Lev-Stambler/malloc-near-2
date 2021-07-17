@@ -28,7 +28,6 @@ use near_sdk::{
 setup_alloc!();
 
 const BASIC_GAS: Gas = 5_000_000_000_000;
-const FT_TRANSFER_METHOD_NAME: Vec<u8> = "ft_transfer".to_string().into_bytes();
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
@@ -138,7 +137,6 @@ impl Contract {
             splitter.endpoints.get(i).unwrap(),
             &splitter.ft_contract_id,
         );
-        // (prom, transfer_amount)
         let next_prom = match prior_prom {
             Some(p) => prom.and(p),
             None => prom,
@@ -161,9 +159,10 @@ impl Contract {
         match endpoint {
             Endpoint::SimpleTransfer { recipient } => Promise::new(recipient).transfer(amount),
             Endpoint::FTTransfer { recipient } => {
+                let ft_transfer_method_name = "ft_transfer".to_string().into_bytes();
                 let transfer_data = Self::get_transfer_data(recipient, amount.to_string());
                 Promise::new(token_contract_id.clone().unwrap()).function_call(
-                    FT_TRANSFER_METHOD_NAME,
+                    ft_transfer_method_name,
                     transfer_data,
                     1,
                     BASIC_GAS,
@@ -177,6 +176,7 @@ impl Contract {
             } => {
                 // TODO: we need a smart way of doing gas for these wcalls...
                 // Maybe each could have metadata or something
+                let ft_transfer_method_name = "ft_transfer".to_string().into_bytes();
                 let token_contract_id = token_contract_id.clone().unwrap();
                 let transfer_data =
                     Self::get_transfer_data(contract_id.clone(), amount.to_string());
@@ -185,7 +185,7 @@ impl Contract {
                     json_args, amount, token_contract_id
                 );
                 Promise::new(token_contract_id)
-                    .function_call(FT_TRANSFER_METHOD_NAME, transfer_data, amount, BASIC_GAS)
+                    .function_call(ft_transfer_method_name, transfer_data, 1, BASIC_GAS)
                     .then(Promise::new(contract_id).function_call(
                         "wcall".to_string().into_bytes(),
                         wcall_data.into_bytes(),
