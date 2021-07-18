@@ -1,0 +1,6 @@
+// This is an example for the tester.json file which contains the Near Key used for testing
+{
+  "account_id": "<ACCOUNT_ID>.testnet",
+  "public_key": "ed25519:<PUBLIC KEY>",
+  "private_key": "ed25519:<PRIVATE KEY>"
+}

@@ -18,13 +18,51 @@
     "url": "git+https://github.com/Lev-Stambler/malloc-near-2.git"
   },
   "scripts": {
-    "test": "echo \"Error: run tests from root\" && exit 1"
+    "test": "jest test --runInBand"
   },
   "bugs": {
     "url": "https://github.com/Lev-Stambler/malloc-near-2/issues"
   },
   "dependencies": {
     "borsh": "^0.4.0",
-    "near": "^0.2.2"
+    "js-sha256": "^0.9.0",
+    "near": "^0.2.2",
+    "near-api-js": "^0.42.0",
+    "regenerator-runtime": "~0.13.5"
+  },
+  "resolutions": {
+    "@babel/preset-env": "7.13.8"
+  },
+  "devDependencies": {
+    "jest": "^27.0.6",
+    "@malloc/testing-utils": "file:../testing-utils",
+    "@babel/core": "~7.14.0",
+    "@babel/preset-env": "~7.14.0",
+    "@babel/preset-typescript": "^7.14.5",
+    "@baf-wallet/near": "^0.0.22",
+    "@types/jest": "^26.0.23",
+    "@types/node": "^15.12.5",
+    "@types/react": "^17.0.11",
+    "@types/react-dom": "^17.0.8",
+    "babel-jest": "~26.6.2",
+    "bs58": "^4.0.1",
+    "env-cmd": "~10.1.0",
+    "jest-environment-node": "~26.6.2",
+    "nodemon": "~2.0.3",
+    "typescript": "^4.3.4"
+  },
+  "jest": {
+    "moduleNameMapper": {
+      "\\.(jpg|ico|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$": "<rootDir>/src/__mocks__/fileMock.js",
+      "\\.(css|less)$": "<rootDir>/src/__mocks__/fileMock.js"
+    },
+    "setupFiles": [
+      "<rootDir>/../../test-files/jest.init.js"
+    ],
+    "testPathIgnorePatterns": [
+      "<rootDir>/src/",
+      "<rootDir>/contract/",
+      "<rootDir>/node_modules/"
+    ]
   }
 }

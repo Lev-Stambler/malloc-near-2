@@ -58,7 +58,7 @@
       "\\.(css|less)$": "<rootDir>/src/__mocks__/fileMock.js"
     },
     "setupFiles": [
-      "<rootDir>/tests/jest.init.js"
+      "<rootDir>/test-files/jest.init.js"
     ],
     "testPathIgnorePatterns": [
       "<rootDir>/src/",
