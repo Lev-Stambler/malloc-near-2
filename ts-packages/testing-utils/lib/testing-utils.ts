@@ -18,6 +18,7 @@ import tester from "./tester.json";
 const generatedAccounts: Account[] = [];
 export const rpcNode = "https://rpc.testnet.near.org";
 export const MAX_GAS = new BN("300000000000000");
+const NEW_ACCOUNT_STORAGE_COST = utils.format.parseNearAmount("0.00125");
 export const WCALL_SIMPLE_GAS = new BN("15000000000000");
 export const provider = new providers.JsonRpcProvider(rpcNode);
 
@@ -72,12 +73,11 @@ export const getFtContract = async (
   });
 };
 
-export const setupFT = async (
+export const isFtRegistered = async (
   contractAddr: string,
   accountId: string,
   caller: Account
 ) => {
-  const NEW_ACCOUNT_STORAGE_COST = utils.format.parseNearAmount("0.00125");
   const storageBal = await caller.viewFunction(
     contractAddr,
     "storage_balance_of",
@@ -85,7 +85,15 @@ export const setupFT = async (
       account_id: accountId,
     }
   );
-  if (!storageBal || storageBal.total === "0")
+  return storageBal && storageBal.total !== "0";
+};
+
+export const setupFT = async (
+  contractAddr: string,
+  accountId: string,
+  caller: Account
+) => {
+  if (!(await isFtRegistered(contractAddr, accountId, caller)))
     await caller.functionCall({
       contractId: contractAddr,
       methodName: "storage_deposit",

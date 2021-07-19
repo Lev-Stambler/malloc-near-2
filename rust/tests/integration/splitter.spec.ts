@@ -55,8 +55,6 @@ it("should send near to Alice and Bob", async () => {
   const alice = await newRandAccount(masterAccount);
   const bob = await newRandAccount(masterAccount);
   const splitter = {
-    owner: "levtester.testnet",
-    split_sum: 150,
     splits: [100, 50],
     nodes: [
       {
@@ -130,8 +128,6 @@ it.only("should send wrapped near to Alice and Bob via a Wcall", async () => {
   });
 
   const splitter: SerializedSplitter = {
-    owner: "levtester.testnet",
-    split_sum: 4,
     splits: [3, 1],
     nodes: [
       {
@@ -218,8 +214,6 @@ it("should send wrapped near to Alice and Bob", async () => {
   });
 
   const splitter = {
-    owner: "levtester.testnet",
-    split_sum: 4,
     splits: [3, 1],
     nodes: [
       {

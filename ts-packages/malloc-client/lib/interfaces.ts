@@ -24,8 +24,6 @@ export interface Endpoint {
 export interface Splitter {
   nodes: Endpoint[];
   splits: BigNumberish[];
-  owner: AccountId;
-  split_sum: BigNumberish;
   ft_contract_id?: AccountId;
 }
 

@@ -20,27 +20,13 @@ describe("malloc-client's ft capabilities", () => {
     );
   });
 
-  it("should register an accountId with the given fungible tokens with one tx call, then ensure that the tokens are not reregistered", async () => {
+  it("test a simple splitter flow for sending native tokens", async () => {
     const bob = await TestingUtils.newRandAccount(wrappedAccount);
-    const tokensRegistered = await malloc.registerAccountWithFungibleToken(
-      TOKEN_ACCOUNT_IDS,
-      bob.accountId
-    );
-    expect(tokensRegistered).toBe(TOKEN_ACCOUNT_IDS);
-    for (let i = 0; i < tokensRegistered.length; i++) {
-      expect(
-        await TestingUtils.isFtRegistered(
-          tokensRegistered[i],
-          bob.accountId,
-          wrappedAccount
-        )
-      ).toBeTruthy();
-    }
-    const newTokensRegistered = await malloc.registerAccountWithFungibleToken(
-      TOKEN_ACCOUNT_IDS,
-      bob.accountId
-    );
-    expect(newTokensRegistered).toBe([]);
+    await malloc.runEphemeralSplitter({
+      nodes: [],
+      splits: [],
+
+    })
   });
 
   afterAll(async () => {

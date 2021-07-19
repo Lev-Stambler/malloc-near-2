@@ -1,6 +1,4 @@
 {
-  "owner": "levtester.testnet",
-  "split_sum": 100,
   "splits": [100],
   "nodes": [
     {

@@ -61,8 +61,6 @@ export default function App() {
 
 
 const defaultSplitter = `{
-  "owner": "levtester.testnet",
-  "split_sum": 200,
   "splits": [100, 100],
   "nodes": [
     {

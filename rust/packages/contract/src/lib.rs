@@ -60,8 +60,6 @@ pub struct Splitter {
 pub struct SerializedSplitter {
     nodes: Vec<Endpoint>,
     splits: Vec<u128>,
-    owner: AccountId,
-    split_sum: u128,
     ft_contract_id: Option<AccountId>,
 }
 
@@ -213,24 +211,26 @@ impl Contract {
         if splitter.splits.len() != splitter.nodes.len() {
             panic!("TODO: error handling");
         }
+        let owner = env::predecessor_account_id();
         let split_idx = self
             .splitters
-            .get(&splitter.owner)
+            .get(&owner)
             .map(|vec| vec.len())
             .unwrap_or(0);
         let prefix_base = format!(
             "{}:{}:{}",
-            splitter.owner,
+            owner,
             split_idx,
             if ephemeral { "ephemeral" } else { "permanent" }
         );
         let node_prefix = format!("{}-nodes", prefix_base);
         let splits_prefix = format!("{}-splits", prefix_base);
+        let split_sum = splitter.splits.iter().fold(0, |a, b| a + *b);
         Splitter {
-            split_sum: splitter.split_sum,
+            split_sum: split_sum,
             endpoints: Contract::vec_to_vector(splitter.nodes, node_prefix.as_bytes()),
             splits: Contract::vec_to_vector(splitter.splits, splits_prefix.as_bytes()),
-            owner: splitter.owner,
+            owner,
             ft_contract_id: splitter.ft_contract_id,
         }
     }
@@ -300,8 +300,6 @@ mod tests {
                 },
             ],
             splits: vec![100, 100],
-            split_sum: 200,
-            owner: accounts(0).to_string(),
             ft_contract_id: None,
         };
         let mut contract = Contract::new();
