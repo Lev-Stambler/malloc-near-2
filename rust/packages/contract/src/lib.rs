@@ -71,20 +71,14 @@ pub struct Contract {
 
 pub trait SplitterTrait {
     // fn run(&self, account_id: AccountId, splitter_idx: usize);
-    fn run_ephemeral(&mut self, splitter: SerializedSplitter, amount: Option<u128>) -> Promise;
+    fn run_ephemeral(&mut self, splitter: SerializedSplitter, amount: u128) -> Promise;
     // fn store(&mut self, splitter: SerializedSplitter, owner: AccountId);
 }
 
 #[near_bindgen]
 impl SplitterTrait for Contract {
     #[payable]
-    fn run_ephemeral(&mut self, splitter: SerializedSplitter, amount: Option<u128>) -> Promise {
-        let amount = if let Some(i) = amount {
-            log!("GOT HERE");
-            i
-        } else {
-            env::attached_deposit()
-        };
+    fn run_ephemeral(&mut self, splitter: SerializedSplitter, amount: u128) -> Promise {
         let deserialized = self.deserialize(splitter, true);
         // TODO: make it so its not j attached deposit but via an NEP4 contract
         let (prom, _) = self._run(deserialized, amount);

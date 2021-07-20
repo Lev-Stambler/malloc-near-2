@@ -18,6 +18,7 @@ export interface Endpoint {
     contract_id: AccountId;
     json_args: String;
     gas: number;
+    attached_deposit: BigNumberish;
   };
 }
 
@@ -36,8 +37,8 @@ export interface MallocContract extends Contract {
 }
 
 export interface WCallEndpointMetadata {
-  minimum_gas?: BN;
-  minimum_attached_deposit?: BN;
+  minimum_gas: BN;
+  minimum_attached_deposit: BN;
 }
 
 export interface Transaction {
@@ -56,6 +57,7 @@ export interface FunctionCallOptions extends ViewFunctionOpts {
 }
 
 export interface RunEphemeralOpts {
+  gas: BigNumberish;
   checkSuccessful: boolean;
 }
 
@@ -63,22 +65,23 @@ export interface RegisterAccountWithFungibleTokenOpts {}
 
 export type CallEphemeralFn = (
   splitter: Splitter,
-  opts?: RunEphemeralOpts
+  opts?: Partial<RunEphemeralOpts>
 ) => Promise<void>;
 
 /**
  * @param  {AccountId[]} tokens A list of the token contract account ids
- * @param  {AccountId} registerFor The account to register for all the token contracts
+ * @param  {AccountId[]} registerForAccounts The accounts to register for all the token contracts
  * @param  {RegisterAccountWithFungibleTokenOpts} opts?
  * @returns A list of token account ids which were newly registered
  */
 export type RegisterAccountWithFungibleTokenFn = (
   tokens: AccountId[],
-  registerFor: AccountId,
+  registerForAccounts: AccountId[],
   opts?: RegisterAccountWithFungibleTokenOpts
 ) => Promise<AccountId[]>;
 
 export interface MallocClient {
+  contractAccountId: AccountId;
   runEphemeralSplitter: CallEphemeralFn;
   registerAccountWithFungibleToken: RegisterAccountWithFungibleTokenFn;
 }
@@ -102,3 +105,8 @@ export interface SpecialAccountConnectedWallet
     ConnectedWalletAccount {
   type: SpecialAccountType.WebConnected;
 }
+
+export type SpecialAccount =
+  | SpecialAccountConnectedWallet
+  | SpecialAccountWithKeyPair;
+

@@ -1,24 +1,93 @@
+import BN from "bn.js";
 import { Account } from "near-api-js";
 import {
   AccountId,
+  BigNumberish,
+  Endpoint,
   RunEphemeralOpts,
+  SpecialAccount,
   Splitter,
   Transaction,
+  WCallEndpointMetadata,
 } from "./interfaces";
+import { executeMultipleTx, MAX_GAS } from "./tx";
+import { sumSplits } from "./utils";
 
 const defaultRunEphemeralOpts: RunEphemeralOpts = {
   checkSuccessful: false,
+  gas: MAX_GAS,
+};
+
+/**
+ * @param  {SpecialAccount} callerAccount
+ * @param  {Endpoint} node
+ * @param  {BN} amountForEndpoint? amount is only required in calculations for a simple transfer
+ * @returns Promise
+ */
+const getNodeAttachedDeposit = async (
+  callerAccount: SpecialAccount,
+  node: Endpoint,
+  amountForEndpoint?: BN
+): Promise<BN> => {
+  if (node.WCall) {
+    const metadata: WCallEndpointMetadata = await callerAccount.viewFunction(
+      node.WCall.contract_id,
+      "metadata"
+    );
+    return new BN(metadata.minimum_attached_deposit);
+  } else if (node.FTTransfer) {
+    return new BN(1);
+  } else if (node.SimpleTransfer) {
+    return new BN(amountForEndpoint).addn(1);
+  }
+};
+
+const getAttachedDeposit = async (
+  callerAccount: SpecialAccount,
+  splitter: Splitter,
+  amount: BN
+): Promise<BN> => {
+  const totalSplits = sumSplits(splitter.splits);
+  splitter.nodes.map((endpoint, i) => {
+    const amountForEndpoint = amount
+      .mul(new BN(splitter.splits[i]))
+      .div(totalSplits);
+    return getNodeAttachedDeposit(callerAccount, endpoint, amountForEndpoint);
+  });
+  return new BN(0);
 };
 
 export const runEphemeralSplitter = async (
-  callerAccount: Account,
+  callerAccount: SpecialAccount,
   mallocAccountId: AccountId,
   splitter: Splitter,
+  amount: BigNumberish,
   opts?: Partial<RunEphemeralOpts>
 ): Promise<Transaction[]> => {
   const _opts: RunEphemeralOpts = {
     ...defaultRunEphemeralOpts,
     ...(opts || {}),
   };
-  return [];
+  const attachedDeposit = await getAttachedDeposit(
+    callerAccount,
+    splitter,
+    new BN(amount)
+  );
+  const txs = [
+    {
+      receiverId: mallocAccountId,
+      functionCalls: [
+        {
+          methodName: "run_ephemeral",
+          args: {
+            splitter,
+            amount: amount.toString(),
+          },
+          gas: _opts.gas.toString(),
+          amount: attachedDeposit.toString(),
+        },
+      ],
+    },
+  ];
+  return txs;
 };

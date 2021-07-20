@@ -7,6 +7,7 @@ const TOKEN_ACCOUNT_IDS = ["wrap.testnet", "ndai.ft-fin.testnet"];
 let wrappedAccount: MallocClient.SpecialAccountWithKeyPair;
 
 describe("malloc-client's ft capabilities", () => {
+  jest.setTimeout(30 * 1000)
   beforeAll(async () => {
     const account = await TestingUtils.getDefaultTesterAccountNear();
     wrappedAccount = MallocClient.wrapAccount(
@@ -20,11 +21,14 @@ describe("malloc-client's ft capabilities", () => {
     );
   });
 
+  // TODO: test w/ the multiple account ids
+
   it("should register an accountId with the given fungible tokens with one tx call, then ensure that the tokens are not reregistered", async () => {
     const bob = await TestingUtils.newRandAccount(wrappedAccount);
+    const alice = await TestingUtils.newRandAccount(wrappedAccount);
     const tokensRegistered = await malloc.registerAccountWithFungibleToken(
       TOKEN_ACCOUNT_IDS,
-      bob.accountId
+      [bob.accountId]
     );
     expect(tokensRegistered).toBe(TOKEN_ACCOUNT_IDS);
     for (let i = 0; i < tokensRegistered.length; i++) {
@@ -38,7 +42,7 @@ describe("malloc-client's ft capabilities", () => {
     }
     const newTokensRegistered = await malloc.registerAccountWithFungibleToken(
       TOKEN_ACCOUNT_IDS,
-      bob.accountId
+      [bob.accountId]
     );
     expect(newTokensRegistered).toBe([]);
   });

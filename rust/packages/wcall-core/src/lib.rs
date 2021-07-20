@@ -1,8 +1,8 @@
 use near_sdk::{AccountId, Promise};
 
 pub struct WCallEndpointMetadata {
-    minimum_gas: Option<u128>,
-    minimum_attached_deposit: Option<u128>,
+    minimum_gas: u128,
+    minimum_attached_deposit: u128,
 }
 
 pub trait WCallEndpoint<T> {

@@ -32,8 +32,7 @@ const setupFT = async (
   } else return null;
 };
 
-// TODO: use setupFt to get a list of transactions, filter through em
-export const registerFtsTxs = async (
+const registerFtTxsForSingleAccount = async (
   ftAccountIds: string[],
   accountId: string,
   caller: nearAPI.Account
@@ -46,4 +45,24 @@ export const registerFtsTxs = async (
     .map((token, i) => (txOptions[i] ? token : null))
     .filter((token) => token !== null);
   return { txs, tokensToRegister };
+};
+
+// TODO: use setupFt to get a list of transactions, filter through em
+export const registerFtsTxs = async (
+  ftAccountIds: string[],
+  accountIds: string[],
+  caller: nearAPI.Account
+): Promise<{ txs: Transaction[]; tokensToRegister: AccountId[] }> => {
+  const registerResp = await Promise.all(
+    accountIds.map((accountId) =>
+      registerFtTxsForSingleAccount(ftAccountIds, accountId, caller)
+    )
+  );
+  const txs = registerResp.map((r) => r.txs).flat();
+  const tokensToRegisterDup = registerResp
+    .map((r) => r.tokensToRegister)
+    .flat();
+
+  const tokensToRegisterSet = new Set(tokensToRegisterDup);
+  return { txs, tokensToRegister: Array.from(tokensToRegisterSet) };
 };

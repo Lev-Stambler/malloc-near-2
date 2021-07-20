@@ -37,16 +37,11 @@ export const wrapAccount = (
     case SpecialAccountType.KeyPair:
       if (!keypair)
         throw "A keypair is expected for wrapping a wallet with type Key Pair";
-      return {
-        ...(account as Account),
-        type: SpecialAccountType.KeyPair,
-        keypair,
-      } as SpecialAccountWithKeyPair;
+      (account as any).type = SpecialAccountType.KeyPair;
+      return account as SpecialAccountWithKeyPair;
     case SpecialAccountType.WebConnected:
-      return {
-        ...(account as ConnectedWalletAccount),
-        type: SpecialAccountType.WebConnected,
-      } as SpecialAccountConnectedWallet;
+      (account as any).type = SpecialAccountType.WebConnected;
+      return account as SpecialAccountConnectedWallet;
   }
 };
 
@@ -56,6 +51,7 @@ export const createMallocClient = async (
   opts?: MallocClientOpts
 ): Promise<MallocClient> => {
   return {
+    contractAccountId: mallocAccountId,
     runEphemeralSplitter: async (splitter, opts?) => {
       const txs = await runEphemeralSplitter(
         account,
@@ -65,10 +61,14 @@ export const createMallocClient = async (
       );
       await executeMultipleTx(account, txs);
     },
-    registerAccountWithFungibleToken: async (tokens, registerFor, opts) => {
+    registerAccountWithFungibleToken: async (
+      tokens,
+      registerForAccounts,
+      opts
+    ) => {
       const { txs, tokensToRegister } = await registerFtsTxs(
         tokens,
-        registerFor,
+        registerForAccounts,
         account
       );
       await executeMultipleTx(account, txs);

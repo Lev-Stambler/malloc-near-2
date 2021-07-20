@@ -28,9 +28,14 @@ interface CreateConnectionOpts {
   accountId: string;
 }
 
+export const getWcallSendContract = () =>
+  readFileSync(
+    join(__dirname, "../../../rust/packages/wcalls/send-wcall/neardev/dev-account")
+  ).toString();
+
 export const getMallocContract = () =>
   readFileSync(
-    join(__dirname, "../../packages/contract/neardev/dev-account")
+    join(__dirname, "../../../rust/packages/contract/neardev/dev-account")
   ).toString();
 
 export const getDefaultTesterAccountNear = async (): Promise<Account> => {
@@ -42,7 +47,7 @@ export const getDefaultTesterAccountNear = async (): Promise<Account> => {
 };
 
 export const getDefaultTesterKeypair = (): KeyPair =>
-  new KeyPairEd25519(tester.private_key);
+  new KeyPairEd25519(tester.private_key.split('ed25519:')[1]);
 
 export const createNear = async (opts: CreateConnectionOpts): Promise<Near> => {
   const keyStore = new keyStores.InMemoryKeyStore();
