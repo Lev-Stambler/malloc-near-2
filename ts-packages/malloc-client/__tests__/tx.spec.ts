@@ -1,27 +1,49 @@
-import * as MallocClient from "../lib/malloc-client";
+import { utils } from "near-api-js";
 import * as TestingUtils from "../../testing-utils/lib/testing-utils";
-import { SpecialAccountType } from "../lib/interfaces";
+import { SpecialAccount, SpecialAccountType } from "../lib/interfaces";
+import { wrapAccount } from "../lib/malloc-client";
+import { executeMultipleTx } from "../lib/tx";
 
-let malloc: MallocClient.MallocClient;
-const TOKEN_ACCOUNT_IDS = ["wrap.testnet", "ndai.ft-fin.testnet"];
-let wrappedAccount: MallocClient.SpecialAccountWithKeyPair;
+const TOKEN_ACCOUNT_IDS = ["wrap.testnet"];
 
-describe("malloc-client's ft capabilities", () => {
-  jest.setTimeout(30 * 1000)
+describe("test transaction utils", () => {
+  jest.setTimeout(30 * 1000);
+  let wrappedAccount: SpecialAccount;
+
   beforeAll(async () => {
     const account = await TestingUtils.getDefaultTesterAccountNear();
-    wrappedAccount = MallocClient.wrapAccount(
+    wrappedAccount = wrapAccount(
       account,
       SpecialAccountType.KeyPair,
       TestingUtils.getDefaultTesterKeypair()
-    ) as MallocClient.SpecialAccountWithKeyPair;
-    malloc = await MallocClient.createMallocClient(
-      wrappedAccount,
-      TestingUtils.getMallocContract()
     );
   });
 
   // TODO: test w/ the multiple account ids
+  it("should run multiple txs with a special wallets", async () => {
+    // test depositing wrap near
+    const alice = await TestingUtils.newRandAccount(wrappedAccount);
+    const NEW_ACCOUNT_STORAGE_COST = utils.format.parseNearAmount("0.00125");
+    await executeMultipleTx(alice, [
+      {
+        receiverId: "wrap.testnet",
+        functionCalls: [
+          {
+            methodName: "storage_deposit",
+            amount: NEW_ACCOUNT_STORAGE_COST,
+          },
+        ],
+      },
+    ]);
+    const storageBal = await alice.viewFunction(
+      "wrap.testnet",
+      "storage_balance_of",
+      {
+        account_id: alice.accountId,
+      }
+    );
+    expect(storageBal.total).toEqual(NEW_ACCOUNT_STORAGE_COST)
+  });
 
   xit("should register an accountId with the given fungible tokens with one tx call, then ensure that the tokens are not reregistered", async () => {
     const bob = await TestingUtils.newRandAccount(wrappedAccount);

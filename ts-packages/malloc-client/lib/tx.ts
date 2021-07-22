@@ -44,7 +44,7 @@ export const createTransactionKP = async (
   );
   return nearAPI.transactions.createTransaction(
     account.accountId,
-    publicKey,
+    account.keypair.getPublicKey(),
     receiverId,
     nonce,
     actions,
@@ -95,20 +95,19 @@ export const signAndSendKP = async (
 ) => {
   const results = await Promise.all(
     txs.map((tx) => {
-      const serializedTx = nearAPI.utils.serialize.serialize(
-        nearAPI.transactions.SCHEMA,
-        tx
-      );
+      tx.publicKey = new PublicKey(account.keypair.getPublicKey())
+      const serializedTx = tx.encode()
       const serializedTxHash = new Uint8Array(sha256.array(serializedTx));
 
       const signature = account.keypair.sign(serializedTxHash);
       const signedTransaction = new nearAPI.transactions.SignedTransaction({
-        tx,
+        transaction: tx,
         signature: new nearAPI.transactions.Signature({
           keyType: tx.publicKey.keyType,
           data: signature.signature,
         }),
       });
+      console.log(signedTransaction)
 
       // encodes transaction to serialized Borsh (required for all transactions)
       const signedSerializedTx = signedTransaction.encode();

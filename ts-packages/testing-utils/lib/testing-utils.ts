@@ -12,7 +12,12 @@ import {
 } from "near-api-js";
 import { KeyPairEd25519, PublicKey } from "near-api-js/lib/utils";
 import { join } from "path";
-import { AccountId } from "../../malloc-client/lib/interfaces";
+import {
+  AccountId,
+  SpecialAccount,
+  SpecialAccountType,
+} from "../../malloc-client/lib/interfaces";
+import { wrapAccount } from "../../malloc-client/lib/malloc-client";
 import tester from "./tester.json";
 
 const generatedAccounts: Account[] = [];
@@ -30,7 +35,10 @@ interface CreateConnectionOpts {
 
 export const getWcallSendContract = () =>
   readFileSync(
-    join(__dirname, "../../../rust/packages/wcalls/send-wcall/neardev/dev-account")
+    join(
+      __dirname,
+      "../../../rust/packages/wcalls/send-wcall/neardev/dev-account"
+    )
   ).toString();
 
 export const getMallocContract = () =>
@@ -47,7 +55,7 @@ export const getDefaultTesterAccountNear = async (): Promise<Account> => {
 };
 
 export const getDefaultTesterKeypair = (): KeyPair =>
-  new KeyPairEd25519(tester.private_key.split('ed25519:')[1]);
+  KeyPair.fromString(tester.private_key);
 
 export const createNear = async (opts: CreateConnectionOpts): Promise<Near> => {
   const keyStore = new keyStores.InMemoryKeyStore();
@@ -134,7 +142,7 @@ export const setupWNearAccount = async (
 
 export const newRandAccount = async (
   masterAccount: Account
-): Promise<Account> => {
+): Promise<SpecialAccount> => {
   const randName = Math.random();
   // remove the 0.
   const newAccountId = `${randName.toString().substr(2)}.${
@@ -153,7 +161,7 @@ export const newRandAccount = async (
   const account = await near.account(newAccountId);
   console.log("Created account", newAccountId);
   generatedAccounts.push(account);
-  return account;
+  return wrapAccount(account, SpecialAccountType.KeyPair, kp);
 };
 
 export const getResults = async (txHash: string, accountId: string) => {

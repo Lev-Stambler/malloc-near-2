@@ -44,8 +44,8 @@ describe("malloc-client's ft capabilities", () => {
         ],
         splits: [100, 200, 300],
       },
+      "600",
       {
-        attachedDeposit: 600,
         gas: TestingUtils.MAX_GAS,
       }
     );
@@ -60,7 +60,7 @@ describe("malloc-client's ft capabilities", () => {
     );
   });
 
-  it("should send Wrapped Near using the SimpleTransferWcall", async () => {
+  xit("should send Wrapped Near using the SimpleTransferWcall", async () => {
     const WCALL_SEND_CONTRACT_ID = TestingUtils.getWcallSendContract();
 
     const amount = 600;
@@ -138,7 +138,8 @@ describe("malloc-client's ft capabilities", () => {
         ],
         ft_contract_id: "wrap.testnet",
       },
-      { attachedDeposit: 20, gas: MAX_GAS }
+      amount.toString(),
+      { gas: MAX_GAS }
     );
   });
 

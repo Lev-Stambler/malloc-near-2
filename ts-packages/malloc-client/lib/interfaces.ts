@@ -65,6 +65,7 @@ export interface RegisterAccountWithFungibleTokenOpts {}
 
 export type CallEphemeralFn = (
   splitter: Splitter,
+  amount: string,
   opts?: Partial<RunEphemeralOpts>
 ) => Promise<void>;
 

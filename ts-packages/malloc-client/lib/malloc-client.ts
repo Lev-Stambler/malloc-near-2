@@ -13,6 +13,7 @@ import {
   Splitter,
   SpecialAccountConnectedWallet,
   SpecialAccountType,
+  SpecialAccount,
 } from "./interfaces";
 import { runEphemeralSplitter } from "./splitter";
 import { executeMultipleTx } from "./tx";
@@ -32,12 +33,13 @@ export const wrapAccount = (
   account: Account | ConnectedWalletAccount,
   type: SpecialAccountType,
   keypair?: KeyPair
-): SpecialAccountWithKeyPair | SpecialAccountConnectedWallet => {
+): SpecialAccount => {
   switch (type) {
     case SpecialAccountType.KeyPair:
       if (!keypair)
         throw "A keypair is expected for wrapping a wallet with type Key Pair";
       (account as any).type = SpecialAccountType.KeyPair;
+      (account as any).keypair = keypair
       return account as SpecialAccountWithKeyPair;
     case SpecialAccountType.WebConnected:
       (account as any).type = SpecialAccountType.WebConnected;
@@ -52,11 +54,12 @@ export const createMallocClient = async (
 ): Promise<MallocClient> => {
   return {
     contractAccountId: mallocAccountId,
-    runEphemeralSplitter: async (splitter, opts?) => {
+    runEphemeralSplitter: async (splitter, amount, opts?) => {
       const txs = await runEphemeralSplitter(
         account,
         mallocAccountId,
         splitter,
+        amount,
         opts
       );
       await executeMultipleTx(account, txs);
