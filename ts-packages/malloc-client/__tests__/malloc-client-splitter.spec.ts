@@ -59,10 +59,10 @@ describe("malloc-client's ft capabilities", () => {
       new BN(aliceBal).addn(100).toString()
     );
     expect((await bob.getAccountBalance()).total.toString()).toBe(
-      new BN(bobBal).addn(200).toString()
+      new BN(bobBal).addn(300).toString()
     );
     expect((await karen.getAccountBalance()).total.toString()).toBe(
-      new BN(karenBal).addn(300).toString()
+      new BN(karenBal).addn(200).toString()
     );
   });
 

@@ -202,6 +202,7 @@ export const resolveTransactionsWithPromise = async (
       result["SuccessValue"] ||
       result["SuccessReceiptId"] === "" ||
       result["SuccessReceiptId"];
+    console.log(result)
 
     if (isResultSuccess) {
       return {

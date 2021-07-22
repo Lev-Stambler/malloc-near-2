@@ -71,17 +71,17 @@ pub struct Contract {
 
 pub trait SplitterTrait {
     // fn run(&self, account_id: AccountId, splitter_idx: usize);
-    fn run_ephemeral(&mut self, splitter: SerializedSplitter, amount: u128) -> Promise;
+    fn run_ephemeral(&mut self, splitter: SerializedSplitter, amount: U128) -> Promise;
     // fn store(&mut self, splitter: SerializedSplitter, owner: AccountId);
 }
 
 #[near_bindgen]
 impl SplitterTrait for Contract {
     #[payable]
-    fn run_ephemeral(&mut self, splitter: SerializedSplitter, amount: u128) -> Promise {
+    fn run_ephemeral(&mut self, splitter: SerializedSplitter, amount: U128) -> Promise {
         let deserialized = self.deserialize(splitter, true);
         // TODO: make it so its not j attached deposit but via an NEP4 contract
-        let (prom, _) = self._run(deserialized, amount);
+        let (prom, _) = self._run(deserialized, amount.into());
         prom.then(Promise::new(env::predecessor_account_id()))
             .as_return()
     }
@@ -199,9 +199,6 @@ impl Contract {
 
 impl Contract {
     pub(crate) fn deserialize(&self, splitter: SerializedSplitter, ephemeral: bool) -> Splitter {
-        if !Contract::check_splits(splitter.split_sum, &splitter.splits) {
-            panic!("TODO: error handling");
-        }
         if splitter.splits.len() != splitter.nodes.len() {
             panic!("TODO: error handling");
         }
