@@ -1,12 +1,16 @@
 import * as MallocClient from "../lib/malloc-client";
 import * as TestingUtils from "../../testing-utils/lib/testing-utils";
-import { SpecialAccountType, Splitter } from "../lib/interfaces";
+import {
+  SpecialAccountType,
+  Splitter,
+  TransactionWithPromiseResultFlag,
+} from "../lib/interfaces";
 import BN from "bn.js";
 import { wrap } from "module";
 import { MAX_GAS } from "../lib/tx";
 import { WCALL_SIMPLE_GAS } from "../../testing-utils/lib/testing-utils";
 
-let malloc: MallocClient.MallocClient;
+let malloc: MallocClient.MallocClient<MallocClient.SpecialAccountWithKeyPair>;
 const TOKEN_ACCOUNT_IDS = ["wrap.testnet", "ndai.ft-fin.testnet"];
 let wrappedAccount: MallocClient.SpecialAccountWithKeyPair;
 
@@ -35,7 +39,7 @@ describe("malloc-client's ft capabilities", () => {
     const karen = await TestingUtils.newRandAccount(wrappedAccount);
     const karenBal = (await karen.getAccountBalance()).total;
 
-    await malloc.runEphemeralSplitter(
+    const txHashes = await malloc.runEphemeralSplitter(
       {
         nodes: [
           { SimpleTransfer: { recipient: alice.accountId } },
@@ -49,6 +53,8 @@ describe("malloc-client's ft capabilities", () => {
         gas: TestingUtils.MAX_GAS,
       }
     );
+    const txResult = await malloc.resolveTransactions(txHashes);
+    expect(txResult.flag).toBe(TransactionWithPromiseResultFlag.SUCCESS);
     expect((await alice.getAccountBalance()).total.toString()).toBe(
       new BN(aliceBal).addn(100).toString()
     );

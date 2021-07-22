@@ -10,13 +10,25 @@ import { KeyPair, PublicKey } from "near-api-js/lib/utils";
 import { functionCall } from "near-api-js/lib/transaction";
 import {
   AccountId,
+  SpecialAccount,
   SpecialAccountConnectedWallet,
   SpecialAccountType,
   SpecialAccountWithKeyPair,
   Transaction,
+  TransactionWithPromiseResult,
+  TransactionWithPromiseResultFlag,
 } from "./interfaces";
-import { Account, ConnectedWalletAccount, WalletConnection } from "near-api-js";
+import {
+  Account,
+  ConnectedWalletAccount,
+  utils,
+  WalletConnection,
+} from "near-api-js";
 import { Wallet } from "web3-eth-accounts";
+import {
+  ExecutionStatus,
+  ExecutionStatusBasic,
+} from "near-api-js/lib/providers/provider";
 
 export const MAX_GAS_STR = "300000000000000";
 export const MAX_GAS = new BN("300000000000000");
@@ -92,11 +104,11 @@ export const createTransactionWalletAccount = async (
 export const signAndSendKP = async (
   txs: nearAPI.transactions.Transaction[],
   account: SpecialAccountWithKeyPair
-) => {
-  const results = await Promise.all(
-    txs.map((tx) => {
-      tx.publicKey = new PublicKey(account.keypair.getPublicKey())
-      const serializedTx = tx.encode()
+): Promise<string[]> => {
+  return await Promise.all(
+    txs.map(async (tx) => {
+      tx.publicKey = new PublicKey(account.keypair.getPublicKey());
+      const serializedTx = tx.encode();
       const serializedTxHash = new Uint8Array(sha256.array(serializedTx));
 
       const signature = account.keypair.sign(serializedTxHash);
@@ -107,34 +119,38 @@ export const signAndSendKP = async (
           data: signature.signature,
         }),
       });
-      console.log(signedTransaction)
 
       // encodes transaction to serialized Borsh (required for all transactions)
       const signedSerializedTx = signedTransaction.encode();
       // sends transaction to NEAR blockchain via JSON RPC call and records the result
-      return provider.sendJsonRpc("broadcast_tx_commit", [
+      const ret = await provider.sendJsonRpc("broadcast_tx_commit", [
         Buffer.from(signedSerializedTx).toString("base64"),
       ]);
+      return (ret as any).transaction.hash as string;
     })
   );
 };
 
+// TODO: how can we have the tx hashes here... maybe something w/ callback url??
 const signAndSendTxsWalletConnect = async (
   txs: nearAPI.transactions.Transaction[],
   walletConnect: WalletConnection,
   callbackUrl?: string
-) => {
-  return walletConnect.requestSignTransactions({
+): Promise<void> => {
+  walletConnect.requestSignTransactions({
     transactions: txs,
     callbackUrl,
   });
 };
 
 // TODO: have signerAccount be some idiomatic thingy where ConnectedWalletAccount is wrapped in interface
-export const executeMultipleTx = async (
-  signerAccount: SpecialAccountWithKeyPair | SpecialAccountConnectedWallet,
-  transactions: Transaction[]
-) => {
+export const executeMultipleTx = async <
+  T extends SpecialAccountConnectedWallet | SpecialAccountWithKeyPair
+>(
+  signerAccount: T,
+  transactions: Transaction[],
+  callbackUrl?: T extends SpecialAccountConnectedWallet ? string : never
+): Promise<T extends SpecialAccountConnectedWallet ? void : string[]> => {
   const createTransaction =
     signerAccount.type === SpecialAccountType.KeyPair
       ? createTransactionKP
@@ -160,5 +176,46 @@ export const executeMultipleTx = async (
       );
     })
   );
-  await signAndSendTxsMethod(nearTransactions, signerAccount as any);
+  return (await signAndSendTxsMethod(
+    nearTransactions,
+    signerAccount as any,
+    callbackUrl
+  )) as T extends SpecialAccountConnectedWallet ? void : string[];
+};
+
+export const resolveTransactionsWithPromise = async (
+  hashes: string[],
+  accountId: string
+): Promise<TransactionWithPromiseResult[]> => {
+  const resolveTxWithPromise = async (hash: string) => {
+    const res = await provider.txStatusReceipts(
+      new Uint8Array(utils.serialize.base_decode(hash)),
+      accountId
+    );
+    return res.receipts_outcome.map((outcome) => outcome.outcome.status);
+  };
+  const parseResult = (
+    result: ExecutionStatus | ExecutionStatusBasic
+  ): TransactionWithPromiseResult => {
+    const isResultSuccess =
+      result["SuccessValue"] === "" ||
+      result["SuccessValue"] ||
+      result["SuccessReceiptId"] === "" ||
+      result["SuccessReceiptId"];
+
+    if (isResultSuccess) {
+      return {
+        flag: TransactionWithPromiseResultFlag.SUCCESS,
+      };
+    }
+    return {
+      // TODO: add some reason or something for this!!
+      flag: TransactionWithPromiseResultFlag.FAILURE,
+    };
+  };
+
+  const resultStatuses: (ExecutionStatus | ExecutionStatusBasic)[] = (
+    await Promise.all(hashes.map(resolveTxWithPromise))
+  ).flat();
+  return resultStatuses.map(parseResult);
 };

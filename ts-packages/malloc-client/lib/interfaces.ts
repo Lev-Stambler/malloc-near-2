@@ -58,16 +58,15 @@ export interface FunctionCallOptions extends ViewFunctionOpts {
 
 export interface RunEphemeralOpts {
   gas: BigNumberish;
-  checkSuccessful: boolean;
 }
 
 export interface RegisterAccountWithFungibleTokenOpts {}
 
-export type CallEphemeralFn = (
+export type CallEphemeralFn<T extends string[] | void> = (
   splitter: Splitter,
   amount: string,
   opts?: Partial<RunEphemeralOpts>
-) => Promise<void>;
+) => Promise<T>;
 
 /**
  * @param  {AccountId[]} tokens A list of the token contract account ids
@@ -81,9 +80,17 @@ export type RegisterAccountWithFungibleTokenFn = (
   opts?: RegisterAccountWithFungibleTokenOpts
 ) => Promise<AccountId[]>;
 
-export interface MallocClient {
+// TODO: what do we want this return to be?
+export type ResolveTransactionsFn = (
+  hashes: string[]
+) => Promise<TransactionWithPromiseResult>;
+
+export interface MallocClient<T extends SpecialAccount> {
   contractAccountId: AccountId;
-  runEphemeralSplitter: CallEphemeralFn;
+  runEphemeralSplitter: CallEphemeralFn<
+    T extends SpecialAccountConnectedWallet ? void : string[]
+  >;
+  resolveTransactions: ResolveTransactionsFn;
   registerAccountWithFungibleToken: RegisterAccountWithFungibleTokenFn;
 }
 
@@ -111,3 +118,17 @@ export type SpecialAccount =
   | SpecialAccountConnectedWallet
   | SpecialAccountWithKeyPair;
 
+export enum TransactionWithPromiseResultFlag {
+  SUCCESS = "success",
+  FAILURE = "failure",
+  PENDING = "pending",
+}
+
+export interface TransactionWithPromiseResult {
+  flag: TransactionWithPromiseResultFlag;
+  message?: string;
+}
+
+export interface MallocError {
+  message: string;
+}

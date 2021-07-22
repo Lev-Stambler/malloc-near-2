@@ -4,6 +4,7 @@ import {
   Contract,
   KeyPair,
 } from "near-api-js";
+import { MallocErrors } from "./errors";
 import { registerFtsTxs } from "./ft-token";
 import {
   AccountId,
@@ -14,9 +15,11 @@ import {
   SpecialAccountConnectedWallet,
   SpecialAccountType,
   SpecialAccount,
+  TransactionWithPromiseResultFlag,
+  TransactionWithPromiseResult,
 } from "./interfaces";
 import { runEphemeralSplitter } from "./splitter";
-import { executeMultipleTx } from "./tx";
+import { executeMultipleTx, resolveTransactionsWithPromise } from "./tx";
 
 interface MallocClientOpts {}
 
@@ -39,7 +42,7 @@ export const wrapAccount = (
       if (!keypair)
         throw "A keypair is expected for wrapping a wallet with type Key Pair";
       (account as any).type = SpecialAccountType.KeyPair;
-      (account as any).keypair = keypair
+      (account as any).keypair = keypair;
       return account as SpecialAccountWithKeyPair;
     case SpecialAccountType.WebConnected:
       (account as any).type = SpecialAccountType.WebConnected;
@@ -47,13 +50,30 @@ export const wrapAccount = (
   }
 };
 
-export const createMallocClient = async (
-  account: SpecialAccountWithKeyPair | SpecialAccountConnectedWallet,
+export const createMallocClient = async <
+  T extends SpecialAccountWithKeyPair | SpecialAccountConnectedWallet
+>(
+  account: T,
   mallocAccountId: AccountId,
   opts?: MallocClientOpts
-): Promise<MallocClient> => {
+): Promise<MallocClient<T>> => {
   return {
     contractAccountId: mallocAccountId,
+    resolveTransactions: async (
+      hashes: string[]
+    ): Promise<TransactionWithPromiseResult> => {
+      const results = await resolveTransactionsWithPromise(
+        hashes,
+        account.accountId
+      );
+      results.forEach((result) => {
+        if (result.flag !== "success")
+          throw MallocErrors.transactionPromiseFailed(result.message);
+      });
+      return {
+        flag: TransactionWithPromiseResultFlag.SUCCESS,
+      };
+    },
     runEphemeralSplitter: async (splitter, amount, opts?) => {
       const txs = await runEphemeralSplitter(
         account,
@@ -62,7 +82,8 @@ export const createMallocClient = async (
         amount,
         opts
       );
-      await executeMultipleTx(account, txs);
+      const txRets = await executeMultipleTx(account, txs);
+      return txRets;
     },
     registerAccountWithFungibleToken: async (
       tokens,

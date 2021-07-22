@@ -23,14 +23,15 @@ describe("malloc-client's ft capabilities", () => {
 
   // TODO: test w/ the multiple account ids
 
-  xit("should register an accountId with the given fungible tokens with one tx call, then ensure that the tokens are not reregistered", async () => {
+  it("should register an accountId with the given fungible tokens with one tx call, then ensure that the tokens are not reregistered", async () => {
     const bob = await TestingUtils.newRandAccount(wrappedAccount);
     const alice = await TestingUtils.newRandAccount(wrappedAccount);
     const tokensRegistered = await malloc.registerAccountWithFungibleToken(
       TOKEN_ACCOUNT_IDS,
       [bob.accountId]
     );
-    expect(tokensRegistered).toBe(TOKEN_ACCOUNT_IDS);
+    console.log(tokensRegistered)
+    expect(tokensRegistered.sort()).toEqual(TOKEN_ACCOUNT_IDS.sort());
     for (let i = 0; i < tokensRegistered.length; i++) {
       expect(
         await TestingUtils.isFtRegistered(
@@ -44,7 +45,7 @@ describe("malloc-client's ft capabilities", () => {
       TOKEN_ACCOUNT_IDS,
       [bob.accountId]
     );
-    expect(newTokensRegistered).toBe([]);
+    expect(newTokensRegistered).toEqual([]);
   });
 
   afterAll(async () => {
