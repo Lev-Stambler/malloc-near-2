@@ -17,6 +17,7 @@ import {
   SpecialAccount,
   TransactionWithPromiseResultFlag,
   TransactionWithPromiseResult,
+  Transaction,
 } from "./interfaces";
 import { runEphemeralSplitter } from "./splitter";
 import { executeMultipleTx, resolveTransactionsWithPromise } from "./tx";
@@ -75,14 +76,33 @@ export const createMallocClient = async <
       };
     },
     runEphemeralSplitter: async (splitter, amount, opts?) => {
-      const txs = await runEphemeralSplitter(
+      const prependTx: Transaction[] = [];
+      if (splitter.ft_contract_id)
+        prependTx.push({
+          receiverId: splitter.ft_contract_id,
+          functionCalls: [
+            {
+              methodName: "ft_transfer",
+              amount: "1",
+              args: {
+                receiver_id: mallocAccountId,
+                amount: amount.toString(),
+                msg: "",
+              },
+            },
+          ],
+        });
+      const mallocTxs = await runEphemeralSplitter(
         account,
         mallocAccountId,
         splitter,
         amount,
         opts
       );
-      const txRets = await executeMultipleTx(account, txs);
+      const txRets = await executeMultipleTx(account, [
+        ...prependTx,
+        ...mallocTxs,
+      ]);
       return txRets;
     },
     registerAccountWithFungibleToken: async (

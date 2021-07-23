@@ -3,7 +3,7 @@ import * as TestingUtils from "../../testing-utils/lib/testing-utils";
 import { SpecialAccountType } from "../lib/interfaces";
 
 let malloc: MallocClient.MallocClient;
-const TOKEN_ACCOUNT_IDS = ["wrap.testnet", "ndai.ft-fin.testnet"];
+const TOKEN_ACCOUNT_IDS = [TestingUtils.WRAP_TESTNET_CONTRACT, "ndai.ft-fin.testnet"];
 let wrappedAccount: MallocClient.SpecialAccountWithKeyPair;
 
 describe("malloc-client's ft capabilities", () => {

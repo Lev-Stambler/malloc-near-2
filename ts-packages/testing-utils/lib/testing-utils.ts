@@ -14,6 +14,7 @@ import { KeyPairEd25519, PublicKey } from "near-api-js/lib/utils";
 import { join } from "path";
 import {
   AccountId,
+  BigNumberish,
   SpecialAccount,
   SpecialAccountType,
 } from "../../malloc-client/lib/interfaces";
@@ -26,6 +27,7 @@ export const MAX_GAS = new BN("300000000000000");
 const NEW_ACCOUNT_STORAGE_COST = utils.format.parseNearAmount("0.00125");
 export const WCALL_SIMPLE_GAS = new BN("15000000000000");
 export const provider = new providers.JsonRpcProvider(rpcNode);
+export const WRAP_TESTNET_CONTRACT = "wrap.testnet";
 
 interface CreateConnectionOpts {
   privateKey?: string;
@@ -84,6 +86,17 @@ export const getFtContract = async (
     changeMethods: ["near_deposit", "storage_deposit", "ft_transfer_call"],
     viewMethods: ["ft_balance_of", "storage_balance_of"],
   });
+};
+
+export const ftBalOf = async (
+  ftContractId: AccountId,
+  accountId: AccountId,
+  caller: Account
+): Promise<string> => {
+  const bal = await caller.viewFunction(ftContractId, "ft_balance_of", {
+    account_id: accountId,
+  });
+  return bal;
 };
 
 export const isFtRegistered = async (
@@ -201,4 +214,15 @@ export const addBigNumberish = (
   b: string | BN | number
 ): string => {
   return new BN(a).add(new BN(b)).toString();
+};
+
+export const checkBalDifferences = (
+  oldBal: BigNumberish,
+  newBal: BigNumberish,
+  expectedDiff: number,
+  expect: any
+) => {
+  expect(new BN(newBal).toString()).toBe(
+    new BN(oldBal).addn(expectedDiff).toString()
+  );
 };

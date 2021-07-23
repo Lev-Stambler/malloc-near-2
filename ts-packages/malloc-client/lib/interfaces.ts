@@ -18,7 +18,7 @@ export interface Endpoint {
     contract_id: AccountId;
     json_args: String;
     gas: number;
-    attached_deposit: BigNumberish;
+    attached_amount: BigNumberish;
   };
 }
 

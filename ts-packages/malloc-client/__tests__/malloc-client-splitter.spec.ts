@@ -11,11 +11,14 @@ import { MAX_GAS } from "../lib/tx";
 import { WCALL_SIMPLE_GAS } from "../../testing-utils/lib/testing-utils";
 
 let malloc: MallocClient.MallocClient<MallocClient.SpecialAccountWithKeyPair>;
-const TOKEN_ACCOUNT_IDS = ["wrap.testnet", "ndai.ft-fin.testnet"];
+const TOKEN_ACCOUNT_IDS = [
+  TestingUtils.WRAP_TESTNET_CONTRACT,
+  "ndai.ft-fin.testnet",
+];
 let wrappedAccount: MallocClient.SpecialAccountWithKeyPair;
 
 describe("malloc-client's ft capabilities", () => {
-  jest.setTimeout(30 * 1000);
+  jest.setTimeout(60 * 1000);
   beforeAll(async () => {
     const account = await TestingUtils.getDefaultTesterAccountNear();
     wrappedAccount = MallocClient.wrapAccount(
@@ -66,7 +69,175 @@ describe("malloc-client's ft capabilities", () => {
     );
   });
 
-  xit("should send Wrapped Near using the SimpleTransferWcall", async () => {
+  it("should send send Native Near, Wrapped Near with a malloc call, and wrapped near with a native call", async () => {
+    const amount = 600;
+    const alice = await TestingUtils.newRandAccount(wrappedAccount);
+    const bob = await TestingUtils.newRandAccount(wrappedAccount);
+    const karen = await TestingUtils.newRandAccount(wrappedAccount);
+
+    await TestingUtils.setupWNearAccount(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      wrappedAccount.accountId,
+      wrappedAccount,
+      true,
+      amount + 20
+    );
+    const txs = await await malloc.registerAccountWithFungibleToken(
+      [TestingUtils.WRAP_TESTNET_CONTRACT],
+      [
+        alice.accountId,
+        bob.accountId,
+        karen.accountId,
+        wrappedAccount.accountId,
+        malloc.contractAccountId,
+      ]
+    );
+    const aliceBal = await (await alice.getAccountBalance()).total;
+    const karenBal = await TestingUtils.ftBalOf(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      karen.accountId,
+      wrappedAccount
+    );
+    const bobBal = await TestingUtils.ftBalOf(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      bob.accountId,
+      wrappedAccount
+    );
+    const myBal = await TestingUtils.ftBalOf(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      wrappedAccount.accountId,
+      wrappedAccount
+    );
+    const txRess = await malloc.runEphemeralSplitter(
+      {
+        splits: [1, 2, 3],
+        nodes: [
+          {
+            SimpleTransfer: {
+              recipient: alice.accountId,
+            },
+            FTTransfer: {
+              recipient: bob.accountId,
+            },
+          },
+          {
+            FTTransfer: {
+              recipient: karen.accountId,
+            },
+          },
+        ],
+        ft_contract_id: TestingUtils.WRAP_TESTNET_CONTRACT,
+      },
+      amount.toString(),
+      { gas: MAX_GAS }
+    );
+    console.log(txRess);
+    const ret = await malloc.resolveTransactions(txRess);
+    expect(ret.flag).toBe(TransactionWithPromiseResultFlag.SUCCESS);
+
+    const newaliceBal = await (await alice.getAccountBalance()).total;
+    const newbobBal = await TestingUtils.ftBalOf(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      bob.accountId,
+      wrappedAccount
+    );
+    const newmyBal = await TestingUtils.ftBalOf(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      wrappedAccount.accountId,
+      wrappedAccount
+    );
+    const newkarenBal = await TestingUtils.ftBalOf(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      karen.accountId,
+      wrappedAccount
+    );
+    TestingUtils.checkBalDifferences(aliceBal, newaliceBal, 100, expect);
+    TestingUtils.checkBalDifferences(bobBal, newbobBal, 200, expect);
+    TestingUtils.checkBalDifferences(karenBal, newkarenBal, 200, expect);
+    TestingUtils.checkBalDifferences(myBal, newmyBal, -600, expect);
+  });
+
+  it("should send Wrapped Near using the native transfer", async () => {
+    const amount = 600;
+    const alice = await TestingUtils.newRandAccount(wrappedAccount);
+    const bob = await TestingUtils.newRandAccount(wrappedAccount);
+
+    await TestingUtils.setupWNearAccount(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      wrappedAccount.accountId,
+      wrappedAccount,
+      true,
+      amount + 20
+    );
+    const txs = await await malloc.registerAccountWithFungibleToken(
+      [TestingUtils.WRAP_TESTNET_CONTRACT],
+      [
+        alice.accountId,
+        bob.accountId,
+        wrappedAccount.accountId,
+        malloc.contractAccountId,
+      ]
+    );
+    const aliceBal = await TestingUtils.ftBalOf(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      alice.accountId,
+      wrappedAccount
+    );
+    const bobBal = await TestingUtils.ftBalOf(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      bob.accountId,
+      wrappedAccount
+    );
+    const myBal = await TestingUtils.ftBalOf(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      wrappedAccount.accountId,
+      wrappedAccount
+    );
+    const txRess = await malloc.runEphemeralSplitter(
+      {
+        splits: [3, 1],
+        nodes: [
+          {
+            FTTransfer: {
+              recipient: alice.accountId,
+            },
+          },
+          {
+            FTTransfer: {
+              recipient: bob.accountId,
+            },
+          },
+        ],
+        ft_contract_id: TestingUtils.WRAP_TESTNET_CONTRACT,
+      },
+      amount.toString(),
+      { gas: MAX_GAS }
+    );
+    console.log(txRess);
+    const ret = await malloc.resolveTransactions(txRess);
+    expect(ret.flag).toBe(TransactionWithPromiseResultFlag.SUCCESS);
+
+    const newaliceBal = await TestingUtils.ftBalOf(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      alice.accountId,
+      wrappedAccount
+    );
+    const newbobBal = await TestingUtils.ftBalOf(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      bob.accountId,
+      wrappedAccount
+    );
+    const newmyBal = await TestingUtils.ftBalOf(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      wrappedAccount.accountId,
+      wrappedAccount
+    );
+    TestingUtils.checkBalDifferences(aliceBal, newaliceBal, 450, expect);
+    TestingUtils.checkBalDifferences(bobBal, newbobBal, 150, expect);
+    TestingUtils.checkBalDifferences(myBal, newmyBal, -600, expect);
+  });
+
+  it.only("should send Wrapped Near using the SimpleTransferWcall", async () => {
     const WCALL_SEND_CONTRACT_ID = TestingUtils.getWcallSendContract();
 
     const amount = 600;
@@ -74,61 +245,50 @@ describe("malloc-client's ft capabilities", () => {
     const bob = await TestingUtils.newRandAccount(wrappedAccount);
 
     await TestingUtils.setupWNearAccount(
-      "wrap.testnet",
+      TestingUtils.WRAP_TESTNET_CONTRACT,
       wrappedAccount.accountId,
       wrappedAccount,
       true,
       amount + 20
     );
-
-    // Hmmmm, should the malloc client somehow do this for the user?
-    await TestingUtils.setupWNearAccount(
-      "wrap.testnet",
+    await malloc.registerAccountWithFungibleToken(
+      [TestingUtils.WRAP_TESTNET_CONTRACT],
+      [
+        alice.accountId,
+        bob.accountId,
+        wrappedAccount.accountId,
+        malloc.contractAccountId,
+        WCALL_SEND_CONTRACT_ID,
+      ]
+    );
+    const aliceBal = await TestingUtils.ftBalOf(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
       alice.accountId,
-      alice
-    );
-    await TestingUtils.setupWNearAccount("wrap.testnet", bob.accountId, bob);
-    await TestingUtils.setupWNearAccount(
-      "wrap.testnet",
-      malloc.contractAccountId,
       wrappedAccount
     );
-    await TestingUtils.setupWNearAccount(
-      "wrap.testnet",
-      WCALL_SEND_CONTRACT_ID,
+    const bobBal = await TestingUtils.ftBalOf(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      bob.accountId,
       wrappedAccount
     );
-
-    // Ideally this is handled by malloc-client
-    // await wrappedAccount.functionCall({
-    //   contractId: "wrap.testnet",
-    //   methodName: "ft_transfer",
-    //   args: {
-    //     receiver_id: malloc.contractAccountId,
-    //     amount: amount.toString(),
-    //     msg: "",
-    //     memo: "",
-    //   },
-    //   attachedDeposit: new BN(1),
-    //   gas: TestingUtils.MAX_GAS,
-    // });
-
-    // TODO: maybe have attached deposit be auto calculated!
-    // Including for the subcalls and they get added in via malloc client
-    // TODO: maybe have the gas be auto calculated!
-    // subcalls add stuff back in
-    await malloc.runEphemeralSplitter(
+    const myBal = await TestingUtils.ftBalOf(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      wrappedAccount.accountId,
+      wrappedAccount
+    );
+    const txRess = await malloc.runEphemeralSplitter(
       {
         splits: [3, 1],
         nodes: [
           {
             WCall: {
               contract_id: WCALL_SEND_CONTRACT_ID,
+              // TODO: no json stringify!!
               json_args: JSON.stringify({
-                recipient: bob.accountId,
+                recipient: alice.accountId,
               }),
               gas: WCALL_SIMPLE_GAS.toNumber(),
-              attached_deposit: 10,
+              attached_amount: 5,
             },
           },
           {
@@ -138,15 +298,37 @@ describe("malloc-client's ft capabilities", () => {
                 recipient: bob.accountId,
               }),
               gas: WCALL_SIMPLE_GAS.toNumber(),
-              attached_deposit: 10,
+              attached_amount: 5,
             },
           },
         ],
-        ft_contract_id: "wrap.testnet",
+        ft_contract_id: TestingUtils.WRAP_TESTNET_CONTRACT,
       },
       amount.toString(),
       { gas: MAX_GAS }
     );
+    console.log(txRess);
+    const ret = await malloc.resolveTransactions(txRess);
+    expect(ret.flag).toBe(TransactionWithPromiseResultFlag.SUCCESS);
+
+    const newaliceBal = await TestingUtils.ftBalOf(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      alice.accountId,
+      wrappedAccount
+    );
+    const newbobBal = await TestingUtils.ftBalOf(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      bob.accountId,
+      wrappedAccount
+    );
+    const newmyBal = await TestingUtils.ftBalOf(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      wrappedAccount.accountId,
+      wrappedAccount
+    );
+    TestingUtils.checkBalDifferences(aliceBal, newaliceBal, 450, expect);
+    TestingUtils.checkBalDifferences(bobBal, newbobBal, 150, expect);
+    TestingUtils.checkBalDifferences(myBal, newmyBal, -600, expect);
   });
 
   afterAll(async () => {

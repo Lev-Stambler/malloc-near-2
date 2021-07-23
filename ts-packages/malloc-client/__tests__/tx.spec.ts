@@ -4,7 +4,7 @@ import { SpecialAccount, SpecialAccountType } from "../lib/interfaces";
 import { wrapAccount } from "../lib/malloc-client";
 import { executeMultipleTx } from "../lib/tx";
 
-const TOKEN_ACCOUNT_IDS = ["wrap.testnet"];
+const TOKEN_ACCOUNT_IDS = [TestingUtils.WRAP_TESTNET_CONTRACT];
 
 describe("test transaction utils", () => {
   jest.setTimeout(30 * 1000);
@@ -26,7 +26,7 @@ describe("test transaction utils", () => {
     const NEW_ACCOUNT_STORAGE_COST = utils.format.parseNearAmount("0.00125");
     await executeMultipleTx(alice, [
       {
-        receiverId: "wrap.testnet",
+        receiverId: TestingUtils.WRAP_TESTNET_CONTRACT,
         functionCalls: [
           {
             methodName: "storage_deposit",
@@ -36,7 +36,7 @@ describe("test transaction utils", () => {
       },
     ]);
     const storageBal = await alice.viewFunction(
-      "wrap.testnet",
+      TestingUtils.WRAP_TESTNET_CONTRACT,
       "storage_balance_of",
       {
         account_id: alice.accountId,
