@@ -133,6 +133,8 @@ impl Contract {
     }
 }
 
+// TODO: some way to fish out the funds from more than min slippage?
+
 #[near_bindgen]
 impl WCallEndpoint<RefSwapArgs> for Contract {
     #[payable]
@@ -145,7 +147,8 @@ impl WCallEndpoint<RefSwapArgs> for Contract {
     }
     fn metadata(&self) -> wcall_core::WCallEndpointMetadata {
         wcall_core::WCallEndpointMetadata {
-            minimum_gas: 
+            minimum_attached_deposit: Some(15.into()),
+            minimum_gas: None,
         }
     }
 }

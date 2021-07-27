@@ -14,7 +14,6 @@ import { executeMultipleTx, MAX_GAS } from "./tx";
 import { sumSplits } from "./utils";
 
 const defaultRunEphemeralOpts: RunEphemeralOpts = {
-  checkSuccessful: false,
   gas: MAX_GAS,
 };
 
@@ -34,7 +33,7 @@ const getNodeAttachedDeposit = async (
       node.WCall.contract_id,
       "metadata"
     );
-    return new BN(metadata.minimum_attached_deposit);
+    return new BN(metadata.minimum_attached_deposit || 1);
   } else if (node.FTTransfer) {
     return new BN(1);
   } else if (node.SimpleTransfer) {
