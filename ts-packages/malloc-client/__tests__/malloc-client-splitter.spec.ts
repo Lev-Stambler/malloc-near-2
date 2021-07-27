@@ -153,7 +153,7 @@ describe("malloc-client's ft capabilities", () => {
     );
     TestingUtils.checkBalDifferences(aliceBal, newaliceBal, 100, expect);
     TestingUtils.checkBalDifferences(bobBal, newbobBal, 200, expect);
-    TestingUtils.checkBalDifferences(karenBal, newkarenBal, 200, expect);
+    TestingUtils.checkBalDifferences(karenBal, newkarenBal, 300, expect);
     TestingUtils.checkBalDifferences(myBal, newmyBal, -600, expect);
   });
 
@@ -288,7 +288,7 @@ describe("malloc-client's ft capabilities", () => {
                 recipient: alice.accountId,
               }),
               gas: WCALL_SIMPLE_GAS.toNumber(),
-              attached_amount: 5,
+              attached_amount: "5",
             },
           },
           {
@@ -298,7 +298,7 @@ describe("malloc-client's ft capabilities", () => {
                 recipient: bob.accountId,
               }),
               gas: WCALL_SIMPLE_GAS.toNumber(),
-              attached_amount: 5,
+              attached_amount: "5",
             },
           },
         ],

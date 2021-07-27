@@ -16,9 +16,9 @@ export interface Endpoint {
   FTTransfer?: { recipient: AccountId };
   WCall?: {
     contract_id: AccountId;
-    json_args: String;
+    json_args: string;
     gas: number;
-    attached_amount: BigNumberish;
+    attached_amount: string;
   };
 }
 
