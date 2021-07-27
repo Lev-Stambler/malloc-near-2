@@ -82,7 +82,7 @@ export type RegisterAccountWithFungibleTokenFn = (
 
 // TODO: what do we want this return to be?
 export type ResolveTransactionsFn = (
-  hashes: string[]
+  hashes: string[],
 ) => Promise<TransactionWithPromiseResult>;
 
 export interface MallocClient<T extends SpecialAccount> {

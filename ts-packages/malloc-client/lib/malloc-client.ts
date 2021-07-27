@@ -61,7 +61,7 @@ export const createMallocClient = async <
   return {
     contractAccountId: mallocAccountId,
     resolveTransactions: async (
-      hashes: string[]
+      hashes: string[],
     ): Promise<TransactionWithPromiseResult> => {
       const results = await resolveTransactionsWithPromise(
         hashes,
