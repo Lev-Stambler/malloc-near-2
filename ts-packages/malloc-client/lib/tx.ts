@@ -208,6 +208,7 @@ export const resolveTransactionsWithPromise = async (
         flag: TransactionWithPromiseResultFlag.SUCCESS,
       };
     }
+    console.log(result)
     return {
       // TODO: add some reason or something for this!!
       flag: TransactionWithPromiseResultFlag.FAILURE,

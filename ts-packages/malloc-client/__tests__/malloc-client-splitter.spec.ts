@@ -237,7 +237,7 @@ describe("malloc-client's ft capabilities", () => {
     TestingUtils.checkBalDifferences(myBal, newmyBal, -600, expect);
   });
 
-  it.only("should send Wrapped Near using the SimpleTransferWcall", async () => {
+  it("should send Wrapped Near using the SimpleTransferWcall", async () => {
     const WCALL_SEND_CONTRACT_ID = TestingUtils.getWcallSendContract();
 
     const amount = 600;
@@ -307,28 +307,34 @@ describe("malloc-client's ft capabilities", () => {
       amount.toString(),
       { gas: MAX_GAS }
     );
-    console.log(txRess);
     const ret = await malloc.resolveTransactions(txRess);
     expect(ret.flag).toBe(TransactionWithPromiseResultFlag.SUCCESS);
 
+    console.log("AAA")
     const newaliceBal = await TestingUtils.ftBalOf(
       TestingUtils.WRAP_TESTNET_CONTRACT,
       alice.accountId,
       wrappedAccount
     );
+    console.log("AddAA")
     const newbobBal = await TestingUtils.ftBalOf(
       TestingUtils.WRAP_TESTNET_CONTRACT,
       bob.accountId,
       wrappedAccount
     );
+    console.log("AdaaadAA")
     const newmyBal = await TestingUtils.ftBalOf(
       TestingUtils.WRAP_TESTNET_CONTRACT,
       wrappedAccount.accountId,
       wrappedAccount
     );
+    console.log("AdallapaadAA")
     TestingUtils.checkBalDifferences(aliceBal, newaliceBal, 450, expect);
+    console.log("AdaaaqwdAA")
     TestingUtils.checkBalDifferences(bobBal, newbobBal, 150, expect);
+    console.log("AdaaadsqpAA")
     TestingUtils.checkBalDifferences(myBal, newmyBal, -600, expect);
+    console.log("lllll")
   });
 
   afterAll(async () => {

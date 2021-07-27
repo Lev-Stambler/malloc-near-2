@@ -82,7 +82,7 @@ export const createMallocClient = async <
           receiverId: splitter.ft_contract_id,
           functionCalls: [
             {
-              methodName: "ft_transfer",
+              methodName: "ft_transfer_call",
               amount: "1",
               args: {
                 receiver_id: mallocAccountId,

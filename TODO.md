@@ -2,3 +2,4 @@
 - [ ] Add a way to refund deposits (i.e. refund whatever deposit is left as the last promise). This may require keeping a mapping of how much a user deposited. (This may require disabling native sends, but idk, maybe they would then have to specify the amount in the args
 - [ ] Figure out how to get all funds out of that WCall
 - [ ] Have a better setup for testing the WCalls
+- [ ] Scripts for Rust

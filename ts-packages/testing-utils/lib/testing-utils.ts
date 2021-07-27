@@ -204,9 +204,11 @@ export const cleanUp = async (
     "Deleteing the following accounts",
     generatedAccounts.map((account) => account.accountId)
   );
-  await Promise.all(
-    generatedAccounts.map((account) => account.deleteAccount(beneficiaryId))
-  );
+  try {
+    await Promise.all(
+      generatedAccounts.map((account) => account.deleteAccount(beneficiaryId))
+    );
+  } catch (e) {}
 };
 
 export const addBigNumberish = (
