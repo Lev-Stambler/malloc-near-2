@@ -167,7 +167,7 @@ export const newRandAccount = async (
   await _masterAccount.createAccount(
     newAccountId,
     kp.getPublicKey(),
-    new BN(utils.format.parseNearAmount("0.5") as string)
+    new BN(utils.format.parseNearAmount("0.8") as string)
   );
   const near = await createNear({
     accountId: newAccountId,

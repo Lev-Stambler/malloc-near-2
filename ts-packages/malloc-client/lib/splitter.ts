@@ -15,6 +15,7 @@ import { sumSplits } from "./utils";
 
 const defaultRunEphemeralOpts: RunEphemeralOpts = {
   gas: MAX_GAS,
+  depositTransactionHash: null,
 };
 
 /**
@@ -57,7 +58,7 @@ const getAttachedDeposit = async (
   );
   const add = (a: BN, b: BN) => a.add(b);
   const nodesSummed = nodeAttachedDeposits.reduce(add, new BN(0));
-  return nodesSummed
+  return nodesSummed;
 };
 
 export const runEphemeralSplitter = async (

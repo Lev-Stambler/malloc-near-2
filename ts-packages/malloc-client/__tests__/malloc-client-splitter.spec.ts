@@ -102,7 +102,12 @@ describe("malloc-client's ft capabilities", () => {
       bob.accountId,
       wrappedTesterAccount
     );
-    const myBal = await TestingUtils.ftBalOf(
+
+    const myBalNative = await (
+      await wrappedTesterAccount.getAccountBalance()
+    ).total;
+
+    const myBalWrappedNear = await TestingUtils.ftBalOf(
       TestingUtils.WRAP_TESTNET_CONTRACT,
       wrappedTesterAccount.accountId,
       wrappedTesterAccount
@@ -113,6 +118,7 @@ describe("malloc-client's ft capabilities", () => {
       Math.ceil((amount * 5) / 6).toString(),
       TestingUtils.WRAP_TESTNET_CONTRACT
     );
+
     const WCALL_SEND_CONTRACT_ID = TestingUtils.getWcallSendContract();
 
     const txRess = await malloc.runEphemeralSplitter(
@@ -133,7 +139,7 @@ describe("malloc-client's ft capabilities", () => {
             WCall: {
               contract_id: WCALL_SEND_CONTRACT_ID,
               json_args: JSON.stringify({
-                recipient: bob.accountId,
+                recipient: karen.accountId,
               }),
               gas: WCALL_SIMPLE_GAS.toNumber(),
               attached_amount: "5",
@@ -145,7 +151,6 @@ describe("malloc-client's ft capabilities", () => {
       amount.toString(),
       { gas: MAX_GAS, depositTransactionHash }
     );
-    console.log(txRess);
     const ret = await malloc.resolveTransactions(txRess);
     expect(ret.flag).toBe(TransactionWithPromiseResultFlag.SUCCESS);
 
@@ -165,10 +170,16 @@ describe("malloc-client's ft capabilities", () => {
       karen.accountId,
       wrappedTesterAccount
     );
+
+    const newmyBalNative = await (
+      await wrappedTesterAccount.getAccountBalance()
+    ).total;
+
     TestingUtils.checkBalDifferences(aliceBal, newaliceBal, 100, expect);
     TestingUtils.checkBalDifferences(bobBal, newbobBal, 200, expect);
     TestingUtils.checkBalDifferences(karenBal, newkarenBal, 300, expect);
-    TestingUtils.checkBalDifferences(myBal, newmyBal, -600, expect);
+    TestingUtils.checkBalDifferences(myBalWrappedNear, newmyBal, -500, expect);
+    TestingUtils.checkBalDifferences(myBalNative, newmyBalNative, -100, expect);
   });
 
   it("should send Wrapped Near using the native transfer", async () => {
@@ -233,7 +244,6 @@ describe("malloc-client's ft capabilities", () => {
       amount.toString(),
       { gas: MAX_GAS, depositTransactionHash }
     );
-    console.log(txRess);
     const ret = await malloc.resolveTransactions(txRess);
     expect(ret.flag).toBe(TransactionWithPromiseResultFlag.SUCCESS);
 
@@ -336,7 +346,6 @@ describe("malloc-client's ft capabilities", () => {
     const ret = await malloc.resolveTransactions(txRess);
     expect(ret.flag).toBe(TransactionWithPromiseResultFlag.SUCCESS);
 
-    console.log("AAA", ret.flag);
     const newaliceBal = await TestingUtils.ftBalOf(
       TestingUtils.WRAP_TESTNET_CONTRACT,
       alice.accountId,
@@ -352,7 +361,6 @@ describe("malloc-client's ft capabilities", () => {
       wrappedTesterAccount.accountId,
       wrappedTesterAccount
     );
-    console.log("NEW BALS", newaliceBal, newbobBal, newmyBal);
     TestingUtils.checkBalDifferences(aliceBal, newaliceBal, 450, expect);
     TestingUtils.checkBalDifferences(bobBal, newbobBal, 150, expect);
     TestingUtils.checkBalDifferences(myBal, newmyBal, -600, expect);
