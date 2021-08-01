@@ -179,7 +179,8 @@ describe("malloc-client's ft capabilities", () => {
     TestingUtils.checkBalDifferences(bobBal, newbobBal, 200, expect);
     TestingUtils.checkBalDifferences(karenBal, newkarenBal, 300, expect);
     TestingUtils.checkBalDifferences(myBalWrappedNear, newmyBal, -500, expect);
-    TestingUtils.checkBalDifferences(myBalNative, newmyBalNative, -100, expect);
+    // -104 not 100 to account for attached deposit for fts
+    TestingUtils.checkBalDifferences(myBalNative, newmyBalNative, -104, expect);
   });
 
   it("should send Wrapped Near using the native transfer", async () => {
