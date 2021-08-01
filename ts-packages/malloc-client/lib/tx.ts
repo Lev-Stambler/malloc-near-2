@@ -212,7 +212,7 @@ export const resolveTransactionsWithPromise = async (
     return {
       // TODO: add some reason or something for this!!
       flag: TransactionWithPromiseResultFlag.FAILURE,
-      message: result["Failure"]?.error_message ?? undefined,
+      message: JSON.stringify(result["Failure"]?.error_message) ?? undefined,
     };
   };
 

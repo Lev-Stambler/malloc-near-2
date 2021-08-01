@@ -58,7 +58,7 @@ export interface FunctionCallOptions extends ViewFunctionOpts {
 
 export interface RunEphemeralOpts {
   gas: BigNumberish;
-  depositTx: string;
+  depositTransactionHash: string;
 }
 
 export interface RegisterAccountWithFungibleTokenOpts {}
@@ -86,7 +86,7 @@ export type ResolveTransactionsFn = (
   hashes: string[]
 ) => Promise<TransactionWithPromiseResult>;
 
-export type DepositFn<T extends string[] | void> = (
+export type DepositFn<T extends string | void> = (
   amount: string,
   tokenAccountId: string
 ) => Promise<T>;
@@ -110,7 +110,7 @@ export interface MallocClient<
   deposit: DepositFn<
     SpecialAccountTypeGeneric extends SpecialAccountConnectedWallet
       ? void
-      : string[]
+      : string
   >;
   resolveTransactions: ResolveTransactionsFn;
   registerAccountWithFungibleToken: RegisterAccountWithFungibleTokenFn;

@@ -91,13 +91,13 @@ export const createMallocClient = async <
           },
         ],
       });
-      return await executeMultipleTx(account, txs);
+      return (await executeMultipleTx(account, txs))[0];
     },
     runEphemeralSplitter: async (splitter, amount, opts?) => {
       // Wait for the deposit transactions to go through
-      if (opts?.depositTx) {
+      if (opts?.depositTransactionHash) {
         const depositResult = await resolveTransactionsWithPromise(
-          [opts.depositTx],
+          [opts.depositTransactionHash],
           account.accountId
         );
         if (

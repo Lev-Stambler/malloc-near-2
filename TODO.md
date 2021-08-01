@@ -1,5 +1,6 @@
 - [x] Add ft_on_transfer to the main contract (to work with ft_transfer_call) which should register how much a user deposited this would then be used and deducted from when a splitter is run
 - [ ] Add a way to refund deposits (i.e. refund whatever deposit is left as the last promise). This may require keeping a mapping of how much a user deposited. (This may require disabling native sends, but idk, maybe they would then have to specify the amount in the args
-- [ ] Figure out how to get all funds out of that WCall
+- [ ] Figure out how to get all funds out of that WCall for ref swap
 - [ ] Have a better setup for testing the WCalls
 - [ ] Scripts for Rust
+- [ ] Basic frontend

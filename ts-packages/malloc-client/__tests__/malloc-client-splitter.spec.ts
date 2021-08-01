@@ -107,6 +107,14 @@ describe("malloc-client's ft capabilities", () => {
       wrappedTesterAccount.accountId,
       wrappedTesterAccount
     );
+
+    // Only deposit 5/6th of the amount because part of it is native near
+    const depositTransactionHash = await malloc.deposit(
+      Math.ceil((amount * 5) / 6).toString(),
+      TestingUtils.WRAP_TESTNET_CONTRACT
+    );
+    const WCALL_SEND_CONTRACT_ID = TestingUtils.getWcallSendContract();
+
     const txRess = await malloc.runEphemeralSplitter(
       {
         splits: [1, 2, 3],
@@ -115,20 +123,27 @@ describe("malloc-client's ft capabilities", () => {
             SimpleTransfer: {
               recipient: alice.accountId,
             },
+          },
+          {
             FTTransfer: {
               recipient: bob.accountId,
             },
           },
           {
-            FTTransfer: {
-              recipient: karen.accountId,
+            WCall: {
+              contract_id: WCALL_SEND_CONTRACT_ID,
+              json_args: JSON.stringify({
+                recipient: bob.accountId,
+              }),
+              gas: WCALL_SIMPLE_GAS.toNumber(),
+              attached_amount: "5",
             },
           },
         ],
         ft_contract_id: TestingUtils.WRAP_TESTNET_CONTRACT,
       },
       amount.toString(),
-      { gas: MAX_GAS }
+      { gas: MAX_GAS, depositTransactionHash }
     );
     console.log(txRess);
     const ret = await malloc.resolveTransactions(txRess);
@@ -192,6 +207,12 @@ describe("malloc-client's ft capabilities", () => {
       wrappedTesterAccount.accountId,
       wrappedTesterAccount
     );
+
+    const depositTransactionHash = await malloc.deposit(
+      amount.toString(),
+      TestingUtils.WRAP_TESTNET_CONTRACT
+    );
+
     const txRess = await malloc.runEphemeralSplitter(
       {
         splits: [3, 1],
@@ -210,7 +231,7 @@ describe("malloc-client's ft capabilities", () => {
         ft_contract_id: TestingUtils.WRAP_TESTNET_CONTRACT,
       },
       amount.toString(),
-      { gas: MAX_GAS }
+      { gas: MAX_GAS, depositTransactionHash }
     );
     console.log(txRess);
     const ret = await malloc.resolveTransactions(txRess);
@@ -275,12 +296,12 @@ describe("malloc-client's ft capabilities", () => {
       wrappedTesterAccount.accountId,
       wrappedTesterAccount
     );
-    const depositTx = (
-      await malloc.deposit(
-        amount.toString(),
-        TestingUtils.WRAP_TESTNET_CONTRACT
-      )
-    )[0];
+
+    const depositTransactionHash = await malloc.deposit(
+      amount.toString(),
+      TestingUtils.WRAP_TESTNET_CONTRACT
+    );
+
     const txRess = await malloc.runEphemeralSplitter(
       {
         splits: [3, 1],
@@ -310,7 +331,7 @@ describe("malloc-client's ft capabilities", () => {
         ft_contract_id: TestingUtils.WRAP_TESTNET_CONTRACT,
       },
       amount.toString(),
-      { gas: MAX_GAS, depositTx }
+      { gas: MAX_GAS, depositTransactionHash }
     );
     const ret = await malloc.resolveTransactions(txRess);
     expect(ret.flag).toBe(TransactionWithPromiseResultFlag.SUCCESS);
@@ -338,9 +359,6 @@ describe("malloc-client's ft capabilities", () => {
   });
 
   afterAll(async () => {
-    // await TestingUtils.cleanUp(
-    //   masterAccount.accountId,
-    //   TOKEN_ACCOUNT_IDS
-    // );
+    await TestingUtils.cleanUp(masterAccount.accountId, TOKEN_ACCOUNT_IDS);
   });
 });
