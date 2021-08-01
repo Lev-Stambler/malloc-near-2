@@ -61,7 +61,7 @@ export const createMallocClient = async <
   return {
     contractAccountId: mallocAccountId,
     resolveTransactions: async (
-      hashes: string[],
+      hashes: string[]
     ): Promise<TransactionWithPromiseResult> => {
       const results = await resolveTransactionsWithPromise(
         hashes,
@@ -75,23 +75,38 @@ export const createMallocClient = async <
         flag: TransactionWithPromiseResultFlag.SUCCESS,
       };
     },
-    runEphemeralSplitter: async (splitter, amount, opts?) => {
-      const prependTx: Transaction[] = [];
-      if (splitter.ft_contract_id)
-        prependTx.push({
-          receiverId: splitter.ft_contract_id,
-          functionCalls: [
-            {
-              methodName: "ft_transfer_call",
-              amount: "1",
-              args: {
-                receiver_id: mallocAccountId,
-                amount: amount.toString(),
-                msg: "",
-              },
+    deposit: async (amount, tokenAccountId) => {
+      const txs = [];
+      txs.push({
+        receiverId: tokenAccountId,
+        functionCalls: [
+          {
+            methodName: "ft_transfer_call",
+            amount: "1",
+            args: {
+              receiver_id: mallocAccountId,
+              amount: amount.toString(),
+              msg: "",
             },
-          ],
-        });
+          },
+        ],
+      });
+      return await executeMultipleTx(account, txs);
+    },
+    runEphemeralSplitter: async (splitter, amount, opts?) => {
+      // Wait for the deposit transactions to go through
+      if (opts?.depositTx) {
+        const depositResult = await resolveTransactionsWithPromise(
+          [opts.depositTx],
+          account.accountId
+        );
+        if (
+          depositResult[0].flag !== TransactionWithPromiseResultFlag.SUCCESS
+        ) {
+          throw MallocErrors.transactionPromiseFailed(depositResult[0].message);
+        }
+      }
+
       const mallocTxs = await runEphemeralSplitter(
         account,
         mallocAccountId,
@@ -99,10 +114,7 @@ export const createMallocClient = async <
         amount,
         opts
       );
-      const txRets = await executeMultipleTx(account, [
-        ...prependTx,
-        ...mallocTxs,
-      ]);
+      const txRets = await executeMultipleTx(account, mallocTxs);
       return txRets;
     },
     registerAccountWithFungibleToken: async (

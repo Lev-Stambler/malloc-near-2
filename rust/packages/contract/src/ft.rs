@@ -3,7 +3,7 @@ use near_sdk::{json_types::U128, AccountId};
 use crate::{AccountBalance, Contract, errors::{Errors, throw_err}};
 
 pub trait FungibleTokenHandlers {
-    fn ft_on_transfer(&mut self, sender_id: String, amount: String, msg: String);
+    fn ft_on_transfer(&mut self, sender_id: String, amount: String, msg: String) -> String;
     fn get_ft_balance(&self, account_id: AccountId, contract_id: AccountId) -> U128;
 }
 

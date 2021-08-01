@@ -9,37 +9,36 @@ import BN from "bn.js";
 import { wrap } from "module";
 import { MAX_GAS } from "../lib/tx";
 import { WCALL_SIMPLE_GAS } from "../../testing-utils/lib/testing-utils";
+import { Account } from "near-api-js";
 
 let malloc: MallocClient.MallocClient<MallocClient.SpecialAccountWithKeyPair>;
 const TOKEN_ACCOUNT_IDS = [
   TestingUtils.WRAP_TESTNET_CONTRACT,
   "ndai.ft-fin.testnet",
 ];
-let wrappedAccount: MallocClient.SpecialAccountWithKeyPair;
+let masterAccount: Account;
+let wrappedTesterAccount: MallocClient.SpecialAccountWithKeyPair;
 
 describe("malloc-client's ft capabilities", () => {
   jest.setTimeout(60 * 1000);
   beforeAll(async () => {
-    const account = await TestingUtils.getDefaultTesterAccountNear();
-    wrappedAccount = MallocClient.wrapAccount(
-      account,
-      SpecialAccountType.KeyPair,
-      TestingUtils.getDefaultTesterKeypair()
-    ) as MallocClient.SpecialAccountWithKeyPair;
+    masterAccount = await TestingUtils.getDefaultTesterAccountNear();
+    const testerAccount = await TestingUtils.newRandAccount(masterAccount);
+    wrappedTesterAccount = testerAccount;
     malloc = await MallocClient.createMallocClient(
-      wrappedAccount,
+      wrappedTesterAccount,
       TestingUtils.getMallocContract()
     );
   });
 
   it("should send native tokens to 3 separate user accounts", async () => {
-    const alice = await TestingUtils.newRandAccount(wrappedAccount);
+    const alice = await TestingUtils.newRandAccount(masterAccount);
     const aliceBal = (await alice.getAccountBalance()).total;
 
-    const bob = await TestingUtils.newRandAccount(wrappedAccount);
+    const bob = await TestingUtils.newRandAccount(masterAccount);
     const bobBal = (await bob.getAccountBalance()).total;
 
-    const karen = await TestingUtils.newRandAccount(wrappedAccount);
+    const karen = await TestingUtils.newRandAccount(masterAccount);
     const karenBal = (await karen.getAccountBalance()).total;
 
     const txHashes = await malloc.runEphemeralSplitter(
@@ -69,16 +68,16 @@ describe("malloc-client's ft capabilities", () => {
     );
   });
 
-  it("should send send Native Near, Wrapped Near with a malloc call, and wrapped near with a native call", async () => {
+  it("should send send Native Near, Wrapped Near with a wrapped call, and wrapped near with a native call", async () => {
     const amount = 600;
-    const alice = await TestingUtils.newRandAccount(wrappedAccount);
-    const bob = await TestingUtils.newRandAccount(wrappedAccount);
-    const karen = await TestingUtils.newRandAccount(wrappedAccount);
+    const alice = await TestingUtils.newRandAccount(masterAccount);
+    const bob = await TestingUtils.newRandAccount(masterAccount);
+    const karen = await TestingUtils.newRandAccount(masterAccount);
 
     await TestingUtils.setupWNearAccount(
       TestingUtils.WRAP_TESTNET_CONTRACT,
-      wrappedAccount.accountId,
-      wrappedAccount,
+      wrappedTesterAccount.accountId,
+      wrappedTesterAccount,
       true,
       amount + 20
     );
@@ -88,7 +87,7 @@ describe("malloc-client's ft capabilities", () => {
         alice.accountId,
         bob.accountId,
         karen.accountId,
-        wrappedAccount.accountId,
+        wrappedTesterAccount.accountId,
         malloc.contractAccountId,
       ]
     );
@@ -96,17 +95,17 @@ describe("malloc-client's ft capabilities", () => {
     const karenBal = await TestingUtils.ftBalOf(
       TestingUtils.WRAP_TESTNET_CONTRACT,
       karen.accountId,
-      wrappedAccount
+      wrappedTesterAccount
     );
     const bobBal = await TestingUtils.ftBalOf(
       TestingUtils.WRAP_TESTNET_CONTRACT,
       bob.accountId,
-      wrappedAccount
+      wrappedTesterAccount
     );
     const myBal = await TestingUtils.ftBalOf(
       TestingUtils.WRAP_TESTNET_CONTRACT,
-      wrappedAccount.accountId,
-      wrappedAccount
+      wrappedTesterAccount.accountId,
+      wrappedTesterAccount
     );
     const txRess = await malloc.runEphemeralSplitter(
       {
@@ -139,17 +138,17 @@ describe("malloc-client's ft capabilities", () => {
     const newbobBal = await TestingUtils.ftBalOf(
       TestingUtils.WRAP_TESTNET_CONTRACT,
       bob.accountId,
-      wrappedAccount
+      wrappedTesterAccount
     );
     const newmyBal = await TestingUtils.ftBalOf(
       TestingUtils.WRAP_TESTNET_CONTRACT,
-      wrappedAccount.accountId,
-      wrappedAccount
+      wrappedTesterAccount.accountId,
+      wrappedTesterAccount
     );
     const newkarenBal = await TestingUtils.ftBalOf(
       TestingUtils.WRAP_TESTNET_CONTRACT,
       karen.accountId,
-      wrappedAccount
+      wrappedTesterAccount
     );
     TestingUtils.checkBalDifferences(aliceBal, newaliceBal, 100, expect);
     TestingUtils.checkBalDifferences(bobBal, newbobBal, 200, expect);
@@ -159,13 +158,13 @@ describe("malloc-client's ft capabilities", () => {
 
   it("should send Wrapped Near using the native transfer", async () => {
     const amount = 600;
-    const alice = await TestingUtils.newRandAccount(wrappedAccount);
-    const bob = await TestingUtils.newRandAccount(wrappedAccount);
+    const alice = await TestingUtils.newRandAccount(masterAccount);
+    const bob = await TestingUtils.newRandAccount(masterAccount);
 
     await TestingUtils.setupWNearAccount(
       TestingUtils.WRAP_TESTNET_CONTRACT,
-      wrappedAccount.accountId,
-      wrappedAccount,
+      wrappedTesterAccount.accountId,
+      wrappedTesterAccount,
       true,
       amount + 20
     );
@@ -174,24 +173,24 @@ describe("malloc-client's ft capabilities", () => {
       [
         alice.accountId,
         bob.accountId,
-        wrappedAccount.accountId,
+        wrappedTesterAccount.accountId,
         malloc.contractAccountId,
       ]
     );
     const aliceBal = await TestingUtils.ftBalOf(
       TestingUtils.WRAP_TESTNET_CONTRACT,
       alice.accountId,
-      wrappedAccount
+      wrappedTesterAccount
     );
     const bobBal = await TestingUtils.ftBalOf(
       TestingUtils.WRAP_TESTNET_CONTRACT,
       bob.accountId,
-      wrappedAccount
+      wrappedTesterAccount
     );
     const myBal = await TestingUtils.ftBalOf(
       TestingUtils.WRAP_TESTNET_CONTRACT,
-      wrappedAccount.accountId,
-      wrappedAccount
+      wrappedTesterAccount.accountId,
+      wrappedTesterAccount
     );
     const txRess = await malloc.runEphemeralSplitter(
       {
@@ -220,17 +219,17 @@ describe("malloc-client's ft capabilities", () => {
     const newaliceBal = await TestingUtils.ftBalOf(
       TestingUtils.WRAP_TESTNET_CONTRACT,
       alice.accountId,
-      wrappedAccount
+      wrappedTesterAccount
     );
     const newbobBal = await TestingUtils.ftBalOf(
       TestingUtils.WRAP_TESTNET_CONTRACT,
       bob.accountId,
-      wrappedAccount
+      wrappedTesterAccount
     );
     const newmyBal = await TestingUtils.ftBalOf(
       TestingUtils.WRAP_TESTNET_CONTRACT,
-      wrappedAccount.accountId,
-      wrappedAccount
+      wrappedTesterAccount.accountId,
+      wrappedTesterAccount
     );
     TestingUtils.checkBalDifferences(aliceBal, newaliceBal, 450, expect);
     TestingUtils.checkBalDifferences(bobBal, newbobBal, 150, expect);
@@ -241,13 +240,13 @@ describe("malloc-client's ft capabilities", () => {
     const WCALL_SEND_CONTRACT_ID = TestingUtils.getWcallSendContract();
 
     const amount = 600;
-    const alice = await TestingUtils.newRandAccount(wrappedAccount);
-    const bob = await TestingUtils.newRandAccount(wrappedAccount);
+    const alice = await TestingUtils.newRandAccount(masterAccount);
+    const bob = await TestingUtils.newRandAccount(masterAccount);
 
     await TestingUtils.setupWNearAccount(
       TestingUtils.WRAP_TESTNET_CONTRACT,
-      wrappedAccount.accountId,
-      wrappedAccount,
+      wrappedTesterAccount.accountId,
+      wrappedTesterAccount,
       true,
       amount + 20
     );
@@ -256,7 +255,7 @@ describe("malloc-client's ft capabilities", () => {
       [
         alice.accountId,
         bob.accountId,
-        wrappedAccount.accountId,
+        wrappedTesterAccount.accountId,
         malloc.contractAccountId,
         WCALL_SEND_CONTRACT_ID,
       ]
@@ -264,18 +263,24 @@ describe("malloc-client's ft capabilities", () => {
     const aliceBal = await TestingUtils.ftBalOf(
       TestingUtils.WRAP_TESTNET_CONTRACT,
       alice.accountId,
-      wrappedAccount
+      wrappedTesterAccount
     );
     const bobBal = await TestingUtils.ftBalOf(
       TestingUtils.WRAP_TESTNET_CONTRACT,
       bob.accountId,
-      wrappedAccount
+      wrappedTesterAccount
     );
     const myBal = await TestingUtils.ftBalOf(
       TestingUtils.WRAP_TESTNET_CONTRACT,
-      wrappedAccount.accountId,
-      wrappedAccount
+      wrappedTesterAccount.accountId,
+      wrappedTesterAccount
     );
+    const depositTx = (
+      await malloc.deposit(
+        amount.toString(),
+        TestingUtils.WRAP_TESTNET_CONTRACT
+      )
+    )[0];
     const txRess = await malloc.runEphemeralSplitter(
       {
         splits: [3, 1],
@@ -305,39 +310,37 @@ describe("malloc-client's ft capabilities", () => {
         ft_contract_id: TestingUtils.WRAP_TESTNET_CONTRACT,
       },
       amount.toString(),
-      { gas: MAX_GAS }
+      { gas: MAX_GAS, depositTx }
     );
     const ret = await malloc.resolveTransactions(txRess);
     expect(ret.flag).toBe(TransactionWithPromiseResultFlag.SUCCESS);
 
-    console.log("AAA")
+    console.log("AAA", ret.flag);
     const newaliceBal = await TestingUtils.ftBalOf(
       TestingUtils.WRAP_TESTNET_CONTRACT,
       alice.accountId,
-      wrappedAccount
+      wrappedTesterAccount
     );
-    console.log("AddAA")
     const newbobBal = await TestingUtils.ftBalOf(
       TestingUtils.WRAP_TESTNET_CONTRACT,
       bob.accountId,
-      wrappedAccount
+      wrappedTesterAccount
     );
-    console.log("AdaaadAA")
     const newmyBal = await TestingUtils.ftBalOf(
       TestingUtils.WRAP_TESTNET_CONTRACT,
-      wrappedAccount.accountId,
-      wrappedAccount
+      wrappedTesterAccount.accountId,
+      wrappedTesterAccount
     );
-    console.log("AdallapaadAA")
+    console.log("NEW BALS", newaliceBal, newbobBal, newmyBal);
     TestingUtils.checkBalDifferences(aliceBal, newaliceBal, 450, expect);
-    console.log("AdaaaqwdAA")
     TestingUtils.checkBalDifferences(bobBal, newbobBal, 150, expect);
-    console.log("AdaaadsqpAA")
     TestingUtils.checkBalDifferences(myBal, newmyBal, -600, expect);
-    console.log("lllll")
   });
 
   afterAll(async () => {
-    await TestingUtils.cleanUp(wrappedAccount.accountId, TOKEN_ACCOUNT_IDS);
+    // await TestingUtils.cleanUp(
+    //   masterAccount.accountId,
+    //   TOKEN_ACCOUNT_IDS
+    // );
   });
 });

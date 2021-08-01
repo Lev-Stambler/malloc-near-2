@@ -11,7 +11,7 @@ use near_sdk::{
     env, ext_contract, log, near_bindgen, serde, setup_alloc, AccountId, Gas, PanicOnDefault,
     Promise,
 };
-use wcall_core::WCall;
+use wcall_core::WCallEndpoint;
 
 setup_alloc!();
 
@@ -28,7 +28,14 @@ pub struct SendArgs {
 pub struct Contract {}
 
 #[near_bindgen]
-impl WCall<SendArgs> for Contract {
+impl WCallEndpoint<SendArgs> for Contract {
+    fn metadata(&self) -> wcall_core::WCallEndpointMetadata {
+        wcall_core::WCallEndpointMetadata {
+            minimum_gas: None,
+            minimum_attached_deposit: Some(1.into()),
+        }
+    }
+
     #[payable]
     fn wcall(&mut self, args: SendArgs, amount: String, token_contract: AccountId) -> Promise {
         let json_args = json!({"receiver_id": args.recipient, "amount": amount});

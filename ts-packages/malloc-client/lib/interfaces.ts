@@ -58,6 +58,7 @@ export interface FunctionCallOptions extends ViewFunctionOpts {
 
 export interface RunEphemeralOpts {
   gas: BigNumberish;
+  depositTx: string;
 }
 
 export interface RegisterAccountWithFungibleTokenOpts {}
@@ -82,13 +83,34 @@ export type RegisterAccountWithFungibleTokenFn = (
 
 // TODO: what do we want this return to be?
 export type ResolveTransactionsFn = (
-  hashes: string[],
+  hashes: string[]
 ) => Promise<TransactionWithPromiseResult>;
 
-export interface MallocClient<T extends SpecialAccount> {
+export type DepositFn<T extends string[] | void> = (
+  amount: string,
+  tokenAccountId: string
+) => Promise<T>;
+
+/**
+ * MallocClient is the for interacting with the set of Malloc Contracts via the Malloc SDK
+ *
+ * @param SpecialAccountTypeGeneric the type of special account. If the special account is a web connected wallet, then
+ * deposit and runEphemeralSplitter do not return. If they are accounts derived from a key pair, then they return the transaction's hashes
+ *
+ */
+export interface MallocClient<
+  SpecialAccountTypeGeneric extends SpecialAccount
+> {
   contractAccountId: AccountId;
   runEphemeralSplitter: CallEphemeralFn<
-    T extends SpecialAccountConnectedWallet ? void : string[]
+    SpecialAccountTypeGeneric extends SpecialAccountConnectedWallet
+      ? void
+      : string[]
+  >;
+  deposit: DepositFn<
+    SpecialAccountTypeGeneric extends SpecialAccountConnectedWallet
+      ? void
+      : string[]
   >;
   resolveTransactions: ResolveTransactionsFn;
   registerAccountWithFungibleToken: RegisterAccountWithFungibleTokenFn;

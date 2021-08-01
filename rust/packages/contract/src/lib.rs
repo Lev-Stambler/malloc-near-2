@@ -108,7 +108,7 @@ impl SplitterTrait for Contract {
 impl FungibleTokenHandlers for Contract {
 
     #[payable]
-    fn ft_on_transfer(&mut self, sender_id: String, amount: String, msg: String) {
+    fn ft_on_transfer(&mut self, sender_id: String, amount: String, msg: String) -> String {
         let mut balances = self
             .account_id_to_ft_balances
             .get(&sender_id)
@@ -129,6 +129,7 @@ impl FungibleTokenHandlers for Contract {
             }
         };
         self.account_id_to_ft_balances.insert(&sender_id, &balances);
+        "0".to_string()
     }
 
     fn get_ft_balance(&self, account_id: AccountId, contract_id: AccountId) -> U128 {

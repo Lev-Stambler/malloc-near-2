@@ -47,13 +47,17 @@ const getAttachedDeposit = async (
   amount: BN
 ): Promise<BN> => {
   const totalSplits = sumSplits(splitter.splits);
-  splitter.nodes.map((endpoint, i) => {
-    const amountForEndpoint = amount
-      .mul(new BN(splitter.splits[i]))
-      .div(totalSplits);
-    return getNodeAttachedDeposit(callerAccount, endpoint, amountForEndpoint);
-  });
-  return new BN(0);
+  const nodeAttachedDeposits = await Promise.all(
+    splitter.nodes.map((endpoint, i) => {
+      const amountForEndpoint = amount
+        .mul(new BN(splitter.splits[i]))
+        .div(totalSplits);
+      return getNodeAttachedDeposit(callerAccount, endpoint, amountForEndpoint);
+    })
+  );
+  const add = (a: BN, b: BN) => a.add(b);
+  const nodesSummed = nodeAttachedDeposits.reduce(add, new BN(0));
+  return nodesSummed
 };
 
 export const runEphemeralSplitter = async (

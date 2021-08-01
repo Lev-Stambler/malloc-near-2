@@ -1,5 +1,8 @@
-use near_sdk::{AccountId, Promise, json_types::U128};
+use near_sdk::serde::{Deserialize, Serialize};
+use near_sdk::{json_types::U128, AccountId, Promise};
 
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
 pub struct WCallEndpointMetadata {
     pub minimum_gas: Option<U128>,
     pub minimum_attached_deposit: Option<U128>,

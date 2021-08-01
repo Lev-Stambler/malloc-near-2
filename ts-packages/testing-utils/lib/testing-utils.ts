@@ -17,11 +17,12 @@ import {
   BigNumberish,
   SpecialAccount,
   SpecialAccountType,
+  SpecialAccountWithKeyPair,
 } from "../../malloc-client/lib/interfaces";
 import { wrapAccount } from "../../malloc-client/lib/malloc-client";
 import tester from "./tester.json";
 
-const generatedAccounts: Account[] = [];
+let generatedAccounts: Account[] = [];
 export const rpcNode = "https://rpc.testnet.near.org";
 export const MAX_GAS = new BN("300000000000000");
 const NEW_ACCOUNT_STORAGE_COST = utils.format.parseNearAmount("0.00125");
@@ -154,15 +155,16 @@ export const setupWNearAccount = async (
 };
 
 export const newRandAccount = async (
-  masterAccount: Account
-): Promise<SpecialAccount> => {
+  masterAccount?: Account
+): Promise<SpecialAccountWithKeyPair> => {
+  let _masterAccount = masterAccount ?? (await getDefaultTesterAccountNear());
   const randName = Math.random();
   // remove the 0.
   const newAccountId = `${randName.toString().substr(2)}.${
-    masterAccount.accountId
+    _masterAccount.accountId
   }`;
   const kp = KeyPairEd25519.fromRandom();
-  await masterAccount.createAccount(
+  await _masterAccount.createAccount(
     newAccountId,
     kp.getPublicKey(),
     new BN(utils.format.parseNearAmount("0.5") as string)
@@ -174,7 +176,11 @@ export const newRandAccount = async (
   const account = await near.account(newAccountId);
   console.log("Created account", newAccountId);
   generatedAccounts.push(account);
-  return wrapAccount(account, SpecialAccountType.KeyPair, kp);
+  return wrapAccount(
+    account,
+    SpecialAccountType.KeyPair,
+    kp
+  ) as SpecialAccountWithKeyPair;
 };
 
 export const getResults = async (txHash: string, accountId: string) => {
@@ -209,6 +215,7 @@ export const cleanUp = async (
       generatedAccounts.map((account) => account.deleteAccount(beneficiaryId))
     );
   } catch (e) {}
+  generatedAccounts = []
 };
 
 export const addBigNumberish = (
