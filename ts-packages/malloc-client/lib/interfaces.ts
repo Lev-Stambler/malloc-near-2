@@ -39,6 +39,7 @@ export interface MallocContract extends Contract {
 export interface WCallEndpointMetadata {
   minimum_gas?: BN;
   minimum_attached_deposit?: BN;
+  name: string;
 }
 
 export interface Transaction {

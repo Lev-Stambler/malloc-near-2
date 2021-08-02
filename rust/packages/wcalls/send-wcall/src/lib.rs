@@ -33,6 +33,7 @@ impl WCallEndpoint<SendArgs> for Contract {
         wcall_core::WCallEndpointMetadata {
             minimum_gas: None,
             minimum_attached_deposit: Some(1.into()),
+            name: "Send Fungible Tokens".to_string(),
         }
     }
 

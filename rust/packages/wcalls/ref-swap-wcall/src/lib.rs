@@ -147,6 +147,7 @@ impl WCallEndpoint<RefSwapArgs> for Contract {
     }
     fn metadata(&self) -> wcall_core::WCallEndpointMetadata {
         wcall_core::WCallEndpointMetadata {
+            name: "Ref Dex Swap".to_string(),
             minimum_attached_deposit: Some(15.into()),
             minimum_gas: None,
         }

@@ -4,6 +4,7 @@ use near_sdk::{json_types::U128, AccountId, Promise};
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct WCallEndpointMetadata {
+    pub name: String,
     pub minimum_gas: Option<U128>,
     pub minimum_attached_deposit: Option<U128>,
 }

@@ -26,15 +26,10 @@ interface MallocClientOpts {}
 
 const mallocClientDefaultOpts: MallocClientOpts = {};
 
-export {
-  MallocClient,
-  SpecialAccountType,
-  SpecialAccountConnectedWallet,
-  SpecialAccountWithKeyPair,
-} from "./interfaces";
+export * from "./interfaces";
 
-export const wrapAccount = (
-  account: Account | ConnectedWalletAccount,
+export const wrapAccount = <T>(
+  account: T,
   type: SpecialAccountType,
   keypair?: KeyPair
 ): SpecialAccount => {
@@ -44,9 +39,11 @@ export const wrapAccount = (
         throw "A keypair is expected for wrapping a wallet with type Key Pair";
       (account as any).type = SpecialAccountType.KeyPair;
       (account as any).keypair = keypair;
+      // @ts-ignore
       return account as SpecialAccountWithKeyPair;
     case SpecialAccountType.WebConnected:
       (account as any).type = SpecialAccountType.WebConnected;
+      // @ts-ignore
       return account as SpecialAccountConnectedWallet;
   }
 };

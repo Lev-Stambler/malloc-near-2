@@ -1,4 +1,5 @@
 import type { Contract, WalletConnection } from "near-api-js";
+import { SpecialAccountConnectedWallet } from "../../malloc-client/lib/interfaces";
 
 type BigNumberish = number | string;
 type AccountId = string;
@@ -32,6 +33,7 @@ declare global {
   interface Window {
     contract: MallocContract;
     walletConnection: WalletConnection;
+    account: SpecialAccountConnectedWallet;
     accountId: AccountId;
     nearInitPromise: Promise<void>;
   }

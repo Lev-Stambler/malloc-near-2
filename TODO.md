@@ -4,3 +4,4 @@
 - [ ] Have a better setup for testing the WCalls
 - [ ] Scripts for Rust
 - [ ] Basic frontend
+- [ ] Disable native and wrapped call txs in the same splitter. Its j plane confusing

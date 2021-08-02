@@ -1,10 +1,16 @@
 import {
   connect,
+  ConnectedWalletAccount,
   Contract,
   keyStores,
   providers,
   WalletConnection,
 } from "near-api-js";
+import {
+  SpecialAccountConnectedWallet,
+  SpecialAccountType,
+  wrapAccount,
+} from "../../malloc-client/lib/malloc-client";
 import getConfig, { env, Env } from "./config";
 import { MallocContract } from "./types";
 
@@ -27,6 +33,10 @@ export async function initContract() {
   // Initializing Wallet based Account. It can work with NEAR testnet wallet that
   // is hosted at https://wallet.testnet.near.org
   window.walletConnection = new WalletConnection(near, "Malloc");
+  window.account = wrapAccount<ConnectedWalletAccount>(
+    window.walletConnection.account(),
+    SpecialAccountType.WebConnected
+  ) as SpecialAccountConnectedWallet;
 
   // Getting the Account ID. If still unauthorized, it's just empty string
   window.accountId = window.walletConnection.getAccountId();

@@ -21,7 +21,7 @@ type DevDeployOpts = {
 };
 
 const getContractDir = (packageDir: string): string =>
-  join(__dirname, "../../packages", packageDir);
+  join(__dirname, "../packages", packageDir);
 
 const getPackageName = (contractDir: string) => {
   const match = readFileSync(`${contractDir}/Cargo.toml`)
@@ -52,7 +52,7 @@ export const devDeploy = (projectDir: string, opts?: DevDeployOpts) => {
       opts.callNew.caller
     } '${JSON.stringify(opts.callNew.args)}'`;
     try {
-			// TODO: get stderr return and check
+      // TODO: get stderr return and check
       const { code } = sh.exec(newCmd);
     } catch (e) {
       if (
@@ -84,30 +84,21 @@ export const buildAndSimLink = (projectDir: string) => {
   // Execute the build command, storing exit code for later use
   const { code } = sh.exec(buildCmd);
 
-  // Assuming this is compiled from the root project directory, link the compiled
-  // contract to the `out` folder –
-  // When running commands like `near deploy`, near-cli looks for a contract at
-  // <CURRENT_DIRECTORY>/out/main.wasm
-  // TODO: do we want this?
-  // if (code === 0 && calledFromDir !== contractDir) {
-  //   const linkDir = `${calledFromDir}/out`;
-  //   const link = `${calledFromDir}/out/main.wasm`;
-  //   const packageName = require("fs")
-  //     .readFileSync(`${contractDir}/Cargo.toml`)
-  //     .toString()
-  //     .match(/name = "([^"]+)"/)[1];
-  //   const outFile = join(
-  //     contractDir,
-  //     `./target/wasm32-unknown-unknown/${
-  //       debug ? "debug" : "release"
-  //     }/${packageName}.wasm`
-  //   );
-  //   sh.mkdir("-p", linkDir);
-  //   sh.rm("-f", link);
-  //   //fixes #831: copy-update instead of linking .- sometimes sh.ln does not work on Windows
-  //   sh.cp("-u", outFile, link);
-  // }
-
-  // exit script with the same code as the build command
-  process.exit(code);
+  if (code !== 0) process.exit(code);
 };
+
+if (require.main === module) {
+  const projectDir = process.argv.pop();
+  if (!projectDir)
+    throw "Expected the last command line argument to be the package's directory";
+  buildAndSimLink(projectDir);
+  devDeploy(projectDir, {
+    // callNew: {
+    //   caller: "levtester.testnet",
+    //   args: { ref_finance: "ref-finance.testnet" },
+    // },
+  });
+}
+
+// TODO: add structured CLI with init commands
+// TODO: use https://oclif.io/docs/single
