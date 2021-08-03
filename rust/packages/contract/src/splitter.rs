@@ -2,7 +2,7 @@ use near_sdk::{env, log, serde_json::json, AccountId, Promise};
 
 use crate::{
     errors::{throw_err, Errors},
-    Contract, Endpoint, Splitter, BASIC_GAS,
+    Contract, Node, Splitter, BASIC_GAS,
 };
 
 impl Contract {
@@ -15,7 +15,7 @@ impl Contract {
     /// This call on _run assumes a well formed splitter
     /// Returns a refunded amount
     pub(crate) fn _run(&mut self, splitter: Splitter, amount: u128) -> (Promise, u128) {
-        let numb_endpoints = splitter.endpoints.len();
+        let numb_endpoints = splitter.children.len();
         if numb_endpoints < 1 {
             throw_err(Errors::NoEndpointsSpecified);
         }
@@ -51,7 +51,7 @@ impl Contract {
         );
         let prom = self.handle_endpoint(
             transfer_amount,
-            splitter.endpoints.get(i).unwrap(),
+            splitter.children.get(i).unwrap(),
             &splitter.ft_contract_id,
         );
         let next_prom = match prior_prom {
@@ -71,37 +71,38 @@ impl Contract {
     fn handle_endpoint(
         &mut self,
         amount: u128,
-        endpoint: Endpoint,
-        token_contract_id: &Option<AccountId>,
+        endpoint: Node,
+        token_contract_id: &AccountId,
     ) -> Promise {
         match endpoint {
-            Endpoint::SimpleTransfer { recipient } => Promise::new(recipient).transfer(amount),
-            Endpoint::FTTransfer { recipient } => {
-                let ft_transfer_method_name = "ft_transfer".to_string().into_bytes();
-                let transfer_data = Self::get_transfer_data(recipient, amount.to_string());
+            // Node::SimpleTransfer { recipient } => Promise::new(recipient).transfer(amount),
+            // Node::FTTransfer { recipient } => {
+            //     let ft_transfer_method_name = "ft_transfer".to_string().into_bytes();
+            //     let transfer_data = Self::get_transfer_data(recipient, amount.to_string());
 
-                self.subtract_contract_bal_from_user(
-                    env::predecessor_account_id(),
-                    token_contract_id.clone().unwrap(),
-                    amount,
-                );
-                Promise::new(token_contract_id.clone().unwrap()).function_call(
-                    ft_transfer_method_name,
-                    transfer_data,
-                    1,
-                    BASIC_GAS,
-                )
-            }
-            Endpoint::WCall {
+            //     self.subtract_contract_bal_from_user(
+            //         env::predecessor_account_id(),
+            //         token_contract_id.clone().unwrap(),
+            //         amount,
+            //     );
+            //     Promise::new(token_contract_id.clone().unwrap()).function_call(
+            //         ft_transfer_method_name,
+            //         transfer_data,
+            //         1,
+            //         BASIC_GAS,
+            //     )
+            // }
+            Node::MallocCall {
                 contract_id,
                 json_args,
                 attached_amount,
                 gas,
+                next_spitters,
             } => {
                 // TODO: we need a smart way of doing gas for these wcalls...
                 // Maybe each could have metadata or something
                 let ft_transfer_method_name = "ft_transfer".to_string().into_bytes();
-                let token_contract_id = token_contract_id.clone().unwrap();
+                let token_contract_id = token_contract_id.clone();
                 let transfer_data =
                     Self::get_transfer_data(contract_id.clone(), amount.to_string());
                 let wcall_data = format!(

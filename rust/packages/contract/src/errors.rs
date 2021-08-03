@@ -5,11 +5,13 @@ pub enum Errors {
     MoreUsedThanAllowed,
     NumbEndpointsDneNumbSplits,
     CalleeDidNotDepositSufficientFunds,
+    FailedToParseSplitter,
 }
 
 impl ToString for Errors {
     fn to_string(&self) -> String {
         match self {
+            Self::FailedToParseSplitter => "Failed to parse the splitter string".to_string(),
             Self::NoEndpointsSpecified => "At least one endpoint must be specified".to_string(),
             Self::MoreUsedThanAllowed => {
                 "More currency was used than specified by the call".to_string()

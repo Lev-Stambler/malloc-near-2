@@ -1,12 +1,31 @@
 use crate::{
     errors::{throw_err, Errors},
-    Contract, SerializedSplitter, Splitter,
+    Contract, Node, SerializedNode, SerializedSplitter, Splitter,
 };
 use near_sdk::{borsh::BorshSerialize, collections::Vector, env};
 
 impl Contract {
+    pub(crate) fn deserialize_node(serialized: SerializedNode, prefix_base: &str) -> Node {
+        let node_prefix = format!("{}-node", prefix_base);
+        match serialized {
+            SerializedNode::MallocCall {
+                contract_id,
+                json_args,
+                attached_amount,
+                gas,
+                next_spitters,
+            } => Node::MallocCall {
+                contract_id,
+                json_args,
+                attached_amount: attached_amount.into(),
+                gas,
+                next_spitters: Contract::vec_to_vector(next_spitters, node_prefix.as_bytes()),
+            },
+        }
+    }
+
     pub(crate) fn deserialize(&self, splitter: SerializedSplitter, ephemeral: bool) -> Splitter {
-        if splitter.splits.len() != splitter.nodes.len() {
+        if splitter.splits.len() != splitter.children.len() {
             throw_err(Errors::NumbEndpointsDneNumbSplits);
         }
         let owner = env::predecessor_account_id();
@@ -20,9 +39,19 @@ impl Contract {
         let node_prefix = format!("{}-nodes", prefix_base);
         let splits_prefix = format!("{}-splits", prefix_base);
         let split_sum = splitter.splits.iter().fold(0, |a, b| a + *b);
+
+        let mut children_deserial = Vector::new(node_prefix.as_bytes());
+
+        for i in 0..splitter.children.len() {
+            children_deserial.push(&Contract::deserialize_node(
+                splitter.children[i].clone(),
+                &format!("node-child-{}", i),
+            ));
+        }
+
         Splitter {
             split_sum: split_sum,
-            endpoints: Contract::vec_to_vector(splitter.nodes, node_prefix.as_bytes()),
+            children: children_deserial,
             splits: Contract::vec_to_vector(splitter.splits, splits_prefix.as_bytes()),
             owner,
             ft_contract_id: splitter.ft_contract_id,
@@ -40,7 +69,7 @@ impl Contract {
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
-    use crate::{Endpoint, SerializedSplitter, SplitterTrait};
+    use crate::{Node, SerializedSplitter, SplitterTrait};
 
     use super::*;
     use near_sdk::env::predecessor_account_id;
@@ -70,11 +99,15 @@ mod tests {
         let contract = Contract::new();
 
         let splitter = SerializedSplitter {
-            nodes: vec![Endpoint::FTTransfer {
-                recipient: accounts(3).to_string(),
+            children: vec![SerializedNode::MallocCall {
+                contract_id: "AA".to_string(),
+                json_args: "{}".to_string(),
+                gas: 128,
+                attached_amount: 10.into(),
+                next_spitters: vec![],
             }],
             splits: vec![100, 20],
-            ft_contract_id: Some(accounts(0).to_string()),
+            ft_contract_id: accounts(0).to_string(),
         };
         contract.deserialize(splitter, true);
     }
@@ -85,9 +118,9 @@ mod tests {
         let contract = Contract::new();
 
         let splitter = SerializedSplitter {
-            nodes: vec![],
+            children: vec![],
             splits: vec![],
-            ft_contract_id: Some(accounts(0).to_string()),
+            ft_contract_id: accounts(0).to_string(),
         };
         contract.deserialize(splitter, true);
     }
@@ -100,22 +133,30 @@ mod tests {
         let contract = Contract::new();
 
         let splitter = SerializedSplitter {
-            nodes: vec![
-                Endpoint::FTTransfer {
-                    recipient: accounts(3).to_string(),
+            children: vec![
+                SerializedNode::MallocCall {
+                    contract_id: "AA".to_string(),
+                    json_args: "{}".to_string(),
+                    gas: 128,
+                    attached_amount: 10.into(),
+                    next_spitters: vec![],
                 },
-                Endpoint::FTTransfer {
-                    recipient: accounts(3).to_string(),
+                SerializedNode::MallocCall {
+                    contract_id: "AA".to_string(),
+                    json_args: "{}".to_string(),
+                    gas: 128,
+                    attached_amount: 10.into(),
+                    next_spitters: vec![],
                 },
             ],
             splits: vec![20, 100],
-            ft_contract_id: Some(accounts(4).to_string()),
+            ft_contract_id: accounts(4).to_string(),
         };
         let deserial = contract.deserialize(splitter, true);
         assert_eq!(deserial.owner.to_string(), accounts(0).to_string());
-        assert_eq!(deserial.ft_contract_id.unwrap(), accounts(4).to_string());
+        assert_eq!(deserial.ft_contract_id, accounts(4).to_string());
         assert_eq!(deserial.split_sum, 120);
-        assert_eq!(deserial.endpoints.len(), 2);
+        assert_eq!(deserial.children.len(), 2);
         assert_eq!(deserial.splits.len(), 2);
         assert_eq!(deserial.splits.to_vec(), vec![20, 100]);
     }

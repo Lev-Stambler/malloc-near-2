@@ -22,9 +22,7 @@ use near_sdk::env::predecessor_account_id;
 use near_sdk::json_types::{ValidAccountId, U128};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::serde_json::json;
-use near_sdk::{
-    env, near_bindgen, serde, setup_alloc, AccountId, Gas, PanicOnDefault, Promise,
-};
+use near_sdk::{env, near_bindgen, serde, setup_alloc, AccountId, Gas, PanicOnDefault, Promise};
 
 use crate::errors::{throw_err, Errors};
 
@@ -37,38 +35,56 @@ setup_alloc!();
 
 const BASIC_GAS: Gas = 5_000_000_000_000;
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone)]
 #[serde(crate = "near_sdk::serde")]
-pub enum Endpoint {
-    SimpleTransfer {
-        recipient: AccountId,
-    },
-    FTTransfer {
-        recipient: AccountId,
-    },
-    WCall {
+pub enum SerializedNode {
+    // SimpleTransfer {
+    //     recipient: AccountId,
+    // },
+    // FTTransfer {
+    //     recipient: AccountId,
+    // },
+    MallocCall {
         contract_id: AccountId,
         json_args: String,
         gas: Gas,
         attached_amount: U128,
+        next_spitters: Vec<usize>,
+    },
+}
+
+#[derive(BorshDeserialize, BorshSerialize)]
+pub enum Node {
+    // SimpleTransfer {
+    //     recipient: AccountId,
+    // },
+    // FTTransfer {
+    //     recipient: AccountId,
+    // },
+    MallocCall {
+        contract_id: AccountId,
+        json_args: String,
+        gas: Gas,
+        attached_amount: U128,
+        next_spitters: Vector<usize>,
     },
 }
 
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct Splitter {
-    endpoints: Vector<Endpoint>,
+    children: Vector<Node>,
     splits: Vector<u128>,
     owner: AccountId,
     split_sum: u128,
-    ft_contract_id: Option<AccountId>,
+    ft_contract_id: AccountId,
 }
 
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct SerializedSplitter {
-    nodes: Vec<Endpoint>,
+    children: Vec<SerializedNode>,
     splits: Vec<u128>,
-    ft_contract_id: Option<AccountId>,
+    ft_contract_id: AccountId,
 }
 
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -106,7 +122,6 @@ impl SplitterTrait for Contract {
 
 #[near_bindgen]
 impl FungibleTokenHandlers for Contract {
-
     #[payable]
     fn ft_on_transfer(&mut self, sender_id: String, amount: String, msg: String) -> String {
         let mut balances = self
@@ -151,7 +166,6 @@ impl FungibleTokenHandlers for Contract {
     }
 }
 
-
 #[near_bindgen]
 impl Contract {
     #[init]
@@ -189,27 +203,27 @@ mod tests {
 
     #[test]
     fn test_simple_transfers_success() {
-        let mut context = get_context(accounts(0));
-        testing_env!(context.build());
-        let splitter = SerializedSplitter {
-            nodes: vec![
-                Endpoint::SimpleTransfer {
-                    recipient: accounts(1).to_string(),
-                },
-                Endpoint::SimpleTransfer {
-                    recipient: accounts(2).to_string(),
-                },
-            ],
-            splits: vec![100, 100],
-            ft_contract_id: None,
-        };
-        let mut contract = Contract::new();
-        testing_env!(context
-            .storage_usage(env::storage_usage())
-            .attached_deposit(110) // give a little extra for transfers
-            .predecessor_account_id(accounts(0))
-            .build());
-        let init_bal = env::account_balance();
-        let prom = contract.run_ephemeral(splitter, U128::from(100));
+        // let mut context = get_context(accounts(0));
+        // testing_env!(context.build());
+        // let splitter = SerializedSplitter {
+        //     children: vec![
+        //         Node::SimpleTransfer {
+        //             recipient: accounts(1).to_string(),
+        //         },
+        //         Node::SimpleTransfer {
+        //             recipient: accounts(2).to_string(),
+        //         },
+        //     ],
+        //     splits: vec![100, 100],
+        //     ft_contract_id: None,
+        // };
+        // let mut contract = Contract::new();
+        // testing_env!(context
+        //     .storage_usage(env::storage_usage())
+        //     .attached_deposit(110) // give a little extra for transfers
+        //     .predecessor_account_id(accounts(0))
+        //     .build());
+        // let init_bal = env::account_balance();
+        // let prom = contract.run_ephemeral(splitter, U128::from(100));
     }
 }

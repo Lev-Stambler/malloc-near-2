@@ -1,6 +1,9 @@
 use near_sdk::{json_types::U128, AccountId};
 
-use crate::{AccountBalance, Contract, errors::{Errors, throw_err}};
+use crate::{
+    errors::{throw_err, Errors},
+    AccountBalance, Contract,
+};
 
 pub trait FungibleTokenHandlers {
     fn ft_on_transfer(&mut self, sender_id: String, amount: String, msg: String) -> String;
@@ -27,7 +30,8 @@ impl Contract {
             .get(&account_id)
             .unwrap_or_else(|| panic!(Errors::CalleeDidNotDepositSufficientFunds)); // TODO change to throw err
 
-        let bal_pos = Self::balance_pos(&balances, &contract_id).unwrap_or_else(|| panic!(Errors::CalleeDidNotDepositSufficientFunds));
+        let bal_pos = Self::balance_pos(&balances, &contract_id)
+            .unwrap_or_else(|| panic!(Errors::CalleeDidNotDepositSufficientFunds));
         if balances[bal_pos].balance < amount {
             throw_err(Errors::CalleeDidNotDepositSufficientFunds);
         }
@@ -41,7 +45,7 @@ impl Contract {
 mod tests {
     const INIT_ACCOUNT_BAL: u128 = 10_000;
 
-    use crate::{Endpoint, SerializedSplitter, SplitterTrait};
+    use crate::{Node, SerializedNode, SerializedSplitter, SplitterTrait};
 
     use super::*;
     use near_sdk::json_types::{ValidAccountId, U128};
@@ -60,7 +64,7 @@ mod tests {
         builder
     }
 
-		// TODO: should panic type
+    // TODO: should panic type
     #[test]
     #[should_panic]
     fn test_ft_not_enough_balance() {
@@ -92,11 +96,15 @@ mod tests {
 
         contract.run_ephemeral(
             SerializedSplitter {
-                nodes: vec![Endpoint::FTTransfer {
-                    recipient: accounts(3).to_string(),
+                children: vec![SerializedNode::MallocCall {
+                    contract_id: "AA".to_string(),
+                    json_args: "{}".to_string(),
+                    gas: 128,
+                    attached_amount: 10.into(),
+                    next_spitters: vec![],
                 }],
                 splits: vec![100],
-                ft_contract_id: Some(token_account.to_string()),
+                ft_contract_id: token_account.to_string(),
             },
             U128::from(50),
         );
@@ -122,11 +130,15 @@ mod tests {
 
         contract.run_ephemeral(
             SerializedSplitter {
-                nodes: vec![Endpoint::FTTransfer {
-                    recipient: accounts(3).to_string(),
+                children: vec![SerializedNode::MallocCall {
+                    contract_id: "AA".to_string(),
+                    json_args: "{}".to_string(),
+                    gas: 128,
+                    attached_amount: 10.into(),
+                    next_spitters: vec![],
                 }],
                 splits: vec![100],
-                ft_contract_id: Some(token_account.to_string()),
+                ft_contract_id: (token_account.to_string()),
             },
             U128::from(50),
         );
@@ -161,11 +173,15 @@ mod tests {
         testing_env!(context.build());
         contract.run_ephemeral(
             SerializedSplitter {
-                nodes: vec![Endpoint::FTTransfer {
-                    recipient: accounts(3).to_string(),
+                children: vec![SerializedNode::MallocCall {
+                    contract_id: "AA".to_string(),
+                    json_args: "{}".to_string(),
+                    gas: 128,
+                    attached_amount: 10.into(),
+                    next_spitters: vec![],
                 }],
                 splits: vec![100],
-                ft_contract_id: Some(token_account.to_string()),
+                ft_contract_id: token_account.to_string(),
             },
             U128::from(50),
         );
@@ -176,11 +192,15 @@ mod tests {
 
         contract.run_ephemeral(
             SerializedSplitter {
-                nodes: vec![Endpoint::FTTransfer {
-                    recipient: accounts(3).to_string(),
+                children: vec![SerializedNode::MallocCall {
+                    contract_id: "AA".to_string(),
+                    json_args: "{}".to_string(),
+                    gas: 128,
+                    attached_amount: 10.into(),
+                    next_spitters: vec![],
                 }],
                 splits: vec![100],
-                ft_contract_id: Some(token_account.to_string()),
+                ft_contract_id: token_account.to_string(),
             },
             U128::from(50),
         );
