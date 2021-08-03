@@ -93,10 +93,10 @@ if (require.main === module) {
     throw "Expected the last command line argument to be the package's directory";
   buildAndSimLink(projectDir);
   devDeploy(projectDir, {
-    // callNew: {
-    //   caller: "levtester.testnet",
-    //   args: { ref_finance: "ref-finance.testnet" },
-    // },
+    callNew: {
+      caller: "levtester.testnet",
+      args: {},
+    },
   });
 }
 
