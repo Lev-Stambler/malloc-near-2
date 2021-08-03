@@ -112,7 +112,7 @@ impl SplitterTrait for Contract {
     fn run_ephemeral(&mut self, splitter: SerializedSplitter, amount: U128) -> Promise {
         let deserialized = self.deserialize(splitter, true);
         // TODO: make it so its not j attached deposit but via an NEP4 contract
-        let (prom, _) = self._run(deserialized, amount.into());
+        let prom = self._run(deserialized, amount.into());
         prom.then(Promise::new(env::predecessor_account_id()))
             .as_return()
     }

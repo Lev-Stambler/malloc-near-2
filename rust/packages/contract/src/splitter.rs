@@ -14,19 +14,18 @@ impl Contract {
 
     /// This call on _run assumes a well formed splitter
     /// Returns a refunded amount
-    pub(crate) fn _run(&mut self, splitter: Splitter, amount: u128) -> (Promise, u128) {
+    pub(crate) fn _run(&mut self, splitter: Splitter, amount: u128) -> Promise {
         let numb_endpoints = splitter.children.len();
         if numb_endpoints < 1 {
             throw_err(Errors::NoEndpointsSpecified);
         }
-        let (ret_prom, amount_used) = self.handle_splits(&splitter, None, 0, amount, 0);
+        let ret_prom = self.handle_splits(&splitter, None, 0, amount, 0);
 
-        if amount_used > amount {
-            throw_err(Errors::MoreUsedThanAllowed);
-        }
-        (ret_prom, amount - amount_used)
+        ret_prom
     }
 
+    // TODO: fishing transferred money out? (maybe all transfers into malloc should only be via ft_transfer_call and there should be the recipient account in the message! (this way you do not worry)
+    // The whole gas debocle may require having extra deposits to make up for GAS and having the contract pay for GAS from the deposits
     /// handle_splits handles a split by returning a promise for when all the splits are done
     /// handle_splits assumes a well formed splitter, so splitter len > 0, thus the unwrap is ok as
     /// prior_prom should only be null when i = 0
@@ -37,9 +36,9 @@ impl Contract {
         amount_used: u128,
         amount_deposited: u128,
         i: u64,
-    ) -> (Promise, u128) {
+    ) -> Promise {
         if i == splitter.splits.len() {
-            return (prior_prom.unwrap(), amount_used);
+            return prior_prom.unwrap();
         }
         let frac = (splitter.splits.get(i).unwrap() as f64) / (splitter.split_sum as f64);
         let transfer_amount_float = frac * amount_deposited as f64;
@@ -49,7 +48,7 @@ impl Contract {
             transfer_amount,
             transfer_amount_float
         );
-        let prom = self.handle_endpoint(
+        let prom = self.handle_node(
             transfer_amount,
             splitter.children.get(i).unwrap(),
             &splitter.ft_contract_id,
@@ -68,7 +67,7 @@ impl Contract {
     }
 
     // TODO: how to make sure all one input token type for a splitter?
-    fn handle_endpoint(
+    fn handle_node(
         &mut self,
         amount: u128,
         endpoint: Node,
@@ -116,6 +115,8 @@ impl Contract {
                     token_contract_id.clone(),
                     amount,
                 );
+                // TODO: use resolve to get the results, then pass results into handle_into_next_split
+                // TODO: have the handle node merge together the array of children proms
                 Promise::new(token_contract_id)
                     .function_call(ft_transfer_method_name, transfer_data, 1, BASIC_GAS)
                     .then(Promise::new(contract_id).function_call(
@@ -126,5 +127,41 @@ impl Contract {
                     ))
             }
         }
+    }
+
+    fn handle_into_next_split(
+        &mut self,
+        result: Vec<malloc_call_core::ReturnItem>,
+        splitter: &Splitter,
+        prior_prom: Option<Promise>,
+        father_prom: Promise,
+        i: usize,
+    ) -> Promise {
+        if result.len() == 0 {
+            return prior_prom;
+        }
+        if splitter.ft_contract_id != result[i].token_id.to_string() {
+            panic!(Errors::FTContractIdNotMatch.to_string())
+        }
+        let next_prom = self.handle_splits(
+            splitter,
+            Some(prior_prom),
+            0,
+            result[i].amount.parse().unwrap_or_else(|_| {
+                panic!(Errors::FailedToParseNumber(result[i].amount).to_string())
+            }),
+            0,
+        );
+
+        if i == result.len() - 1 {
+            return next_prom;
+        }
+        let next_prior_prom = if i == 0 {
+            father_prom.then(next_prom)
+        } else {
+            prior_prom.unwrap().and(next_prom)
+        };
+
+        self.handle_into_next_split(result, splitter, Some(next_prior_prom), father_prom, i + 1)
     }
 }

@@ -260,6 +260,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bd7d4bd64732af4bf3a67f367c27df8520ad7e230c5817b8ff485864d80242b9"
 
 [[package]]
+name = "malloc-call-core"
+version = "0.1.0"
+dependencies = [
+ "near-sdk",
+]
+
+[[package]]
 name = "memchr"
 version = "2.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -573,6 +580,7 @@ dependencies = [
 name = "splitter"
 version = "0.1.0"
 dependencies = [
+ "malloc-call-core",
  "near-contract-standards",
  "near-sdk",
 ]
