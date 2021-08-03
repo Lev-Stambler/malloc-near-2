@@ -126,7 +126,13 @@ impl Contract {
         next_splitters: &[Splitter],
         #[callback] ret: Vec<malloc_call_core::ReturnItem>,
     ) -> Option<u64> {
-        self.handle_into_next_split(ret, next_splitters, None, 0)
+        match self.handle_into_next_split(ret, next_splitters, None, 0) {
+            None => None,
+            Some(prom_idx) => {
+                env::promise_return(prom_idx);
+                Some(prom_idx)
+            }
+        }
     }
 }
 

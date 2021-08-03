@@ -8,7 +8,7 @@ import {
 import BN from "bn.js";
 import { wrap } from "module";
 import { MAX_GAS } from "../lib/tx";
-import { WCALL_SIMPLE_GAS } from "../../testing-utils/lib/testing-utils";
+import { MALLOC_CALL_SIMPLE_GAS } from "../../testing-utils/lib/testing-utils";
 import { Account } from "near-api-js";
 
 let malloc: MallocClient.MallocClient<MallocClient.SpecialAccountWithKeyPair>;
@@ -119,7 +119,7 @@ describe("malloc-client's ft capabilities", () => {
       TestingUtils.WRAP_TESTNET_CONTRACT
     );
 
-    const WCALL_SEND_CONTRACT_ID = TestingUtils.getWcallSendContract();
+    const MALLOC_CALL_SEND_CONTRACT_ID = TestingUtils.getMallocCallSendContract();
 
     const txRess = await malloc.runEphemeralSplitter(
       {
@@ -136,12 +136,12 @@ describe("malloc-client's ft capabilities", () => {
             },
           },
           {
-            WCall: {
-              contract_id: WCALL_SEND_CONTRACT_ID,
+            MallocCall: {
+              contract_id: MALLOC_CALL_SEND_CONTRACT_ID,
               json_args: JSON.stringify({
                 recipient: karen.accountId,
               }),
-              gas: WCALL_SIMPLE_GAS.toNumber(),
+              gas: MALLOC_CALL_SIMPLE_GAS.toNumber(),
               attached_amount: "5",
             },
           },
@@ -268,8 +268,8 @@ describe("malloc-client's ft capabilities", () => {
     TestingUtils.checkBalDifferences(myBal, newmyBal, -600, expect);
   });
 
-  it("should send Wrapped Near using the SimpleTransferWcall", async () => {
-    const WCALL_SEND_CONTRACT_ID = TestingUtils.getWcallSendContract();
+  it("should send Wrapped Near using the SimpleTransferMallocCall", async () => {
+    const MALLOC_CALL_SEND_CONTRACT_ID = TestingUtils.getMallocCallSendContract();
 
     const amount = 600;
     const alice = await TestingUtils.newRandAccount(masterAccount);
@@ -289,7 +289,7 @@ describe("malloc-client's ft capabilities", () => {
         bob.accountId,
         wrappedTesterAccount.accountId,
         malloc.contractAccountId,
-        WCALL_SEND_CONTRACT_ID,
+        MALLOC_CALL_SEND_CONTRACT_ID,
       ]
     );
     const aliceBal = await TestingUtils.ftBalOf(
@@ -318,23 +318,23 @@ describe("malloc-client's ft capabilities", () => {
         splits: [3, 1],
         nodes: [
           {
-            WCall: {
-              contract_id: WCALL_SEND_CONTRACT_ID,
+            MallocCall: {
+              contract_id: MALLOC_CALL_SEND_CONTRACT_ID,
               // TODO: no json stringify!!
               json_args: JSON.stringify({
                 recipient: alice.accountId,
               }),
-              gas: WCALL_SIMPLE_GAS.toNumber(),
+              gas: MALLOC_CALL_SIMPLE_GAS.toNumber(),
               attached_amount: "5",
             },
           },
           {
-            WCall: {
-              contract_id: WCALL_SEND_CONTRACT_ID,
+            MallocCall: {
+              contract_id: MALLOC_CALL_SEND_CONTRACT_ID,
               json_args: JSON.stringify({
                 recipient: bob.accountId,
               }),
-              gas: WCALL_SIMPLE_GAS.toNumber(),
+              gas: MALLOC_CALL_SIMPLE_GAS.toNumber(),
               attached_amount: "5",
             },
           },

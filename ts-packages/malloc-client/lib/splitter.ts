@@ -8,7 +8,7 @@ import {
   SpecialAccount,
   Splitter,
   Transaction,
-  WCallEndpointMetadata,
+  MallocCallMetadata,
 } from "./interfaces";
 import { executeMultipleTx, MAX_GAS } from "./tx";
 import { sumSplits } from "./utils";
@@ -29,9 +29,9 @@ const getNodeAttachedDeposit = async (
   node: Endpoint,
   amountForEndpoint?: BN
 ): Promise<BN> => {
-  if (node.WCall) {
-    const metadata: WCallEndpointMetadata = await callerAccount.viewFunction(
-      node.WCall.contract_id,
+  if (node.MallocCall) {
+    const metadata: MallocCallMetadata = await callerAccount.viewFunction(
+      node.MallocCall.contract_id,
       "metadata"
     );
     return new BN(metadata.minimum_attached_deposit || 1);

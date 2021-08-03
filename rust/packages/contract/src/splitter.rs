@@ -157,6 +157,7 @@ impl Contract {
         prior_prom: Option<u64>,
         i: usize,
     ) -> Option<u64> {
+        // NOTE: this is the terminating condition for a branch!!! If the prior_prom is None, you terminate here
         if result.len() == 0 {
             return prior_prom;
         }

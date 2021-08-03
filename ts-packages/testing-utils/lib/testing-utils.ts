@@ -26,7 +26,7 @@ let generatedAccounts: Account[] = [];
 export const rpcNode = "https://rpc.testnet.near.org";
 export const MAX_GAS = new BN("300000000000000");
 const NEW_ACCOUNT_STORAGE_COST = utils.format.parseNearAmount("0.00125");
-export const WCALL_SIMPLE_GAS = new BN("15000000000000");
+export const MALLOC_CALL_SIMPLE_GAS = new BN("15000000000000");
 export const provider = new providers.JsonRpcProvider(rpcNode);
 export const WRAP_TESTNET_CONTRACT = "wrap.testnet";
 
@@ -36,11 +36,11 @@ interface CreateConnectionOpts {
   accountId: string;
 }
 
-export const getWcallSendContract = () =>
+export const getMallocCallSendContract = () =>
   readFileSync(
     join(
       __dirname,
-      "../../../rust/packages/wcalls/send-wcall/neardev/dev-account"
+      "../../../rust/packages/malloc-calls/send-malloc-call/neardev/dev-account"
     )
   ).toString();
 
@@ -215,7 +215,7 @@ export const cleanUp = async (
       generatedAccounts.map((account) => account.deleteAccount(beneficiaryId))
     );
   } catch (e) {}
-  generatedAccounts = []
+  generatedAccounts = [];
 };
 
 export const addBigNumberish = (

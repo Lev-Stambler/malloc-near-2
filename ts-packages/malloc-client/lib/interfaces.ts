@@ -14,7 +14,7 @@ export type AccountId = string;
 export interface Endpoint {
   SimpleTransfer?: { recipient: AccountId };
   FTTransfer?: { recipient: AccountId };
-  WCall?: {
+  MallocCall?: {
     contract_id: AccountId;
     json_args: string;
     gas: number;
@@ -36,7 +36,7 @@ export interface MallocContract extends Contract {
   ) => Promise<any>;
 }
 
-export interface WCallEndpointMetadata {
+export interface MallocCallMetadata {
   minimum_gas?: BN;
   minimum_attached_deposit?: BN;
   name: string;
