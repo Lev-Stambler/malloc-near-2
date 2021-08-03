@@ -102,19 +102,31 @@ pub struct Contract {
 
 pub trait SplitterTrait {
     // fn run(&self, account_id: AccountId, splitter_idx: usize);
-    fn run_ephemeral(&mut self, splitter: SerializedSplitter, amount: U128) -> Promise;
+    fn run_ephemeral(&mut self, splitter: SerializedSplitter, amount: U128);
     // fn store(&mut self, splitter: SerializedSplitter, owner: AccountId);
 }
 
 #[near_bindgen]
 impl SplitterTrait for Contract {
     #[payable]
-    fn run_ephemeral(&mut self, splitter: SerializedSplitter, amount: U128) -> Promise {
+    fn run_ephemeral(&mut self, splitter: SerializedSplitter, amount: U128) {
         let deserialized = self.deserialize(splitter, true);
         // TODO: make it so its not j attached deposit but via an NEP4 contract
         let prom = self._run(deserialized, amount.into());
-        prom.then(Promise::new(env::predecessor_account_id()))
-            .as_return()
+        let ret = env::promise_batch_then(prom, env::predecessor_account_id());
+        env::promise_return(ret);
+    }
+}
+
+#[near_bindgen]
+impl Contract {
+    #[private]
+    fn handle_malloc_call_return(
+        &mut self,
+        next_splitters: &[Splitter],
+        #[callback] ret: Vec<malloc_call_core::ReturnItem>,
+    ) -> Option<u64> {
+        self.handle_into_next_split(ret, next_splitters, None, 0)
     }
 }
 

@@ -14,7 +14,7 @@ impl Contract {
 
     /// This call on _run assumes a well formed splitter
     /// Returns a refunded amount
-    pub(crate) fn _run(&mut self, splitter: Splitter, amount: u128) -> Promise {
+    pub(crate) fn _run(&mut self, splitter: Splitter, amount: u128) -> u64 {
         let numb_endpoints = splitter.children.len();
         if numb_endpoints < 1 {
             throw_err(Errors::NoEndpointsSpecified);
@@ -32,11 +32,11 @@ impl Contract {
     fn handle_splits(
         &mut self,
         splitter: &Splitter,
-        prior_prom: Option<Promise>,
+        prior_prom: Option<u64>,
         amount_used: u128,
         amount_deposited: u128,
         i: u64,
-    ) -> Promise {
+    ) -> u64 {
         if i == splitter.splits.len() {
             return prior_prom.unwrap();
         }
@@ -48,14 +48,14 @@ impl Contract {
             transfer_amount,
             transfer_amount_float
         );
-        let prom = self.handle_node(
+        let handle_node_prom = self.handle_node(
             transfer_amount,
             splitter.children.get(i).unwrap(),
             &splitter.ft_contract_id,
         );
         let next_prom = match prior_prom {
-            Some(p) => prom.and(p),
-            None => prom,
+            Some(p) => env::promise_and(&vec![p, handle_node_prom]),
+            None => handle_node_prom,
         };
         self.handle_splits(
             splitter,
@@ -67,12 +67,7 @@ impl Contract {
     }
 
     // TODO: how to make sure all one input token type for a splitter?
-    fn handle_node(
-        &mut self,
-        amount: u128,
-        endpoint: Node,
-        token_contract_id: &AccountId,
-    ) -> Promise {
+    fn handle_node(&mut self, amount: u128, endpoint: Node, token_contract_id: &AccountId) -> u64 {
         match endpoint {
             // Node::SimpleTransfer { recipient } => Promise::new(recipient).transfer(amount),
             // Node::FTTransfer { recipient } => {
@@ -100,11 +95,11 @@ impl Contract {
             } => {
                 // TODO: we need a smart way of doing gas for these wcalls...
                 // Maybe each could have metadata or something
-                let ft_transfer_method_name = "ft_transfer".to_string().into_bytes();
+                let ft_transfer_method_name = "ft_transfer";
                 let token_contract_id = token_contract_id.clone();
                 let transfer_data =
                     Self::get_transfer_data(contract_id.clone(), amount.to_string());
-                let wcall_data = format!(
+                let call_data = format!(
                     "{{\"args\": {}, \"amount\": \"{}\", \"token_contract\": \"{}\"}}",
                     json_args,
                     amount.to_string(),
@@ -117,51 +112,77 @@ impl Contract {
                 );
                 // TODO: use resolve to get the results, then pass results into handle_into_next_split
                 // TODO: have the handle node merge together the array of children proms
-                Promise::new(token_contract_id)
-                    .function_call(ft_transfer_method_name, transfer_data, 1, BASIC_GAS)
-                    .then(Promise::new(contract_id).function_call(
-                        "wcall".to_string().into_bytes(),
-                        wcall_data.into_bytes(),
-                        attached_amount.into(),
-                        gas,
-                    ))
+                let prom_transfer = env::promise_batch_create(token_contract_id);
+                env::promise_batch_action_function_call(
+                    prom_transfer,
+                    ft_transfer_method_name.as_bytes(),
+                    &transfer_data,
+                    1,
+                    BASIC_GAS,
+                );
+                let call_prom = env::promise_then(
+                    prom_transfer,
+                    contract_id,
+                    &malloc_call_core::call_method_name(),
+                    call_data.as_bytes(),
+                    attached_amount.into(),
+                    gas,
+                );
+                let callback = env::promise_batch_then(call_prom, env::current_account_id());
+                env::promise_batch_action_function_call(
+                    callback,
+                    b"handle_malloc_call_return",
+                    b"{}",
+                    0,
+                    BASIC_GAS,
+                );
+                // env::promise_return(callback);
+                callback
+                // Promise::new(token_contract_id)
+                //     .function_call(ft_transfer_method_name, transfer_data, 1, BASIC_GAS)
+                //     .then(Promise::new(contract_id).function_call(
+                //         "wcall".to_string().into_bytes(),
+                //         call_data.into_bytes(),
+                //         attached_amount.into(),
+                //         gas,
+                //     ))
             }
         }
     }
 
-    fn handle_into_next_split(
+    pub(crate) fn handle_into_next_split(
         &mut self,
         result: Vec<malloc_call_core::ReturnItem>,
-        splitter: &Splitter,
-        prior_prom: Option<Promise>,
-        father_prom: Promise,
+        splitters: &[Splitter],
+        prior_prom: Option<u64>,
         i: usize,
-    ) -> Promise {
+    ) -> Option<u64> {
         if result.len() == 0 {
             return prior_prom;
         }
-        if splitter.ft_contract_id != result[i].token_id.to_string() {
+        if splitters[i].ft_contract_id != result[i].token_id.to_string() {
             panic!(Errors::FTContractIdNotMatch.to_string())
         }
+        let handle_splits_prior = if i == 0 {
+            None
+        } else {
+            Some(prior_prom.unwrap())
+        };
         let next_prom = self.handle_splits(
-            splitter,
-            Some(prior_prom),
+            &splitters[i],
+            handle_splits_prior,
             0,
-            result[i].amount.parse().unwrap_or_else(|_| {
-                panic!(Errors::FailedToParseNumber(result[i].amount).to_string())
-            }),
+            result[i]
+                .amount
+                .parse()
+                .unwrap_or_else(|_| panic!(Errors::FailedToParseNumber.to_string())),
             0,
         );
 
         if i == result.len() - 1 {
-            return next_prom;
+            return Some(next_prom);
         }
-        let next_prior_prom = if i == 0 {
-            father_prom.then(next_prom)
-        } else {
-            prior_prom.unwrap().and(next_prom)
-        };
 
-        self.handle_into_next_split(result, splitter, Some(next_prior_prom), father_prom, i + 1)
+        self.handle_into_next_split(result, splitters, Some(next_prom), i + 1)
     }
 }

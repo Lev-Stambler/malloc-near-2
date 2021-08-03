@@ -7,13 +7,15 @@ pub enum Errors {
     CalleeDidNotDepositSufficientFunds,
     FailedToParseSplitter,
     FTContractIdNotMatch,
-    FailedToParseNumber(&str),
+    NumberOfSplittersDidNotMatchReturn,
+    FailedToParseNumber,
 }
 
 impl ToString for Errors {
     fn to_string(&self) -> String {
         match self {
-            Self::FailedToParseNumber(inp) => format!("Failed to parse a number from the string {}", inp),
+            Self::NumberOfSplittersDidNotMatchReturn => "The number of splitters for the next set of inputs does not match the call's return".to_string(),
+            Self::FailedToParseNumber => "Failed to parse a number from the string".to_string(),
             Self::FTContractIdNotMatch => "The returned fungible token contract type and the required fungible token type do not match".to_string(),
             Self::FailedToParseSplitter => "Failed to parse the splitter string".to_string(),
             Self::NoEndpointsSpecified => "At least one endpoint must be specified".to_string(),
