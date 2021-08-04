@@ -3,8 +3,6 @@ use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::Gas;
 use near_sdk::{json_types::U128, AccountId, Promise};
 
-pub const BASIC_RESOLVER_GAS: Gas = 1_000;
-
 pub fn call_method_name() -> Vec<u8> {
     "call".to_string().into_bytes()
 }

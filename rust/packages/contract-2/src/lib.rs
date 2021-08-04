@@ -49,7 +49,6 @@ pub enum SerializedNode {
         json_args: String,
         gas: Gas,
         attached_amount: U128,
-        next_splitters: Vec<usize>,
     },
 }
 
@@ -66,7 +65,6 @@ pub enum Node {
         json_args: String,
         gas: Gas,
         attached_amount: U128,
-        next_splitters: Vector<usize>,
     },
 }
 
@@ -100,41 +98,99 @@ pub struct Contract {
     account_id_to_ft_balances: UnorderedMap<AccountId, Vec<AccountBalance>>,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(crate = "near_sdk::serde")]
+pub struct SplitterId {
+    owner: AccountId,
+    index: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(crate = "near_sdk::serde")]
+pub struct SplitterIdWithNextSplitters {
+    splitter_id: SplitterId,
+    /// A vector of vectors where the inner vector is the next set of splitters per child node and the outer vector
+    /// corresponds to each child node of the splitter
+    next_splitters: Vec<Vec<SplitterId>>,
+}
+
 pub trait SplitterTrait {
     // fn run(&self, account_id: AccountId, splitter_idx: usize);
-    fn run_ephemeral(&mut self, splitters: Vec<SerializedSplitter>, amount: U128);
-    // fn store(&mut self, splitter: SerializedSplitter, owner: AccountId);
+    fn run(
+        &mut self,
+        splitter_infos: Vec<SplitterId>,
+        next_splitters: Vec<Vec<Vec<SplitterId>>>,
+        amount: U128,
+    );
+    fn store(&mut self, splitter: SerializedSplitter, owner: AccountId);
 }
 
 #[near_bindgen]
 impl SplitterTrait for Contract {
     #[payable]
-    fn run_ephemeral(&mut self, splitters: Vec<SerializedSplitter>, amount: U128) {
-        let deserialized = splitters
+    fn store(&mut self, splitter: SerializedSplitter, owner: AccountId) {
+        let splitter_deserial = self.deserialize(&splitter, false);
+        let mut splitters_by_account = self.splitters.get(&env::predecessor_account_id());
+        let splitters = match splitters_by_account {
+            None => {
+                let mut splitters =
+                    Vector::new(format!("{}-splitters", env::predecessor_account_id()).as_bytes());
+                splitters.push(&splitter_deserial);
+                splitters
+            }
+            Some(splitters) => {
+                splitters.push(&splitter_deserial);
+                splitters
+            }
+        };
+        self.splitters
+            .insert(&env::predecessor_account_id(), &splitters);
+    }
+
+    #[payable]
+    fn run(
+        &mut self,
+        splitters: Vec<SplitterId>,
+        next_splitters: Vec<Vec<Vec<SplitterId>>>,
+        amount: U128,
+    ) {
+        let splitters: Vec<Splitter> = splitters
             .iter()
-            .map(|splitter| self.deserialize(splitter, true))
+            .map(|id| self.get_splitter_unchecked(id))
             .collect();
         // TODO: make it so its not j attached deposit but via an NEP4 contract
-        let prom = self._run(deserialized, amount.into(), &splitters);
+        let prom = self._run(splitters, amount.into(), next_splitters);
         let ret = env::promise_batch_then(prom, env::predecessor_account_id());
         env::promise_return(ret);
     }
 }
 
+impl Contract {
+    pub(crate) fn get_splitter_unchecked(&self, id: &SplitterId) -> Splitter {
+        self.splitters
+            .get(&id.owner)
+            .unwrap_or_else(|| panic!("TODO:"))
+            .get(id.index)
+            .unwrap_or_else(|| panic!("TODO:"))
+    }
+}
+
+// TODO: put vec<vec<vec>>> everywhere
 #[near_bindgen]
 impl Contract {
     #[private]
     #[payable]
     pub fn handle_malloc_call_return(
         &mut self,
-        next_splitters: Vec<SerializedSplitter>,
+        next_splitter_set: Vec<Vec<Vec<SplitterId>>>,
+        next_splitter_idxs: Vec<usize>,
         #[callback] ret: Vec<malloc_call_core::ReturnItem>,
     ) -> Option<u64> {
-        let next_splitters_deserial: Vec<Splitter> = next_splitters
+        let next_splitters: Vec<Splitter> = next_splitters
             .iter()
-            .map(|s| self.deserialize(s, true))
+            .map(|s| self.get_splitter_unchecked(s))
             .collect();
-        match self.handle_into_next_split(ret, &next_splitters_deserial, None, 0) {
+        match self.handle_into_next_split(ret, &next_splitters, None, 0) {
             None => None,
             Some(prom_idx) => {
                 env::promise_return(prom_idx);

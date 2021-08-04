@@ -26,7 +26,7 @@ let generatedAccounts: Account[] = [];
 export const rpcNode = "https://rpc.testnet.near.org";
 export const MAX_GAS = new BN("300000000000000");
 const NEW_ACCOUNT_STORAGE_COST = utils.format.parseNearAmount("0.00125");
-export const MALLOC_CALL_SIMPLE_GAS = new BN("15000000000000");
+export const MALLOC_CALL_SIMPLE_GAS = new BN("10000000000000");
 export const provider = new providers.JsonRpcProvider(rpcNode);
 export const WRAP_TESTNET_CONTRACT = "wrap.testnet";
 

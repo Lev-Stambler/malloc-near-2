@@ -3,7 +3,7 @@ import { Account } from "near-api-js";
 import {
   AccountId,
   BigNumberish,
-  Endpoint,
+  Node,
   RunEphemeralOpts,
   SpecialAccount,
   Splitter,
@@ -11,7 +11,6 @@ import {
   MallocCallMetadata,
 } from "./interfaces";
 import { executeMultipleTx, MAX_GAS } from "./tx";
-import { sumSplits } from "./utils";
 
 const defaultRunEphemeralOpts: RunEphemeralOpts = {
   gas: MAX_GAS,
@@ -20,14 +19,12 @@ const defaultRunEphemeralOpts: RunEphemeralOpts = {
 
 /**
  * @param  {SpecialAccount} callerAccount
- * @param  {Endpoint} node
- * @param  {BN} amountForEndpoint? amount is only required in calculations for a simple transfer
+ * @param  {Node} node
  * @returns Promise
  */
 const getNodeAttachedDeposit = async (
   callerAccount: SpecialAccount,
-  node: Endpoint,
-  amountForEndpoint?: BN
+  node: Node
 ): Promise<BN> => {
   if (node.MallocCall) {
     const metadata: MallocCallMetadata = await callerAccount.viewFunction(
@@ -35,25 +32,16 @@ const getNodeAttachedDeposit = async (
       "metadata"
     );
     return new BN(metadata.minimum_attached_deposit || 1);
-  } else if (node.FTTransfer) {
-    return new BN(1);
-  } else if (node.SimpleTransfer) {
-    return new BN(amountForEndpoint).addn(1);
   }
 };
 
-const getAttachedDeposit = async (
+const getAttachedDepositForSplitter = async (
   callerAccount: SpecialAccount,
-  splitter: Splitter,
-  amount: BN
+  splitter: Splitter
 ): Promise<BN> => {
-  const totalSplits = sumSplits(splitter.splits);
   const nodeAttachedDeposits = await Promise.all(
-    splitter.nodes.map((endpoint, i) => {
-      const amountForEndpoint = amount
-        .mul(new BN(splitter.splits[i]))
-        .div(totalSplits);
-      return getNodeAttachedDeposit(callerAccount, endpoint, amountForEndpoint);
+    splitter.children.map((node, i) => {
+      return getNodeAttachedDeposit(callerAccount, node);
     })
   );
   const add = (a: BN, b: BN) => a.add(b);
@@ -61,10 +49,20 @@ const getAttachedDeposit = async (
   return nodesSummed;
 };
 
+const getAttachedDeposit = async (
+  caller: SpecialAccount,
+  splitters: Splitter[]
+): Promise<BN> => {
+  const deps = await Promise.all(
+    splitters.map((splitter) => getAttachedDepositForSplitter(caller, splitter))
+  );
+  return deps.reduce((a, b) => a.add(b), new BN(0));
+};
+
 export const runEphemeralSplitter = async (
   callerAccount: SpecialAccount,
   mallocAccountId: AccountId,
-  splitter: Splitter,
+  splitters: Splitter[],
   amount: BigNumberish,
   opts?: Partial<RunEphemeralOpts>
 ): Promise<Transaction[]> => {
@@ -72,11 +70,7 @@ export const runEphemeralSplitter = async (
     ...defaultRunEphemeralOpts,
     ...(opts || {}),
   };
-  const attachedDeposit = await getAttachedDeposit(
-    callerAccount,
-    splitter,
-    new BN(amount)
-  );
+  const attachedDeposit = await getAttachedDeposit(callerAccount, splitters);
   const txs = [
     {
       receiverId: mallocAccountId,
@@ -84,7 +78,7 @@ export const runEphemeralSplitter = async (
         {
           methodName: "run_ephemeral",
           args: {
-            splitter,
+            splitters,
             amount: amount.toString(),
           },
           gas: _opts.gas.toString(),

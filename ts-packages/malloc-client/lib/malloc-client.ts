@@ -9,7 +9,7 @@ import { registerFtsTxs } from "./ft-token";
 import {
   AccountId,
   SpecialAccountWithKeyPair,
-  Endpoint,
+  Node,
   MallocClient,
   Splitter,
   SpecialAccountConnectedWallet,

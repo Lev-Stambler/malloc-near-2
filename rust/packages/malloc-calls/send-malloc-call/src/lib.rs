@@ -15,7 +15,8 @@ use near_sdk::{
 
 setup_alloc!();
 
-const BASIC_GAS: Gas = 5_000_000_000_000;
+const BASIC_GAS: Gas = 5_000_000_000_000; 
+const BASIC_RESOLVER_GAS: Gas = 1_000_000_000_000;
 
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
@@ -60,7 +61,7 @@ impl MallocCall<SendArgs, ResolverArgs> for Contract {
                 malloc_call_core::resolver_method_name(),
                 "{}".to_string().into_bytes(),
                 0,
-                malloc_call_core::BASIC_RESOLVER_GAS,
+                BASIC_RESOLVER_GAS,
             )
     }
 }

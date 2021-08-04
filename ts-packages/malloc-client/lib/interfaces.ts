@@ -10,27 +10,27 @@ import type {
 export type BigNumberish = BN | number | string;
 export type AccountId = string;
 
-// Enum endpoint
-export interface Endpoint {
-  SimpleTransfer?: { recipient: AccountId };
-  FTTransfer?: { recipient: AccountId };
+export interface Node {
+  // SimpleTransfer?: { recipient: AccountId };
+  // FTTransfer?: { recipient: AccountId };
   MallocCall?: {
     contract_id: AccountId;
     json_args: string;
     gas: number;
     attached_amount: string;
+    next_splitters: number[];
   };
 }
 
 export interface Splitter {
-  nodes: Endpoint[];
+  children: Node[];
   splits: BigNumberish[];
   ft_contract_id?: AccountId;
 }
 
 export interface MallocContract extends Contract {
   run_ephemeral: (
-    args: { splitter: Splitter; amount?: BigNumberish },
+    args: { splitter: Splitter[]; amount?: BigNumberish },
     gas?: BigNumberish,
     attachedDeposit?: BigNumberish
   ) => Promise<any>;
@@ -65,7 +65,7 @@ export interface RunEphemeralOpts {
 export interface RegisterAccountWithFungibleTokenOpts {}
 
 export type CallEphemeralFn<T extends string[] | void> = (
-  splitter: Splitter,
+  splitter: Splitter[],
   amount: string,
   opts?: Partial<RunEphemeralOpts>
 ) => Promise<T>;

@@ -2,7 +2,7 @@ use near_sdk::{env, log, serde_json::json, AccountId, Promise};
 
 use crate::{
     errors::{throw_err, Errors},
-    Contract, Node, SerializedSplitter, Splitter, BASIC_GAS,
+    Contract, Node, SerializedSplitter, Splitter, SplitterId, BASIC_GAS,
 };
 
 impl Contract {
@@ -18,7 +18,7 @@ impl Contract {
         &mut self,
         splitters: Vec<Splitter>,
         amount: u128,
-        serializedSplitters: &[SerializedSplitter],
+        next_splitters: Vec<Vec<Vec<SplitterId>>>,
     ) -> u64 {
         let numb_endpoints = splitters[0].children.len();
         if numb_endpoints < 1 {
@@ -37,41 +37,52 @@ impl Contract {
     fn handle_splits(
         &mut self,
         splitter: &Splitter,
-        prior_prom: Option<u64>,
-        amount_used: u128,
         amount_deposited: u128,
-        i: u64,
-        splitters: &[SerializedSplitter],
+        next_splitter_set: &[Vec<Vec<SplitterId>>],
     ) -> u64 {
-        if i == splitter.splits.len() {
-            return prior_prom.unwrap();
+        let mut proms = vec![];
+        for i in 0..splitter.children.len() {
+            let frac = (splitter.splits.get(i).unwrap() as f64) / (splitter.split_sum as f64);
+            let transfer_amount_float = frac * amount_deposited as f64;
+            let transfer_amount = transfer_amount_float.floor() as u128;
+            log!(
+                "transferring {} rounded from {}",
+                transfer_amount,
+                transfer_amount_float
+            );
+            let prom = self.handle_node(
+                transfer_amount,
+                splitter.children.get(i).unwrap(),
+                &splitter.ft_contract_id,
+                &next_splitter_set[i as usize],
+            );
+            proms.push(prom);
         }
-        let frac = (splitter.splits.get(i).unwrap() as f64) / (splitter.split_sum as f64);
-        let transfer_amount_float = frac * amount_deposited as f64;
-        let transfer_amount = transfer_amount_float.floor() as u128;
-        log!(
-            "transferring {} rounded from {}",
-            transfer_amount,
-            transfer_amount_float
-        );
-        let handle_node_prom = self.handle_node(
-            transfer_amount,
-            splitter.children.get(i).unwrap(),
-            &splitter.ft_contract_id,
-            splitters,
-        );
-        let next_prom = match prior_prom {
-            Some(p) => env::promise_and(&vec![p, handle_node_prom]),
-            None => handle_node_prom,
-        };
-        self.handle_splits(
-            splitter,
-            Some(next_prom),
-            amount_used + transfer_amount,
-            amount_deposited,
-            i + 1,
-            splitters,
-        )
+        env::promise_and(&proms)
+        // if i == splitter.splits.len() {
+        //     return prior_prom.unwrap();
+        // }
+        // let frac = (splitter.splits.get(i).unwrap() as f64) / (splitter.split_sum as f64);
+        // let transfer_amount_float = frac * amount_deposited as f64;
+        // let transfer_amount = transfer_amount_float.floor() as u128;
+        // let handle_node_prom = self.handle_node(
+        //     transfer_amount,
+        //     splitter.children.get(i).unwrap(),
+        //     &splitter.ft_contract_id,
+        //     splitters,
+        // );
+        // let next_prom = match prior_prom {
+        //     Some(p) => env::promise_and(&vec![p, handle_node_prom]),
+        //     None => handle_node_prom,
+        // };
+        // self.handle_splits(
+        //     splitter,
+        //     Some(next_prom),
+        //     amount_used + transfer_amount,
+        //     amount_deposited,
+        //     i + 1,
+        //     splitters,
+        // )
     }
 
     // TODO: how to make sure all one input token type for a splitter?
@@ -80,32 +91,14 @@ impl Contract {
         amount: u128,
         endpoint: Node,
         token_contract_id: &AccountId,
-        splitters: &[SerializedSplitter],
+        next_splitter_set: &[Vec<Vec<SplitterId>>],
     ) -> u64 {
         match endpoint {
-            // Node::SimpleTransfer { recipient } => Promise::new(recipient).transfer(amount),
-            // Node::FTTransfer { recipient } => {
-            //     let ft_transfer_method_name = "ft_transfer".to_string().into_bytes();
-            //     let transfer_data = Self::get_transfer_data(recipient, amount.to_string());
-
-            //     self.subtract_contract_bal_from_user(
-            //         env::predecessor_account_id(),
-            //         token_contract_id.clone().unwrap(),
-            //         amount,
-            //     );
-            //     Promise::new(token_contract_id.clone().unwrap()).function_call(
-            //         ft_transfer_method_name,
-            //         transfer_data,
-            //         1,
-            //         BASIC_GAS,
-            //     )
-            // }
             Node::MallocCall {
                 contract_id,
                 json_args,
                 attached_amount,
                 gas,
-                next_splitters,
             } => {
                 // TODO: we need a smart way of doing gas for these wcalls...
                 // Maybe each could have metadata or something
@@ -144,14 +137,14 @@ impl Contract {
                 );
                 let callback = env::promise_batch_then(call_prom, env::current_account_id());
 
-                let mut serialized_next_splitters =
-                    Vec::with_capacity(next_splitters.len() as usize);
-                for i in 0..next_splitters.len() {
-                    serialized_next_splitters
-                        .push(splitters[next_splitters.get(i).unwrap()].clone());
-                }
+                // let mut serialized_next_splitters =
+                //     Vec::with_capacity(next_splitters.len() as usize);
+                // for i in 0..next_splitters.len() {
+                //     serialized_next_splitters
+                //         .push(&splitters[next_splitters.get(i).unwrap()].clone());
+                // }
 
-                let callback_args = json!({ "next_splitters": serialized_next_splitters });
+                let callback_args = json!({ "next_splitter_set": next_splitter_set });
                 env::promise_batch_action_function_call(
                     callback,
                     b"handle_malloc_call_return",
@@ -177,37 +170,25 @@ impl Contract {
         &mut self,
         result: Vec<malloc_call_core::ReturnItem>,
         splitters: &[Splitter],
-        prior_prom: Option<u64>,
-        i: usize,
+        next_splitters: Vec<Vec<Vec<SplitterId>>>,
     ) -> Option<u64> {
-        // NOTE: this is the terminating condition for a branch!!! If the prior_prom is None, you terminate here
         if result.len() == 0 {
-            return prior_prom;
+            return None;
         }
-        if splitters[i].ft_contract_id != result[i].token_id.to_string() {
-            panic!(Errors::FTContractIdNotMatch.to_string())
+        if result.len() != splitters.len() || next_splitters.len() != result.len() {
+            panic!("TODO:");
         }
-        let handle_splits_prior = if i == 0 {
-            None
-        } else {
-            Some(prior_prom.unwrap())
-        };
-        let next_prom = self.handle_splits(
-            &splitters[i],
-            handle_splits_prior,
-            0,
-            result[i]
+        let mut proms = vec![];
+        for i in 0..splitters.len() {
+            if splitters[i].ft_contract_id != result[i].token_id.to_string() {
+                panic!(Errors::FTContractIdNotMatch.to_string())
+            }
+            let amount = result[i]
                 .amount
                 .parse()
-                .unwrap_or_else(|_| panic!(Errors::FailedToParseNumber.to_string())),
-            0,
-            &vec![],
-        );
-
-        if i == result.len() - 1 {
-            return Some(next_prom);
+                .unwrap_or_else(|_| panic!(Errors::FailedToParseNumber.to_string()));
+            let prom = self.handle_splits(&splitters[i], amount, &next_splitters[i]);
         }
-
-        self.handle_into_next_split(result, splitters, Some(next_prom), i + 1)
+        Some(env::promise_and(&proms))
     }
 }
