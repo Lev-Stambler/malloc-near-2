@@ -252,15 +252,13 @@ describe("malloc-client's ft capabilities", () => {
     // TestingUtils.checkBalDifferences(myBal, newmyBal, -600, expect);
   });
 
-  xit("should make calls to a multi level splitter with a pass through and black whole at then end", async () => {
-  })
-  it.only("should make a couple black whole calls and make sure that the most basic splitter succeeds", async () => {
+  it.only("should make calls to a multi level splitter with pass throughs and black whole at then end", async () => {
     const MALLOC_CALL_BLACKWHOLE_CONTRACT_ID =
       TestingUtils.getMallocCallBlackwholeContract();
+    const MALLOC_CALL_PASSTHROUGH_CONTRACT_ID =
+      TestingUtils.getMallocCallPassthroughContract();
 
     const amount = 100;
-    const alice = await TestingUtils.newRandAccount(masterAccount);
-    const bob = await TestingUtils.newRandAccount(masterAccount);
 
     await TestingUtils.setupWNearAccount(
       TestingUtils.WRAP_TESTNET_CONTRACT,
@@ -272,8 +270,140 @@ describe("malloc-client's ft capabilities", () => {
     await malloc.registerAccountWithFungibleToken(
       [TestingUtils.WRAP_TESTNET_CONTRACT],
       [
-        alice.accountId,
-        bob.accountId,
+        wrappedTesterAccount.accountId,
+        malloc.contractAccountId,
+        MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
+      ]
+    );
+
+    const myBal = await TestingUtils.ftBalOf(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      wrappedTesterAccount.accountId,
+      wrappedTesterAccount
+    );
+
+    const depositTransactionHash = await malloc.deposit(
+      amount.toString(),
+      TestingUtils.WRAP_TESTNET_CONTRACT
+    );
+
+    const txRess = await malloc.runEphemeralSplitter(
+      [
+        {
+          splits: [3, 1],
+          children: [
+            {
+              MallocCall: {
+                contract_id: MALLOC_CALL_PASSTHROUGH_CONTRACT_ID,
+                // TODO: no json stringify!!
+                json_args: JSON.stringify({
+                  log_message: "hello for alice level 1",
+                }),
+                gas: MALLOC_CALL_SIMPLE_GAS.toNumber(),
+                attached_amount: "0",
+              },
+            },
+            {
+              MallocCall: {
+                contract_id: MALLOC_CALL_PASSTHROUGH_CONTRACT_ID,
+                // TODO: no json stringify!!
+                json_args: JSON.stringify({
+                  log_message: "hello for karen level 1",
+                }),
+                gas: MALLOC_CALL_SIMPLE_GAS.toNumber(),
+                attached_amount: "0",
+              },
+            },
+            {
+              MallocCall: {
+                contract_id: MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
+                json_args: JSON.stringify({
+                  log_message: "hello for bob level 1",
+                }),
+                gas: MALLOC_CALL_SIMPLE_GAS.toNumber(),
+                attached_amount: "0",
+              },
+            },
+          ],
+          ft_contract_id: TestingUtils.WRAP_TESTNET_CONTRACT,
+        },
+        {
+          splits: [1, 1],
+          children: [
+            {
+              MallocCall: {
+                contract_id: MALLOC_CALL_PASSTHROUGH_CONTRACT_ID,
+                // TODO: no json stringify!!
+                json_args: JSON.stringify({
+                  log_message: "hello for alice level 1",
+                }),
+                gas: MALLOC_CALL_SIMPLE_GAS.toNumber(),
+                attached_amount: "0",
+              },
+            },
+            {
+              MallocCall: {
+                contract_id: MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
+                // TODO: no json stringify!!
+                json_args: JSON.stringify({
+                  log_message: "hello for karen level 1",
+                }),
+                gas: MALLOC_CALL_SIMPLE_GAS.toNumber(),
+                attached_amount: "0",
+              },
+            },
+          ],
+          ft_contract_id: TestingUtils.WRAP_TESTNET_CONTRACT,
+        },
+        {
+          splits: [1],
+          children: [
+            {
+              MallocCall: {
+                contract_id: MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
+                // TODO: no json stringify!!
+                json_args: JSON.stringify({
+                  log_message: "hello for alice level 1",
+                }),
+                gas: MALLOC_CALL_SIMPLE_GAS.toNumber(),
+                attached_amount: "0",
+              },
+            },
+          ],
+          ft_contract_id: TestingUtils.WRAP_TESTNET_CONTRACT,
+        },
+      ],
+      [[[1], [2], []], [[2], []], [[]]],
+      amount.toString(),
+      { gas: MAX_GAS, depositTransactionHash }
+    );
+    const ret = await malloc.resolveTransactions(txRess);
+    expect(ret.flag).toBe(TransactionWithPromiseResultFlag.SUCCESS);
+
+    const newmyBal = await TestingUtils.ftBalOf(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      wrappedTesterAccount.accountId,
+      wrappedTesterAccount
+    );
+    TestingUtils.checkBalDifferences(myBal, newmyBal, -1 * amount, expect);
+  });
+
+  it("should make a couple black whole calls and make sure that the most basic splitter succeeds", async () => {
+    const MALLOC_CALL_BLACKWHOLE_CONTRACT_ID =
+      TestingUtils.getMallocCallBlackwholeContract();
+
+    const amount = 100;
+
+    await TestingUtils.setupWNearAccount(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      wrappedTesterAccount.accountId,
+      wrappedTesterAccount,
+      true,
+      amount + 20
+    );
+    await malloc.registerAccountWithFungibleToken(
+      [TestingUtils.WRAP_TESTNET_CONTRACT],
+      [
         wrappedTesterAccount.accountId,
         malloc.contractAccountId,
         MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
@@ -305,7 +435,6 @@ describe("malloc-client's ft capabilities", () => {
                 }),
                 gas: MALLOC_CALL_SIMPLE_GAS.toNumber(),
                 attached_amount: "0",
-                next_splitters: [],
               },
             },
             {
@@ -316,7 +445,6 @@ describe("malloc-client's ft capabilities", () => {
                 }),
                 gas: MALLOC_CALL_SIMPLE_GAS.toNumber(),
                 attached_amount: "0",
-                next_splitters: [],
               },
             },
           ],
@@ -398,7 +526,6 @@ describe("malloc-client's ft capabilities", () => {
                 }),
                 gas: MALLOC_CALL_SIMPLE_GAS.toNumber(),
                 attached_amount: "5",
-                next_splitters: [],
               },
             },
             {
@@ -409,7 +536,6 @@ describe("malloc-client's ft capabilities", () => {
                 }),
                 gas: MALLOC_CALL_SIMPLE_GAS.toNumber(),
                 attached_amount: "5",
-                next_splitters: [],
               },
             },
           ],

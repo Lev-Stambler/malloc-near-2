@@ -19,7 +19,6 @@ export interface Node {
     json_args: string;
     gas: number;
     attached_amount: string;
-    next_splitters: number[];
   };
 }
 
