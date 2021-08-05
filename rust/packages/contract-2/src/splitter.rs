@@ -2,7 +2,9 @@ use near_sdk::{env, log, serde_json::json, AccountId, Promise};
 
 use crate::{
     errors::{throw_err, Errors},
-    Contract, Node, SerializedSplitter, Splitter, SplitterId, BASIC_GAS,
+    serde_ext::VectorWrapper,
+    Construction, ConstructionId, ConstructionNextSplitters, Contract, Node, Splitter, SplitterId,
+    BASIC_GAS,
 };
 
 impl Contract {
@@ -14,17 +16,11 @@ impl Contract {
 
     /// This call on _run assumes a well formed splitter
     /// Returns a refunded amount
-    pub(crate) fn _run(
-        &mut self,
-        splitters: Vec<Splitter>,
-        amount: u128,
-        next_splitters: Vec<Vec<Vec<SplitterId>>>,
-    ) -> u64 {
-        let numb_endpoints = splitters[0].children.len();
-        if numb_endpoints < 1 {
-            throw_err(Errors::NoEndpointsSpecified);
-        }
-        let ret_prom = self.handle_splits(&splitters[0], None, 0, amount, 0, &serializedSplitters);
+    pub(crate) fn _run(&mut self, construction_id: ConstructionId, amount: u128) -> u64 {
+        let construction = self.get_construction_unchecked(&construction_id);
+        let first_splitter_id = construction.splitters.0.get(0).unwrap();
+        let splitter = self.get_splitter_unchecked(&first_splitter_id);
+        let ret_prom = self.handle_splits(&splitter, amount, &construction_id, 0);
 
         ret_prom
     }
@@ -38,11 +34,17 @@ impl Contract {
         &mut self,
         splitter: &Splitter,
         amount_deposited: u128,
-        next_splitter_set: &[Vec<Vec<SplitterId>>],
+        construction_id: &ConstructionId,
+        splitter_idx: u64,
     ) -> u64 {
+        let mut split_sum = 0;
+        for i in 0..splitter.splits.0.len() {
+            split_sum += splitter.splits.0.get(i).unwrap();
+        }
+
         let mut proms = vec![];
-        for i in 0..splitter.children.len() {
-            let frac = (splitter.splits.get(i).unwrap() as f64) / (splitter.split_sum as f64);
+        for i in 0..splitter.children.0.len() {
+            let frac = (splitter.splits.0.get(i).unwrap() as f64) / (split_sum as f64);
             let transfer_amount_float = frac * amount_deposited as f64;
             let transfer_amount = transfer_amount_float.floor() as u128;
             log!(
@@ -52,37 +54,15 @@ impl Contract {
             );
             let prom = self.handle_node(
                 transfer_amount,
-                splitter.children.get(i).unwrap(),
+                splitter.children.0.get(i).unwrap(),
                 &splitter.ft_contract_id,
-                &next_splitter_set[i as usize],
+                &construction_id,
+                splitter_idx,
+                i,
             );
             proms.push(prom);
         }
         env::promise_and(&proms)
-        // if i == splitter.splits.len() {
-        //     return prior_prom.unwrap();
-        // }
-        // let frac = (splitter.splits.get(i).unwrap() as f64) / (splitter.split_sum as f64);
-        // let transfer_amount_float = frac * amount_deposited as f64;
-        // let transfer_amount = transfer_amount_float.floor() as u128;
-        // let handle_node_prom = self.handle_node(
-        //     transfer_amount,
-        //     splitter.children.get(i).unwrap(),
-        //     &splitter.ft_contract_id,
-        //     splitters,
-        // );
-        // let next_prom = match prior_prom {
-        //     Some(p) => env::promise_and(&vec![p, handle_node_prom]),
-        //     None => handle_node_prom,
-        // };
-        // self.handle_splits(
-        //     splitter,
-        //     Some(next_prom),
-        //     amount_used + transfer_amount,
-        //     amount_deposited,
-        //     i + 1,
-        //     splitters,
-        // )
     }
 
     // TODO: how to make sure all one input token type for a splitter?
@@ -91,7 +71,9 @@ impl Contract {
         amount: u128,
         endpoint: Node,
         token_contract_id: &AccountId,
-        next_splitter_set: &[Vec<Vec<SplitterId>>],
+        construction_id: &ConstructionId,
+        splitter_idx: u64,
+        node_idx: u64,
     ) -> u64 {
         match endpoint {
             Node::MallocCall {
@@ -137,14 +119,7 @@ impl Contract {
                 );
                 let callback = env::promise_batch_then(call_prom, env::current_account_id());
 
-                // let mut serialized_next_splitters =
-                //     Vec::with_capacity(next_splitters.len() as usize);
-                // for i in 0..next_splitters.len() {
-                //     serialized_next_splitters
-                //         .push(&splitters[next_splitters.get(i).unwrap()].clone());
-                // }
-
-                let callback_args = json!({ "next_splitter_set": next_splitter_set });
+                let callback_args = json!({ "construction_id": construction_id, "splitter_idx": splitter_idx, "node_idx": node_idx });
                 env::promise_batch_action_function_call(
                     callback,
                     b"handle_malloc_call_return",
@@ -170,12 +145,13 @@ impl Contract {
         &mut self,
         result: Vec<malloc_call_core::ReturnItem>,
         splitters: &[Splitter],
-        next_splitters: Vec<Vec<Vec<SplitterId>>>,
+        splitter_idxs: &VectorWrapper<u64>,
+        construction_id: ConstructionId,
     ) -> Option<u64> {
         if result.len() == 0 {
             return None;
         }
-        if result.len() != splitters.len() || next_splitters.len() != result.len() {
+        if result.len() != splitters.len() {
             panic!("TODO:");
         }
         let mut proms = vec![];
@@ -187,7 +163,12 @@ impl Contract {
                 .amount
                 .parse()
                 .unwrap_or_else(|_| panic!(Errors::FailedToParseNumber.to_string()));
-            let prom = self.handle_splits(&splitters[i], amount, &next_splitters[i]);
+            let prom = self.handle_splits(
+                &splitters[i],
+                amount,
+                &construction_id,
+                splitter_idxs.0.get(i as u64).unwrap(),
+            );
         }
         Some(env::promise_and(&proms))
     }

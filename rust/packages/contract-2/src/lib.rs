@@ -21,15 +21,18 @@ use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet, Vector};
 use near_sdk::env::predecessor_account_id;
 use near_sdk::json_types::{ValidAccountId, U128};
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::serde_json::json;
 use near_sdk::{env, near_bindgen, serde, setup_alloc, AccountId, Gas, PanicOnDefault, Promise};
+use serde_ext::VectorWrapper;
 
 use crate::errors::{throw_err, Errors};
 
+mod checker;
 pub mod errors;
 pub mod ft;
-mod serializer;
+mod serde_ext;
 mod splitter;
+mod storage;
+mod test_utils;
 
 setup_alloc!();
 
@@ -37,51 +40,45 @@ const BASIC_GAS: Gas = 5_000_000_000_000;
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone)]
 #[serde(crate = "near_sdk::serde")]
-pub enum SerializedNode {
-    // SimpleTransfer {
-    //     recipient: AccountId,
-    // },
-    // FTTransfer {
-    //     recipient: AccountId,
-    // },
-    MallocCall {
-        contract_id: AccountId,
-        json_args: String,
-        gas: Gas,
-        attached_amount: U128,
-    },
-}
-
-#[derive(BorshDeserialize, BorshSerialize)]
-pub enum Node {
-    // SimpleTransfer {
-    //     recipient: AccountId,
-    // },
-    // FTTransfer {
-    //     recipient: AccountId,
-    // },
-    MallocCall {
-        contract_id: AccountId,
-        json_args: String,
-        gas: Gas,
-        attached_amount: U128,
-    },
-}
-
-#[derive(BorshDeserialize, BorshSerialize)]
-pub struct Splitter {
-    children: Vector<Node>,
-    splits: Vector<u128>,
+pub struct GenericId {
     owner: AccountId,
-    split_sum: u128,
-    ft_contract_id: AccountId,
+    index: u64,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+pub type SplitterId = GenericId;
+pub type ConstructionId = GenericId;
+
+// The indexes into the next splitters from the construction's splitter list
+pub type NodeNextSplitters = VectorWrapper<u64>;
+pub type SplitterNextSplitters = VectorWrapper<NodeNextSplitters>;
+pub type ConstructionNextSplitters = VectorWrapper<SplitterNextSplitters>;
+
+/// A Construction is the collection of splitters and next splitter which form the
+/// contract call tree
+/// Note: its assumed that the first splitter is the initial starting point
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
-pub struct SerializedSplitter {
-    children: Vec<SerializedNode>,
-    splits: Vec<u128>,
+pub struct Construction {
+    splitters: VectorWrapper<SplitterId>,
+    next_splitters: ConstructionNextSplitters,
+}
+
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub enum Node {
+    MallocCall {
+        contract_id: AccountId,
+        json_args: String,
+        gas: Gas,
+        attached_amount: U128,
+    },
+}
+
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct Splitter {
+    children: VectorWrapper<Node>,
+    splits: VectorWrapper<u128>,
     ft_contract_id: AccountId,
 }
 
@@ -94,80 +91,84 @@ pub struct AccountBalance {
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
+    constructions: UnorderedMap<AccountId, Vector<Construction>>,
     splitters: UnorderedMap<AccountId, Vector<Splitter>>,
     account_id_to_ft_balances: UnorderedMap<AccountId, Vec<AccountBalance>>,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(crate = "near_sdk::serde")]
-pub struct SplitterId {
-    owner: AccountId,
-    index: u64,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(crate = "near_sdk::serde")]
-pub struct SplitterIdWithNextSplitters {
-    splitter_id: SplitterId,
-    /// A vector of vectors where the inner vector is the next set of splitters per child node and the outer vector
-    /// corresponds to each child node of the splitter
-    next_splitters: Vec<Vec<SplitterId>>,
 }
 
 pub trait SplitterTrait {
     // fn run(&self, account_id: AccountId, splitter_idx: usize);
     fn run(
         &mut self,
-        splitter_infos: Vec<SplitterId>,
-        next_splitters: Vec<Vec<Vec<SplitterId>>>,
+        splitters: Vec<Splitter>,
+        next_splitters: ConstructionNextSplitters,
         amount: U128,
     );
-    fn store(&mut self, splitter: SerializedSplitter, owner: AccountId);
+    // fn store_splitters(&mut self, splitters: Vec<Splitter>, owner: ValidAccountId);
+    // fn store_construction(&mut self, construction: Construction);
 }
 
 #[near_bindgen]
 impl SplitterTrait for Contract {
     #[payable]
-    fn store(&mut self, splitter: SerializedSplitter, owner: AccountId) {
-        let splitter_deserial = self.deserialize(&splitter, false);
-        let mut splitters_by_account = self.splitters.get(&env::predecessor_account_id());
-        let splitters = match splitters_by_account {
-            None => {
-                let mut splitters =
-                    Vector::new(format!("{}-splitters", env::predecessor_account_id()).as_bytes());
-                splitters.push(&splitter_deserial);
-                splitters
-            }
-            Some(splitters) => {
-                splitters.push(&splitter_deserial);
-                splitters
-            }
-        };
-        self.splitters
-            .insert(&env::predecessor_account_id(), &splitters);
-    }
-
+    // fn store_splitters(&mut self, kk, owner: ValidAccountId) {
+    //     splitters.iter().for_each(|splitter| {
+    //         self.check(&splitter);
+    //         self.store_splitter(splitter, owner.as_ref())
+    //     });
+    // }
     #[payable]
     fn run(
         &mut self,
-        splitters: Vec<SplitterId>,
-        next_splitters: Vec<Vec<Vec<SplitterId>>>,
+        splitters: Vec<Splitter>,
+        next_splitters: ConstructionNextSplitters,
         amount: U128,
     ) {
-        let splitters: Vec<Splitter> = splitters
-            .iter()
-            .map(|id| self.get_splitter_unchecked(id))
-            .collect();
-        // TODO: make it so its not j attached deposit but via an NEP4 contract
-        let prom = self._run(splitters, amount.into(), next_splitters);
-        let ret = env::promise_batch_then(prom, env::predecessor_account_id());
-        env::promise_return(ret);
+        let construction = self.create_construction(splitters, next_splitters);
+        let construction_id = self.store_construction(construction);
+
+        self._run(construction_id, amount.into());
+        // let splitters: Vec<Splitter> = splitters
+        //     .iter()
+        //     .map(|id| self.get_splitter_unchecked(id))
+        //     .collect();
+        // // TODO: make it so its not j attached deposit but via an NEP4 contract
+        // let prom = self._run(splitters, amount.into(), next_splitters);
+        // let ret = env::promise_batch_then(prom, env::predecessor_account_id());
+        // env::promise_return(ret);
+    }
+}
+
+impl Contract {
+    // Note this stores the given splitters
+    fn create_construction(
+        &mut self,
+        splitters: Vec<Splitter>,
+        next_splitters: ConstructionNextSplitters,
+    ) -> Construction {
+        // TODO: checks that the splitters len is next splitters len?
+        let mut splitter_ids = VectorWrapper(Vector::new("".as_bytes()));
+        for i in 0..splitters.len() {
+            splitter_ids.0.push(&self.store_splitter(&splitters[i]));
+        }
+        Construction {
+            splitters: splitter_ids,
+            next_splitters,
+        }
     }
 }
 
 impl Contract {
     pub(crate) fn get_splitter_unchecked(&self, id: &SplitterId) -> Splitter {
         self.splitters
+            .get(&id.owner)
+            .unwrap_or_else(|| panic!("TODO:"))
+            .get(id.index)
+            .unwrap_or_else(|| panic!("TODO:"))
+    }
+
+    pub(crate) fn get_construction_unchecked(&self, id: &ConstructionId) -> Construction {
+        self.constructions
             .get(&id.owner)
             .unwrap_or_else(|| panic!("TODO:"))
             .get(id.index)
@@ -182,21 +183,39 @@ impl Contract {
     #[payable]
     pub fn handle_malloc_call_return(
         &mut self,
-        next_splitter_set: Vec<Vec<Vec<SplitterId>>>,
-        next_splitter_idxs: Vec<usize>,
+        construction_id: ConstructionId,
+        splitter_idx: u64,
+        node_idx: u64,
         #[callback] ret: Vec<malloc_call_core::ReturnItem>,
     ) -> Option<u64> {
-        let next_splitters: Vec<Splitter> = next_splitters
-            .iter()
-            .map(|s| self.get_splitter_unchecked(s))
-            .collect();
-        match self.handle_into_next_split(ret, &next_splitters, None, 0) {
-            None => None,
-            Some(prom_idx) => {
-                env::promise_return(prom_idx);
-                Some(prom_idx)
-            }
+        let construction = self.get_construction_unchecked(&construction_id);
+
+        let next_splitters_idx: VectorWrapper<u64> = construction
+            .next_splitters
+            .0
+            .get(splitter_idx)
+            .unwrap()
+            .0
+            .get(node_idx)
+            .unwrap();
+        let mut next_splitters: Vec<Splitter> = vec![];
+        for i in 0..next_splitters_idx.0.len() {
+            let splitter_id = construction
+                .splitters
+                .0
+                .get(next_splitters_idx.0.get(i).unwrap())
+                .unwrap();
+            next_splitters.push(self.get_splitter_unchecked(&splitter_id));
         }
+
+        self.handle_into_next_split(ret, &next_splitters, &next_splitters_idx, construction_id)
+        // match self.handle_into_next_split(ret, &next_splitters, None, 0) {
+        //     None => None,
+        //     Some(prom_idx) => {
+        //         env::promise_return(prom_idx);
+        //         Some(prom_idx)
+        //     }
+        // }
     }
 }
 
@@ -255,6 +274,7 @@ impl Contract {
         Contract {
             account_id_to_ft_balances: UnorderedMap::new("account_id_to_ft_balance".as_bytes()),
             splitters: UnorderedMap::new("splitters".as_bytes()),
+            constructions: UnorderedMap::new("constructions".as_bytes()),
         }
     }
 }

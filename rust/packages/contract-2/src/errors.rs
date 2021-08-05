@@ -1,7 +1,7 @@
 use near_sdk::env::panic;
 
 pub enum Errors {
-    NoEndpointsSpecified,
+    NoChildrenSpecified,
     MoreUsedThanAllowed,
     NumbEndpointsDneNumbSplits,
     CalleeDidNotDepositSufficientFunds,
@@ -18,7 +18,7 @@ impl ToString for Errors {
             Self::FailedToParseNumber => "Failed to parse a number from the string".to_string(),
             Self::FTContractIdNotMatch => "The returned fungible token contract type and the required fungible token type do not match".to_string(),
             Self::FailedToParseSplitter => "Failed to parse the splitter string".to_string(),
-            Self::NoEndpointsSpecified => "At least one endpoint must be specified".to_string(),
+            Self::NoChildrenSpecified => "At least one child must be specified".to_string(),
             Self::MoreUsedThanAllowed => {
                 "More currency was used than specified by the call".to_string()
             }
