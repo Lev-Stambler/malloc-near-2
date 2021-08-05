@@ -90,7 +90,7 @@ export const createMallocClient = async <
       });
       return (await executeMultipleTx(account, txs))[0];
     },
-    runEphemeralSplitter: async (splitter, amount, opts?) => {
+    runEphemeralSplitter: async (splitter, next_splitter_indices, amount, opts?) => {
       // Wait for the deposit transactions to go through
       if (opts?.depositTransactionHash) {
         const depositResult = await resolveTransactionsWithPromise(
@@ -108,6 +108,7 @@ export const createMallocClient = async <
         account,
         mallocAccountId,
         splitter,
+        next_splitter_indices,
         amount,
         opts
       );

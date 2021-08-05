@@ -98,7 +98,7 @@ pub struct Contract {
 
 pub trait SplitterTrait {
     // fn run(&self, account_id: AccountId, splitter_idx: usize);
-    fn run(
+    fn run_ephemeral(
         &mut self,
         splitters: Vec<Splitter>,
         next_splitters: ConstructionNextSplitters,
@@ -118,7 +118,7 @@ impl SplitterTrait for Contract {
     //     });
     // }
     #[payable]
-    fn run(
+    fn run_ephemeral(
         &mut self,
         splitters: Vec<Splitter>,
         next_splitters: ConstructionNextSplitters,
@@ -128,14 +128,8 @@ impl SplitterTrait for Contract {
         let construction_id = self.store_construction(construction);
 
         self._run(construction_id, amount.into());
-        // let splitters: Vec<Splitter> = splitters
-        //     .iter()
-        //     .map(|id| self.get_splitter_unchecked(id))
-        //     .collect();
-        // // TODO: make it so its not j attached deposit but via an NEP4 contract
-        // let prom = self._run(splitters, amount.into(), next_splitters);
-        // let ret = env::promise_batch_then(prom, env::predecessor_account_id());
-        // env::promise_return(ret);
+        // TODO:
+        //self.delete_construction(construction_id);
     }
 }
 

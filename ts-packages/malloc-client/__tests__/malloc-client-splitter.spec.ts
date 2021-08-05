@@ -252,7 +252,93 @@ describe("malloc-client's ft capabilities", () => {
     // TestingUtils.checkBalDifferences(myBal, newmyBal, -600, expect);
   });
 
-  it.only("should send Wrapped Near using the SimpleTransferMallocCall", async () => {
+  xit("should make calls to a multi level splitter with a pass through and black whole at then end", async () => {
+  })
+  it.only("should make a couple black whole calls and make sure that the most basic splitter succeeds", async () => {
+    const MALLOC_CALL_BLACKWHOLE_CONTRACT_ID =
+      TestingUtils.getMallocCallBlackwholeContract();
+
+    const amount = 100;
+    const alice = await TestingUtils.newRandAccount(masterAccount);
+    const bob = await TestingUtils.newRandAccount(masterAccount);
+
+    await TestingUtils.setupWNearAccount(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      wrappedTesterAccount.accountId,
+      wrappedTesterAccount,
+      true,
+      amount + 20
+    );
+    await malloc.registerAccountWithFungibleToken(
+      [TestingUtils.WRAP_TESTNET_CONTRACT],
+      [
+        alice.accountId,
+        bob.accountId,
+        wrappedTesterAccount.accountId,
+        malloc.contractAccountId,
+        MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
+      ]
+    );
+
+    const myBal = await TestingUtils.ftBalOf(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      wrappedTesterAccount.accountId,
+      wrappedTesterAccount
+    );
+
+    const depositTransactionHash = await malloc.deposit(
+      amount.toString(),
+      TestingUtils.WRAP_TESTNET_CONTRACT
+    );
+
+    const txRess = await malloc.runEphemeralSplitter(
+      [
+        {
+          splits: [3, 1],
+          children: [
+            {
+              MallocCall: {
+                contract_id: MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
+                // TODO: no json stringify!!
+                json_args: JSON.stringify({
+                  log_message: "hello for alice",
+                }),
+                gas: MALLOC_CALL_SIMPLE_GAS.toNumber(),
+                attached_amount: "0",
+                next_splitters: [],
+              },
+            },
+            {
+              MallocCall: {
+                contract_id: MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
+                json_args: JSON.stringify({
+                  log_message: "hello for bob",
+                }),
+                gas: MALLOC_CALL_SIMPLE_GAS.toNumber(),
+                attached_amount: "0",
+                next_splitters: [],
+              },
+            },
+          ],
+          ft_contract_id: TestingUtils.WRAP_TESTNET_CONTRACT,
+        },
+      ],
+      [[[], []]],
+      amount.toString(),
+      { gas: MAX_GAS, depositTransactionHash }
+    );
+    const ret = await malloc.resolveTransactions(txRess);
+    expect(ret.flag).toBe(TransactionWithPromiseResultFlag.SUCCESS);
+
+    const newmyBal = await TestingUtils.ftBalOf(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      wrappedTesterAccount.accountId,
+      wrappedTesterAccount
+    );
+    TestingUtils.checkBalDifferences(myBal, newmyBal, -1 * amount, expect);
+  });
+
+  xit("should send Wrapped Near using the SimpleTransferMallocCall", async () => {
     const MALLOC_CALL_SEND_CONTRACT_ID =
       TestingUtils.getMallocCallSendContract();
 
@@ -312,7 +398,7 @@ describe("malloc-client's ft capabilities", () => {
                 }),
                 gas: MALLOC_CALL_SIMPLE_GAS.toNumber(),
                 attached_amount: "5",
-                next_splitters: []
+                next_splitters: [],
               },
             },
             {
@@ -323,13 +409,14 @@ describe("malloc-client's ft capabilities", () => {
                 }),
                 gas: MALLOC_CALL_SIMPLE_GAS.toNumber(),
                 attached_amount: "5",
-                next_splitters: []
+                next_splitters: [],
               },
             },
           ],
           ft_contract_id: TestingUtils.WRAP_TESTNET_CONTRACT,
         },
       ],
+      [[[], []]],
       amount.toString(),
       { gas: MAX_GAS, depositTransactionHash }
     );

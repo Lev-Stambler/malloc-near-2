@@ -9,6 +9,7 @@ import {
   Splitter,
   Transaction,
   MallocCallMetadata,
+  NextSplitterIndices,
 } from "./interfaces";
 import { executeMultipleTx, MAX_GAS } from "./tx";
 
@@ -63,6 +64,7 @@ export const runEphemeralSplitter = async (
   callerAccount: SpecialAccount,
   mallocAccountId: AccountId,
   splitters: Splitter[],
+  next_splitters_idxs: NextSplitterIndices,
   amount: BigNumberish,
   opts?: Partial<RunEphemeralOpts>
 ): Promise<Transaction[]> => {
@@ -79,6 +81,7 @@ export const runEphemeralSplitter = async (
           methodName: "run_ephemeral",
           args: {
             splitters,
+            next_splitters: next_splitters_idxs,
             amount: amount.toString(),
           },
           gas: _opts.gas.toString(),

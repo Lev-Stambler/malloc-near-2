@@ -9,6 +9,7 @@ import type {
 
 export type BigNumberish = BN | number | string;
 export type AccountId = string;
+export type NextSplitterIndices = number[][][];
 
 export interface Node {
   // SimpleTransfer?: { recipient: AccountId };
@@ -29,8 +30,12 @@ export interface Splitter {
 }
 
 export interface MallocContract extends Contract {
-  run_ephemeral: (
-    args: { splitter: Splitter[]; amount?: BigNumberish },
+  run: (
+    args: {
+      splitter: Splitter[];
+      next_splitters: NextSplitterIndices;
+      amount: BigNumberish;
+    },
     gas?: BigNumberish,
     attachedDeposit?: BigNumberish
   ) => Promise<any>;
@@ -66,6 +71,7 @@ export interface RegisterAccountWithFungibleTokenOpts {}
 
 export type CallEphemeralFn<T extends string[] | void> = (
   splitter: Splitter[],
+  next_splitter_indices: NextSplitterIndices,
   amount: string,
   opts?: Partial<RunEphemeralOpts>
 ) => Promise<T>;
