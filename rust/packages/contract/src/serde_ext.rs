@@ -4,12 +4,15 @@ use std::marker::PhantomData;
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
     collections::Vector,
+    env::{random_seed, used_gas},
+    log,
     serde::{
         self,
-        de::{value::BoolDeserializer, Visitor},
+        de::{value::BoolDeserializer, SeqAccess, Visitor},
         ser::SerializeSeq,
         Deserialize, Deserializer, Serialize,
     },
+    serde_json,
 };
 
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -45,7 +48,7 @@ impl<T> VectorWrapperVisitor<T> {
 
 impl<'de, T> Visitor<'de> for VectorWrapperVisitor<T>
 where
-    T: Deserialize<'de> + BorshDeserialize + BorshSerialize,
+    T: Deserialize<'de> + BorshDeserialize + BorshSerialize + Serialize,
 {
     // The type that our Visitor is going to produce.
     type Value = VectorWrapper<T>;
@@ -59,7 +62,10 @@ where
     where
         A: near_sdk::serde::de::SeqAccess<'de>,
     {
-        let mut ret_seq = VectorWrapper(Vector::new("map".to_string().as_bytes()));
+        // Ah shit random seed is always the same... cause its a seed
+        // TODO: need some value that is different
+        let mut ret_seq: VectorWrapper<T> =
+            VectorWrapper(Vector::new(used_gas().to_be_bytes().to_vec()));
         while let Some(v) = seq.next_element()? {
             ret_seq.0.push(&v);
         }
@@ -67,7 +73,7 @@ where
     }
 }
 
-impl<'de, T: Deserialize<'de> + BorshDeserialize + BorshSerialize> Deserialize<'de>
+impl<'de, T: Deserialize<'de> + BorshDeserialize + BorshSerialize + Serialize> Deserialize<'de>
     for VectorWrapper<T>
 where
     T: BorshSerialize,

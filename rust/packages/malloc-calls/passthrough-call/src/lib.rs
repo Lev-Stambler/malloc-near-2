@@ -56,8 +56,10 @@ impl MallocCall<BlackWholeArgs, ResolverArgs> for Contract {
     fn call(&mut self, args: BlackWholeArgs, amount: String, token_contract: AccountId) -> Promise {
         log!("Log from the passthrough: {}", args.log_message);
         let ret_args = json!({
-            "token_id": token_contract,
-            "amount": amount
+            "args": {
+                "token_id": token_contract,
+                "amount": "0"
+            }
         });
         Promise::new(env::current_account_id()).function_call(
             malloc_call_core::resolver_method_name(),

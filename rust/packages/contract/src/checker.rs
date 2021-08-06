@@ -4,7 +4,7 @@ use crate::{
 };
 
 impl Contract {
-    pub(crate) fn check(&self, splitter: &Splitter) {
+    pub(crate) fn check_splitter(&self, splitter: &Splitter) {
         if splitter.splits.0.len() != splitter.children.0.len() {
             throw_err(Errors::NumbEndpointsDneNumbSplits);
         }
@@ -49,7 +49,7 @@ mod tests {
             splits: vec_to_vector(vec![100, 20].as_slice(), "".as_bytes()),
             ft_contract_id: accounts(0).to_string(),
         };
-        contract.check(&splitter);
+        contract.check_splitter(&splitter);
     }
 
     #[test]
@@ -62,7 +62,7 @@ mod tests {
             splits: vec_to_vector(vec![].as_slice(), "".as_bytes()),
             ft_contract_id: accounts(0).to_string(),
         };
-        contract.check(&splitter);
+        contract.check_splitter(&splitter);
     }
 
     #[test]

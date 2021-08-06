@@ -15,7 +15,7 @@ use near_sdk::{
 
 setup_alloc!();
 
-const BASIC_GAS: Gas = 5_000_000_000_000; 
+const BASIC_GAS: Gas = 5_000_000_000_000;
 const BASIC_RESOLVER_GAS: Gas = 1_000_000_000_000;
 
 #[derive(Serialize, Deserialize)]
@@ -56,13 +56,12 @@ impl MallocCall<SendArgs, ResolverArgs> for Contract {
                 1,
                 BASIC_GAS,
             )
-            .then(Promise::new(env::current_account_id()))
-            .function_call(
+            .then(Promise::new(env::current_account_id()).function_call(
                 malloc_call_core::resolver_method_name(),
                 "{}".to_string().into_bytes(),
                 0,
                 BASIC_RESOLVER_GAS,
-            )
+            ))
     }
 }
 

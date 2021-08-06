@@ -273,6 +273,7 @@ describe("malloc-client's ft capabilities", () => {
         wrappedTesterAccount.accountId,
         malloc.contractAccountId,
         MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
+        MALLOC_CALL_PASSTHROUGH_CONTRACT_ID,
       ]
     );
 
@@ -290,7 +291,7 @@ describe("malloc-client's ft capabilities", () => {
     const txRess = await malloc.runEphemeralSplitter(
       [
         {
-          splits: [3, 1],
+          splits: [3, 1, 2],
           children: [
             {
               MallocCall: {
