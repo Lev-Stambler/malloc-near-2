@@ -18,6 +18,7 @@ setup_alloc!();
 // See https://github.com/mikedotexe/nep-141-examples/blob/master/basic/src/fungible_token_core.rs
 const GAS_FOR_RESOLVE_TRANSFER: Gas = 5_000_000_000_000;
 const GAS_FOR_FT_TRANSFER_CALL: Gas = 25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER;
+const VIEW_GAS: Gas = 1_000_000_000_000;
 const BASIC_GAS: Gas = 5_000_000_000_000;
 const SWAP_GAS: Gas = BASIC_GAS + BASIC_GAS;
 const WITHDRAW_GAS: Gas = BASIC_GAS + BASIC_GAS + BASIC_GAS + GAS_FOR_FT_TRANSFER_CALL;
@@ -156,14 +157,15 @@ impl Contract {
         recipient: ValidAccountId,
         #[callback] amount: U128,
     ) -> u64 {
-        // then(self.get_withdraw(&args))
-        // then(self.get_transfer(&recipient, &args.min_amount_out, &args.token_out))
         let amount: u128 = amount.into();
         let amount: String = amount.to_string();
         let token_out_id: AccountId = token_out_id.into();
+        log!("Amount {}", amount);
         let withdraw = self.get_withdraw(token_out_id.clone(), &amount);
+        log!("A");
         let transfer =
             self.get_transfer(withdraw, &recipient.into(), &amount, &token_out_id);
+        log!("A");
         let resolver_args = format!(
             "{{\"amount\": \"{}\", \"token_id\": \"{}\"}}",
             amount, &token_out_id
@@ -193,33 +195,39 @@ impl MallocCallWithCallback<RefSwapArgs, ReturnItem, u64> for Contract {
 
     #[payable]
     fn call(&mut self, args: RefSwapArgs, amount: String, token_contract: AccountId) -> u64 {
+        log!("A");
         // Send the funds back to the Malloc Contract if their is no recipient
         let recipient = args
             .recipient
             .clone()
             .unwrap_or(env::predecessor_account_id());
         let transfer_call = self.get_transfer_call(&self.ref_finance.clone(), &amount, &token_contract);
-        let register_tokens = self.get_register_tokens(transfer_call, &args.register_tokens);
-        let swap = self.get_swap(register_tokens, &amount, &token_contract, &args);
+        // TODO: remove regiser
+        // let register_tokens = self.get_register_tokens(transfer_call, &args.register_tokens);
+        let swap = self.get_swap(transfer_call, &amount, &token_contract, &args);
 
-
+        log!("A");
         let bal_args = json!({
             "token_id": args.token_out,
             "account_id": env::current_account_id()
         });
-        let mft_bal_prom = env::promise_create(self.ref_finance.to_owned(), "mft_balance_of".as_bytes(), bal_args.to_string().as_bytes(), 0, 0);
+
+        log!("A");
+        let mft_bal_prom = env::promise_then(swap, self.ref_finance.to_owned(), "mft_balance_of".as_bytes(), bal_args.to_string().as_bytes(), 0, VIEW_GAS);
         let callback = env::promise_batch_then(mft_bal_prom, env::current_account_id());
+        log!("A");
         let callback_args = json!({ 
         "token_out_id": &args.token_out,
         "recipient": &recipient});
+        log!("Gas used: {}", env::used_gas());
         env::promise_batch_action_function_call(
             callback,
             b"_resolve_get_amount",
             callback_args.to_string().as_bytes(),
-            0,
+            3,
             BASIC_GAS,
         );
-        env::promise_result(callback);
+        env::promise_return(callback);
         callback
     }
 

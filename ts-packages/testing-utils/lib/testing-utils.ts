@@ -36,6 +36,13 @@ interface CreateConnectionOpts {
   accountId: string;
 }
 
+export const getMallocCallRefSwapContract = () =>
+  readFileSync(
+    join(
+      __dirname,
+      "../../../rust/packages/malloc-calls/ref-swap-malloc-call/neardev/dev-account"
+    )
+  ).toString();
 export const getMallocCallPassthroughContract = () =>
   readFileSync(
     join(

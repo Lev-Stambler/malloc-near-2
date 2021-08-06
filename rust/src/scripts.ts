@@ -95,7 +95,7 @@ if (require.main === module) {
   devDeploy(projectDir, {
     callNew: {
       caller: "levtester.testnet",
-      args: {},
+      args: {ref_finance: "ref-finance.testnet"},
     },
   });
 }
