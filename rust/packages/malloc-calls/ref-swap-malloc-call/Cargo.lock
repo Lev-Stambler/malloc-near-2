@@ -260,6 +260,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bd7d4bd64732af4bf3a67f367c27df8520ad7e230c5817b8ff485864d80242b9"
 
 [[package]]
+name = "malloc-call-core"
+version = "0.1.0"
+dependencies = [
+ "near-sdk",
+]
+
+[[package]]
 name = "memchr"
 version = "2.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -492,9 +499,9 @@ dependencies = [
 name = "ref-fi-wcall"
 version = "0.1.0"
 dependencies = [
+ "malloc-call-core",
  "near-contract-standards",
  "near-sdk",
- "wcall-core",
 ]
 
 [[package]]
@@ -615,13 +622,6 @@ name = "version_check"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5fecdca9a5291cc2b8dcf7dc02453fee791a280f3743cb0905f8822ae463b3fe"
-
-[[package]]
-name = "wcall-core"
-version = "0.1.0"
-dependencies = [
- "near-sdk",
-]
 
 [[package]]
 name = "wee_alloc"

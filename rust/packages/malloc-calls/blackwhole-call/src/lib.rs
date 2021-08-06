@@ -27,8 +27,8 @@ pub struct Contract {}
 
 #[near_bindgen]
 impl MallocCallNoCallback<BlackWholeArgs> for Contract {
-    fn metadata(&self) -> malloc_call_core::MallocCallWithCallbackMetadata {
-        malloc_call_core::MallocCallWithCallbackMetadata {
+    fn metadata(&self) -> malloc_call_core::MallocCallMetadata {
+        malloc_call_core::MallocCallMetadata {
             minimum_gas: None,
             minimum_attached_deposit: Some(1.into()),
             name: "Send Fungible Tokens".to_string(),

@@ -1,6 +1,7 @@
-use std::{u64, usize};
+use std::{string, u64, usize};
 
 // To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
+use malloc_call_core::{MallocCallWithCallback, ReturnItem};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, Vector};
 use near_sdk::env::predecessor_account_id;
@@ -11,7 +12,6 @@ use near_sdk::{
     env, ext_contract, log, near_bindgen, serde, setup_alloc, AccountId, Gas, PanicOnDefault,
     Promise,
 };
-use wcall_core::WCallEndpoint;
 
 setup_alloc!();
 
@@ -29,7 +29,7 @@ pub struct RefSwapArgs {
     token_out: AccountId,
     min_amount_out: String,
     register_tokens: Vec<ValidAccountId>,
-    recipient: AccountId,
+    recipient: Option<AccountId>,
 }
 
 #[near_bindgen]
@@ -45,27 +45,30 @@ pub trait RefFiContract {
 
 impl Contract {
     // TODO: get # of tokens and make unregister true
-    fn get_withdraw(&mut self, swap_args: &RefSwapArgs) -> Promise {
+    fn get_withdraw(&mut self, token_out_id: String, amount_out: &str) -> u64 {
         // ref_fi_contract.mft_balance_of(swap_args.token_out, env::current_account_id());
         let withdraw_data = json!({
-            "token_id": swap_args.token_out,
-            "amount": swap_args.min_amount_out,
+            "token_id": token_out_id,
+            "amount": amount_out,
             "unregister": false,
             "msg": ""
         });
-        Promise::new(self.ref_finance.to_owned()).function_call(
-            "withdraw".to_string().into_bytes(),
-            withdraw_data.to_string().into_bytes(),
+        env::promise_create(
+            self.ref_finance.to_owned(),
+            "withdraw".as_bytes(),
+            withdraw_data.to_string().as_bytes(),
             1,
             WITHDRAW_GAS,
         )
     }
 
-    fn get_register_tokens(&mut self, tokens: &[ValidAccountId]) -> Promise {
+    fn get_register_tokens(&mut self, promise_idx: u64, tokens: &[ValidAccountId]) -> u64 {
         let data = json!({ "token_ids": tokens });
-        Promise::new(self.ref_finance.to_owned()).function_call(
-            "register_tokens".to_string().into_bytes(),
-            data.to_string().into_bytes(),
+        env::promise_then(
+            promise_idx,
+            self.ref_finance.clone(),
+            "register_tokens".to_string().as_bytes(),
+            data.to_string().as_bytes(),
             1,
             BASIC_GAS,
         )
@@ -73,18 +76,21 @@ impl Contract {
 
     fn get_transfer(
         &mut self,
-        receiver_id: &str,
+        promise_idx: u64,
+        receiver_id: &AccountId,
         amount: &str,
         token_contract: &AccountId,
-    ) -> Promise {
+    ) -> u64 {
         let ft_transfer_data = json!({
             "receiver_id": receiver_id,
             "amount": amount,
             "msg": ""
         });
-        Promise::new(token_contract.to_owned()).function_call(
-            "ft_transfer".to_string().into_bytes(),
-            ft_transfer_data.to_string().into_bytes(),
+        env::promise_then(
+            promise_idx,
+            token_contract.to_owned(),
+            "ft_transfer".to_string().as_bytes(),
+            ft_transfer_data.to_string().as_bytes(),
             1,
             BASIC_GAS,
         )
@@ -92,29 +98,33 @@ impl Contract {
 
     fn get_transfer_call(
         &mut self,
-        receiver_id: String,
+        receiver_id: &str,
         amount: &str,
         token_contract: &AccountId,
-    ) -> Promise {
+    ) -> u64 {
         let ft_transfer_data = json!({
             "receiver_id": receiver_id,
             "amount": amount,
             "msg": ""
         });
-        Promise::new(token_contract.to_owned()).function_call(
-            "ft_transfer_call".to_string().into_bytes(),
-            ft_transfer_data.to_string().into_bytes(),
+        let prom = env::promise_batch_create(token_contract.to_owned());
+        env::promise_batch_action_function_call(
+            prom,
+            "ft_transfer_call".to_string().as_bytes(),
+            ft_transfer_data.to_string().as_bytes(),
             1,
-            GAS_FOR_FT_TRANSFER_CALL + BASIC_GAS,
-        )
+            GAS_FOR_FT_TRANSFER_CALL,
+        );
+        prom
     }
 
     fn get_swap(
         &mut self,
+        promise_idx: u64,
         amount: &str,
         token_contract: &AccountId,
         swap_args: &RefSwapArgs,
-    ) -> Promise {
+    ) -> u64 {
         let data = json!({
             "actions": vec![json!({
                 "pool_id": swap_args.pool_id,
@@ -124,9 +134,11 @@ impl Contract {
                 "amount_in": amount
             })]
         });
-        Promise::new((&self.ref_finance).to_owned()).function_call(
-            "swap".to_string().into_bytes(),
-            data.to_string().into_bytes(),
+        env::promise_then(
+            promise_idx,
+            (&self.ref_finance).to_owned(),
+            "swap".to_string().as_bytes(),
+            data.to_string().as_bytes(),
             1,
             SWAP_GAS,
         )
@@ -136,17 +148,83 @@ impl Contract {
 // TODO: some way to fish out the funds from more than min slippage?
 
 #[near_bindgen]
-impl WCallEndpoint<RefSwapArgs> for Contract {
-    #[payable]
-    fn wcall(&mut self, args: RefSwapArgs, amount: String, token_contract: AccountId) -> Promise {
-        self.get_transfer_call(self.ref_finance.clone(), &amount, &token_contract)
-            .then(self.get_register_tokens(&args.register_tokens))
-            .then(self.get_swap(&amount, &token_contract, &args))
-            .then(self.get_withdraw(&args))
-            .then(self.get_transfer(&args.recipient, &args.min_amount_out, &args.token_out))
+impl Contract {
+    #[private]
+    pub fn _resolve_get_amount(
+        &mut self,
+        token_out_id: ValidAccountId,
+        recipient: ValidAccountId,
+        #[callback] amount: U128,
+    ) -> u64 {
+        // then(self.get_withdraw(&args))
+        // then(self.get_transfer(&recipient, &args.min_amount_out, &args.token_out))
+        let amount: u128 = amount.into();
+        let amount: String = amount.to_string();
+        let token_out_id: AccountId = token_out_id.into();
+        let withdraw = self.get_withdraw(token_out_id.clone(), &amount);
+        let transfer =
+            self.get_transfer(withdraw, &recipient.into(), &amount, &token_out_id);
+        let resolver_args = format!(
+            "{{\"amount\": \"{}\", \"token_id\": \"{}\"}}",
+            amount, &token_out_id
+        );
+        let resolver = env::promise_then(
+            transfer,
+            env::current_account_id(),
+            "resolver".as_bytes(),
+            resolver_args.as_bytes(),
+            0,
+            BASIC_GAS,
+        );
+        env::promise_return(resolver);
+        resolver
+        // self.resolver(ReturnItem {
+        //     token_id,
+        //     amount: "0".to_string()
+        // })
     }
-    fn metadata(&self) -> wcall_core::WCallEndpointMetadata {
-        wcall_core::WCallEndpointMetadata {
+}
+
+#[near_bindgen]
+impl MallocCallWithCallback<RefSwapArgs, ReturnItem, u64> for Contract {
+    fn resolver(&self, ret: ReturnItem) -> Vec<malloc_call_core::ReturnItem> {
+        vec![ret]
+    }
+
+    #[payable]
+    fn call(&mut self, args: RefSwapArgs, amount: String, token_contract: AccountId) -> u64 {
+        // Send the funds back to the Malloc Contract if their is no recipient
+        let recipient = args
+            .recipient
+            .clone()
+            .unwrap_or(env::predecessor_account_id());
+        let transfer_call = self.get_transfer_call(&self.ref_finance.clone(), &amount, &token_contract);
+        let register_tokens = self.get_register_tokens(transfer_call, &args.register_tokens);
+        let swap = self.get_swap(register_tokens, &amount, &token_contract, &args);
+
+
+        let bal_args = json!({
+            "token_id": args.token_out,
+            "account_id": env::current_account_id()
+        });
+        let mft_bal_prom = env::promise_create(self.ref_finance.to_owned(), "mft_balance_of".as_bytes(), bal_args.to_string().as_bytes(), 0, 0);
+        let callback = env::promise_batch_then(mft_bal_prom, env::current_account_id());
+        let callback_args = json!({ 
+        "token_out_id": &args.token_out,
+        "recipient": &recipient});
+        env::promise_batch_action_function_call(
+            callback,
+            b"_resolve_get_amount",
+            callback_args.to_string().as_bytes(),
+            0,
+            BASIC_GAS,
+        );
+        env::promise_result(callback);
+        callback
+    }
+
+    fn metadata(&self) -> malloc_call_core::MallocCallMetadata {
+        malloc_call_core::MallocCallMetadata {
             name: "Ref Dex Swap".to_string(),
             minimum_attached_deposit: Some(15.into()),
             minimum_gas: None,

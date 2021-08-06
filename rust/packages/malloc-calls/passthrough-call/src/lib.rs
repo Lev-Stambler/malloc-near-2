@@ -36,9 +36,9 @@ pub struct ResolverArgs {
 pub struct Contract {}
 
 #[near_bindgen]
-impl MallocCallWithCallback<BlackWholeArgs, ResolverArgs> for Contract {
-    fn metadata(&self) -> malloc_call_core::MallocCallWithCallbackMetadata {
-        malloc_call_core::MallocCallWithCallbackMetadata {
+impl MallocCallWithCallback<BlackWholeArgs, ResolverArgs, Promise> for Contract {
+    fn metadata(&self) -> malloc_call_core::MallocCallMetadata {
+        malloc_call_core::MallocCallMetadata {
             minimum_gas: None,
             minimum_attached_deposit: Some(1.into()),
             name: "Send Fungible Tokens".to_string(),
