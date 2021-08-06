@@ -1,3 +1,4 @@
+use near_sdk::collections::UnorderedMap;
 use near_sdk::{collections::Vector, AccountId};
 use near_sdk::{env, near_bindgen, serde, setup_alloc, Gas, PanicOnDefault, Promise};
 
@@ -8,30 +9,31 @@ impl Contract {
         todo!()
     }
 
-    pub(crate) fn store_construction(&mut self, construction: &Construction) -> ConstructionId {
-        let mut constructions_by_account = self.constructions.get(&env::predecessor_account_id());
+    pub(crate) fn store_construction(
+        &mut self,
+        name: String,
+        construction: &Construction,
+        owner: Option<AccountId>,
+    ) -> ConstructionId {
+        let owner = owner.unwrap_or(env::predecessor_account_id());
+        let mut constructions_by_account = self.constructions.get(&owner);
         let (constructions, idx) = match constructions_by_account {
             None => {
-                let mut constructions = Vector::new(
-                    format!("{}-construction", env::predecessor_account_id()).as_bytes(),
-                );
-                constructions.push(construction);
+                let mut constructions =
+                    UnorderedMap::new(format!("{}-construction", owner).as_bytes());
+                constructions.insert(&name, construction);
                 let len = constructions.len();
                 (constructions, len - 1)
             }
             Some(mut constructions) => {
-                constructions.push(&construction);
+                constructions.insert(&name, &construction);
                 let len = constructions.len();
                 (constructions, len - 1)
             }
         };
-        self.constructions
-            .insert(&env::predecessor_account_id(), &constructions);
+        self.constructions.insert(&owner, &constructions);
 
-        ConstructionId {
-            owner: env::predecessor_account_id(),
-            index: idx,
-        }
+        ConstructionId { owner: owner, name }
     }
 
     pub(crate) fn store_splitter(&mut self, splitter: &Splitter) -> SplitterId {

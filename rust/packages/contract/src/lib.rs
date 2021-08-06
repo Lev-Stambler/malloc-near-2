@@ -14,6 +14,7 @@
 use std::fmt::format;
 use std::{string, usize};
 
+use errors::SplitterCallError;
 use ft::FungibleTokenHandlers;
 // To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
@@ -39,7 +40,7 @@ mod test_utils;
 setup_alloc!();
 
 const BASIC_GAS: Gas = 5_000_000_000_000;
-const CALLBACK_GAS: Gas = 5_000_000_000_000 * 6;
+const CALLBACK_GAS: Gas = 5_000_000_000_000 * 10;
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone)]
 #[serde(crate = "near_sdk::serde")]
@@ -49,7 +50,41 @@ pub struct GenericId {
 }
 
 pub type SplitterId = GenericId;
-pub type ConstructionId = GenericId;
+
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct SplitterCall {
+    index_into_splitters: u64,
+    block_index: u64,
+    amount: u128,
+}
+
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct SplitterCallErrorData {
+    splitter_call: SplitterCall,
+    error: SplitterCallError,
+}
+
+pub type ConstructionCallDataId = String;
+
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct ConstructionCallData {
+    caller: AccountId,
+    construction_id: ConstructionId,
+    // TODO: ideally we want to have a queue not a stack (so we have BFS not DFS). But, Vector only supports O(1) stack ops.
+    // Implementing a custom data structure may later be required
+    next_splitter_call_stack: VectorWrapper<SplitterCall>,
+    splitter_call_errors: VectorWrapper<SplitterCallErrorData>,
+}
+
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone)]
+#[serde(crate = "near_sdk::serde")]
+pub struct ConstructionId {
+    owner: AccountId,
+    name: String,
+}
 
 // The indexes into the next splitters from the construction's splitter list
 pub type NodeNextSplitters = VectorWrapper<u64>;
@@ -70,6 +105,7 @@ pub struct Construction {
 #[serde(crate = "near_sdk::serde")]
 pub enum Node {
     MallocCall {
+        check_callback: Option<bool>,
         contract_id: AccountId,
         json_args: String,
         gas: Gas,
@@ -94,19 +130,28 @@ pub struct AccountBalance {
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
-    constructions: UnorderedMap<AccountId, Vector<Construction>>,
+    constructions: UnorderedMap<AccountId, UnorderedMap<String, Construction>>,
+    construction_calls: UnorderedMap<ConstructionCallDataId, ConstructionCallData>,
     splitters: UnorderedMap<AccountId, Vector<Splitter>>,
     account_id_to_ft_balances: UnorderedMap<AccountId, Vec<AccountBalance>>,
 }
 
 pub trait SplitterTrait {
     // fn run(&self, account_id: AccountId, splitter_idx: usize);
-    fn run_ephemeral(
+    fn register_construction(
         &mut self,
+        construction_name: String,
         splitters: Vec<Splitter>,
         next_splitters: ConstructionNextSplitters,
-        amount: U128,
     );
+    fn start_construction(
+        &mut self,
+        construction_call_id: ConstructionCallDataId,
+        construction_id: ConstructionId,
+        amount: U128,
+        caller: Option<ValidAccountId>,
+    );
+    fn process_next_split_call(&mut self, construction_call_id: ConstructionCallDataId);
     // fn store_splitters(&mut self, splitters: Vec<Splitter>, owner: ValidAccountId);
     // fn store_construction(&mut self, construction: Construction);
 }
@@ -114,31 +159,79 @@ pub trait SplitterTrait {
 #[near_bindgen]
 impl SplitterTrait for Contract {
     #[payable]
-    // fn store_splitters(&mut self, kk, owner: ValidAccountId) {
-    //     splitters.iter().for_each(|splitter| {
-    //         self.check(&splitter);
-    //         self.store_splitter(splitter, owner.as_ref())
-    //     });
-    // }
-    #[payable]
-    fn run_ephemeral(
+    fn register_construction(
         &mut self,
+        construction_name: String,
         splitters: Vec<Splitter>,
         next_splitters: ConstructionNextSplitters,
-        amount: U128,
     ) {
+        // env::gas
         let construction = self.create_construction(splitters, next_splitters);
-        let construction_id = self.store_construction(&construction);
-        self._run(construction_id, construction, amount.into());
-        log!("AAAAA {}", env::used_gas());
+        let construction_id = self.store_construction(construction_name, &construction, None);
+        // self._run(construction_id, construction, amount.into());
         // TODO:
         //self.delete_construction(construction_id);
     }
+
+    #[payable]
+    fn process_next_split_call(&mut self, construction_call_id: ConstructionCallDataId) {
+        let mut construction_call = self.get_construction_call_unchecked(&construction_call_id);
+        assert_eq!(construction_call.caller, env::predecessor_account_id());
+        let next_call = construction_call
+            .next_splitter_call_stack
+            .0
+            .pop()
+            .unwrap_or_else(|| panic!("TODO:"));
+        self._run_step(construction_call_id);
+    }
+
+    #[payable]
+    fn start_construction(
+        &mut self,
+        construction_call_id: ConstructionCallDataId,
+        construction_id: ConstructionId,
+        amount: U128,
+        caller: Option<ValidAccountId>,
+    ) {
+        let caller = if let Some(caller) = caller {
+            caller.into()
+        } else {
+            env::predecessor_account_id()
+        };
+        assert!(
+            self.construction_calls.get(&construction_call_id).is_none(),
+            "TODO:"
+        );
+        let vect_prefix_str_splitter_call_err =
+            format!("constcall-err-{}", construction_call_id.clone());
+        let vect_prefix_splitter_call_err = vect_prefix_str_splitter_call_err.as_bytes();
+
+        let vect_prefix_str_splitter_call = format!("constcall-{}", construction_call_id.clone());
+        let vect_prefix_splitter_call = vect_prefix_str_splitter_call.as_bytes();
+        let mut call_stack = VectorWrapper(Vector::new(vect_prefix_splitter_call));
+        let call_elem = SplitterCall {
+            index_into_splitters: 0,
+            block_index: env::block_index(),
+            amount: amount.into(),
+        };
+        call_stack.0.push(&call_elem);
+        self.construction_calls.insert(
+            &construction_call_id,
+            &ConstructionCallData {
+                caller,
+                construction_id: construction_id.clone(),
+                next_splitter_call_stack: call_stack,
+                // TODO: functionality around this pretty pls. How does one record errors? `\_ (- _ -) _/`
+                splitter_call_errors: VectorWrapper(Vector::new(vect_prefix_splitter_call_err)),
+            },
+        );
+        self._run_step(construction_call_id);
+    }
 }
 
+#[near_bindgen]
 impl Contract {
-    // Note this stores the given splitters
-    fn create_construction(
+    pub(crate) fn create_construction(
         &mut self,
         splitters: Vec<Splitter>,
         next_splitters: ConstructionNextSplitters,
@@ -154,9 +247,7 @@ impl Contract {
             next_splitters,
         }
     }
-}
 
-impl Contract {
     pub(crate) fn get_splitter_unchecked(&self, id: &SplitterId) -> Splitter {
         self.splitters
             .get(&id.owner)
@@ -165,29 +256,39 @@ impl Contract {
             .unwrap_or_else(|| panic!("TODO:"))
     }
 
-    pub(crate) fn get_construction_unchecked(&self, id: &ConstructionId) -> Construction {
+    // TODO: make into trait and seperate file
+    pub fn get_construction_unchecked(&self, id: &ConstructionId) -> Construction {
         self.constructions
             .get(&id.owner)
             .unwrap_or_else(|| panic!("TODO:"))
-            .get(id.index)
+            .get(&id.name)
+            .unwrap_or_else(|| panic!("TODO:"))
+    }
+
+    pub fn get_construction_call_unchecked(
+        &self,
+        id: &ConstructionCallDataId,
+    ) -> ConstructionCallData {
+        self.construction_calls
+            .get(&id)
             .unwrap_or_else(|| panic!("TODO:"))
     }
 }
 
-// TODO: put vec<vec<vec>>> everywhere
 #[near_bindgen]
 impl Contract {
     #[private]
     #[payable]
-    pub fn handle_malloc_call_return(
+    pub fn handle_node_callback(
         &mut self,
-        construction_id: ConstructionId,
+        construction_call_id: ConstructionCallDataId,
         splitter_idx: u64,
         node_idx: u64,
         caller: AccountId,
         #[callback] ret: Vec<malloc_call_core::ReturnItem>,
     ) -> Option<u64> {
-        let construction = self.get_construction_unchecked(&construction_id);
+        let construction_call = self.get_construction_call_unchecked(&construction_call_id);
+        let construction = self.get_construction_unchecked(&construction_call.construction_id);
 
         let next_splitters_idx: VectorWrapper<u64> = construction
             .next_splitters
@@ -206,14 +307,21 @@ impl Contract {
                 .unwrap();
             next_splitters.push(self.get_splitter_unchecked(&splitter_id));
         }
-
-        self.handle_into_next_split(
+        self.add_to_splitter_call_stack(
             ret,
             &next_splitters,
             &next_splitters_idx,
-            construction_id,
-            &caller,
-        )
+            &construction_call_id,
+        );
+        None
+
+        // self.handle_next_splits(
+        //     ret,
+        //     &next_splitters,
+        //     &next_splitters_idx,
+        //     &construction_call_id,
+        //     &caller,
+        // )
         // match self.handle_into_next_split(ret, &next_splitters, None, 0) {
         //     None => None,
         //     Some(prom_idx) => {
@@ -280,6 +388,7 @@ impl Contract {
             account_id_to_ft_balances: UnorderedMap::new("account_id_to_ft_balance".as_bytes()),
             splitters: UnorderedMap::new("splitters".as_bytes()),
             constructions: UnorderedMap::new("constructions".as_bytes()),
+            construction_calls: UnorderedMap::new("construction-call-stack".as_bytes()),
         }
     }
 }

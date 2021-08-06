@@ -1,4 +1,6 @@
-use near_sdk::env::panic;
+use near_sdk::{collections::Vector, env::panic};
+
+pub type SplitterCallError = String;
 
 pub enum Errors {
     NoChildrenSpecified,

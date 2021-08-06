@@ -15,6 +15,7 @@ export interface Node {
   // SimpleTransfer?: { recipient: AccountId };
   // FTTransfer?: { recipient: AccountId };
   MallocCall?: {
+    check_callback?: boolean;
     contract_id: AccountId;
     json_args: string;
     gas: number;
@@ -28,17 +29,17 @@ export interface Splitter {
   ft_contract_id?: AccountId;
 }
 
-export interface MallocContract extends Contract {
-  run: (
-    args: {
-      splitter: Splitter[];
-      next_splitters: NextSplitterIndices;
-      amount: BigNumberish;
-    },
-    gas?: BigNumberish,
-    attachedDeposit?: BigNumberish
-  ) => Promise<any>;
-}
+// export interface MallocContract extends Contract {
+//   run: (
+//     args: {
+//       splitter: Splitter[];
+//       next_splitters: NextSplitterIndices;
+//       amount: BigNumberish;
+//     },
+//     gas?: BigNumberish,
+//     attachedDeposit?: BigNumberish
+//   ) => Promise<any>;
+// }
 
 export interface MallocCallMetadata {
   minimum_gas?: BN;
@@ -68,12 +69,12 @@ export interface RunEphemeralOpts {
 
 export interface RegisterAccountWithFungibleTokenOpts {}
 
-export type CallEphemeralFn<T extends string[] | void> = (
+export type CallEphemeralFn = (
   splitter: Splitter[],
   next_splitter_indices: NextSplitterIndices,
   amount: string,
   opts?: Partial<RunEphemeralOpts>
-) => Promise<T>;
+) => Promise<void>;
 
 /**
  * @param  {AccountId[]} tokens A list of the token contract account ids
@@ -101,18 +102,14 @@ export type DepositFn<T extends string | void> = (
  * MallocClient is the for interacting with the set of Malloc Contracts via the Malloc SDK
  *
  * @param SpecialAccountTypeGeneric the type of special account. If the special account is a web connected wallet, then
- * deposit and runEphemeralSplitter do not return. If they are accounts derived from a key pair, then they return the transaction's hashes
+ * deposit and runEphemeralConstruction do not return. If they are accounts derived from a key pair, then they return the transaction's hashes
  *
  */
 export interface MallocClient<
   SpecialAccountTypeGeneric extends SpecialAccount
 > {
   contractAccountId: AccountId;
-  runEphemeralSplitter: CallEphemeralFn<
-    SpecialAccountTypeGeneric extends SpecialAccountConnectedWallet
-      ? void
-      : string[]
-  >;
+  runEphemeralConstruction: CallEphemeralFn;
   deposit: DepositFn<
     SpecialAccountTypeGeneric extends SpecialAccountConnectedWallet
       ? void
@@ -159,4 +156,31 @@ export interface TransactionWithPromiseResult {
 
 export interface MallocError {
   message: string;
+}
+
+export interface ConstructionId {
+  owner: AccountId;
+  name: string;
+}
+
+export type ConstructionCallId = string;
+
+type SplitterCallError = string;
+
+export interface SplitterCall {
+  index_into_splitters: BigNumberish;
+  block_index: BigNumberish;
+  amount: BigNumberish;
+}
+
+export interface SplitterCallErrorData {
+  splitter_call: SplitterCall;
+  error: SplitterCallError;
+}
+
+export interface ConstructionCall {
+  caller: AccountId;
+  construction_id: ConstructionId;
+  next_splitter_call_stack: SplitterCall[];
+  splitter_call_errors: SplitterCallErrorData[];
 }

@@ -19,8 +19,12 @@ import {
   TransactionWithPromiseResult,
   Transaction,
 } from "./interfaces";
-import { runEphemeralSplitter } from "./splitter";
-import { executeMultipleTx, resolveTransactionsWithPromise } from "./tx";
+import { runEphemeralConstruction } from "./construction";
+import {
+  executeMultipleTx,
+  resolveTransactionsReducedWithPromises,
+  resolveTransactionsWithPromise,
+} from "./tx";
 
 interface MallocClientOpts {}
 
@@ -59,19 +63,8 @@ export const createMallocClient = async <
     contractAccountId: mallocAccountId,
     resolveTransactions: async (
       hashes: string[]
-    ): Promise<TransactionWithPromiseResult> => {
-      const results = await resolveTransactionsWithPromise(
-        hashes,
-        account.accountId
-      );
-      results.forEach((result) => {
-        if (result.flag !== "success")
-          throw MallocErrors.transactionPromiseFailed(result.message);
-      });
-      return {
-        flag: TransactionWithPromiseResultFlag.SUCCESS,
-      };
-    },
+    ): Promise<TransactionWithPromiseResult> =>
+      resolveTransactionsReducedWithPromises(hashes, account.accountId),
     deposit: async (amount, tokenAccountId) => {
       const txs = [];
       txs.push({
@@ -90,7 +83,12 @@ export const createMallocClient = async <
       });
       return (await executeMultipleTx(account, txs))[0];
     },
-    runEphemeralSplitter: async (splitter, next_splitter_indices, amount, opts?) => {
+    runEphemeralConstruction: async (
+      splitter,
+      next_splitter_indices,
+      amount,
+      opts?
+    ) => {
       // Wait for the deposit transactions to go through
       if (opts?.depositTransactionHash) {
         const depositResult = await resolveTransactionsWithPromise(
@@ -104,7 +102,7 @@ export const createMallocClient = async <
         }
       }
 
-      const mallocTxs = await runEphemeralSplitter(
+      await runEphemeralConstruction(
         account,
         mallocAccountId,
         splitter,
@@ -112,8 +110,7 @@ export const createMallocClient = async <
         amount,
         opts
       );
-      const txRets = await executeMultipleTx(account, mallocTxs);
-      return txRets;
+      // return txRets;
     },
     registerAccountWithFungibleToken: async (
       tokens,

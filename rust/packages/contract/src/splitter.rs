@@ -1,11 +1,6 @@
 use near_sdk::{env, log, serde_json::json, AccountId, Promise};
 
-use crate::{
-    errors::{throw_err, Errors},
-    serde_ext::VectorWrapper,
-    Construction, ConstructionId, ConstructionNextSplitters, Contract, Node, Splitter, SplitterId,
-    BASIC_GAS, CALLBACK_GAS,
-};
+use crate::{BASIC_GAS, CALLBACK_GAS, Construction, ConstructionCallDataId, ConstructionId, ConstructionNextSplitters, Contract, Node, Splitter, SplitterCall, SplitterId, errors::{throw_err, Errors}, serde_ext::VectorWrapper};
 
 impl Contract {
     fn get_transfer_data(recipient: String, amount: String) -> Vec<u8> {
@@ -16,23 +11,28 @@ impl Contract {
 
     /// This call on _run assumes a well formed splitter
     /// Returns a refunded amount
-    pub(crate) fn _run(
+    pub(crate) fn _run_step(
         &mut self,
-        construction_id: ConstructionId,
-        construction: Construction,
-        amount: u128,
+        construction_call_id: ConstructionCallDataId,
     ) -> u64 {
-        // let construction = self.get_construction_unchecked(&construction_id);
+        let mut construction_call = self.get_construction_call_unchecked(&construction_call_id);
+        let call_data = construction_call.next_splitter_call_stack.0.pop().unwrap_or_else(|| panic!("TODO:"));
+        let construction = self.get_construction_unchecked(&construction_call.construction_id);
         let first_splitter_id = construction.splitters.0.get(0).unwrap();
         let splitter = self.get_splitter_unchecked(&first_splitter_id);
         let ret_prom = self.handle_splits(
             &splitter,
-            amount,
-            &construction_id,
+            call_data.amount,
+            &construction_call_id,
             0,
             &env::predecessor_account_id(),
         );
 
+        // Update the call stack
+        self.construction_calls
+            .insert(&construction_call_id, &construction_call);
+
+        log!("Gas used for this run step: {}", env::used_gas());
         ret_prom
     }
 
@@ -45,7 +45,7 @@ impl Contract {
         &mut self,
         splitter: &Splitter,
         amount_deposited: u128,
-        construction_id: &ConstructionId,
+        construction_call_id: &ConstructionCallDataId,
         splitter_idx: u64,
         caller: &AccountId,
     ) -> u64 {
@@ -68,7 +68,7 @@ impl Contract {
                 transfer_amount,
                 splitter.children.0.get(i).unwrap(),
                 &splitter.ft_contract_id,
-                &construction_id,
+                &construction_call_id,
                 splitter_idx,
                 i,
                 &caller,
@@ -84,7 +84,7 @@ impl Contract {
         amount: u128,
         endpoint: Node,
         token_contract_id: &AccountId,
-        construction_id: &ConstructionId,
+        construction_call_id: &ConstructionCallDataId,
         splitter_idx: u64,
         node_idx: u64,
         caller: &AccountId,
@@ -94,6 +94,7 @@ impl Contract {
                 contract_id,
                 json_args,
                 attached_amount,
+                check_callback,
                 gas,
             } => {
                 // TODO: we need a smart way of doing gas for these wcalls...
@@ -127,45 +128,42 @@ impl Contract {
                     attached_amount.into(),
                     gas,
                 );
+                if let Some(check_cb) = check_callback {
+                    if !check_cb {
+                        return call_prom;
+                    }
+                }
                 let callback = env::promise_batch_then(call_prom, env::current_account_id());
 
-                let callback_args = json!({ "construction_id": construction_id, "splitter_idx": splitter_idx, "node_idx": node_idx, "caller": caller });
+                let callback_args = json!({ 
+                "construction_call_id": construction_call_id,
+                "splitter_idx": splitter_idx, "node_idx": node_idx, "caller": caller });
                 env::promise_batch_action_function_call(
                     callback,
-                    b"handle_malloc_call_return",
+                    b"handle_node_callback",
                     callback_args.to_string().as_bytes(),
                     0,
                     CALLBACK_GAS,
                 );
-                // env::promise_return(callback);
                 callback
-                // Promise::new(token_contract_id)
-                //     .function_call(ft_transfer_method_name, transfer_data, 1, BASIC_GAS)
-                //     .then(Promise::new(contract_id).function_call(
-                //         "wcall".to_string().into_bytes(),
-                //         call_data.into_bytes(),
-                //         attached_amount.into(),
-                //         gas,
-                //     ))
             }
         }
     }
 
-    pub(crate) fn handle_into_next_split(
-        &mut self,
+    pub(crate) fn add_to_splitter_call_stack(&mut self,
         result: Vec<malloc_call_core::ReturnItem>,
         splitters: &[Splitter],
         splitter_idxs: &VectorWrapper<u64>,
-        construction_id: ConstructionId,
-        caller: &AccountId,
-    ) -> Option<u64> {
+        construction_call_id: &ConstructionCallDataId,
+     ) {
+        let mut construction_call= self.get_construction_call_unchecked(&construction_call_id);
         if result.len() == 0 {
-            return None;
+            return;
         }
         if result.len() != splitters.len() {
             panic!("TODO:");
         }
-        let mut proms = vec![];
+
         for i in 0..splitters.len() {
             if splitters[i].ft_contract_id != result[i].token_id.to_string() {
                 panic!(Errors::FTContractIdNotMatch.to_string())
@@ -174,14 +172,13 @@ impl Contract {
                 .amount
                 .parse()
                 .unwrap_or_else(|_| panic!(Errors::FailedToParseNumber.to_string()));
-            let prom = self.handle_splits(
-                &splitters[i],
-                amount,
-                &construction_id,
-                splitter_idxs.0.get(i as u64).unwrap(),
-                caller,
-            );
+            let call_elem = SplitterCall {
+                index_into_splitters: splitter_idxs.0.get(i as u64).unwrap(),
+                block_index: env::block_index(),
+                amount
+            };
+            construction_call.next_splitter_call_stack.0.push(&call_elem);
         }
-        Some(env::promise_and(&proms))
+        self.construction_calls.insert(&construction_call_id, &construction_call);
     }
 }

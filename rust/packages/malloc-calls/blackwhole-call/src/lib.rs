@@ -1,7 +1,7 @@
 use std::{u64, usize};
 
 // To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
-use malloc_call_core::{MallocCall, ReturnItem};
+use malloc_call_core::{MallocCallNoCallback, MallocCallWithCallback, ReturnItem};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, Vector};
 use near_sdk::env::predecessor_account_id;
@@ -15,46 +15,35 @@ use near_sdk::{
 
 setup_alloc!();
 
-const BASIC_GAS: Gas = 5_000_000_000_000;
-const BASIC_RESOLVER_GAS: Gas = 1_000_000_000_000;
-
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct BlackWholeArgs {
     log_message: String,
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct ResolverArgs {}
-
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {}
 
 #[near_bindgen]
-impl MallocCall<BlackWholeArgs, ResolverArgs> for Contract {
-    fn metadata(&self) -> malloc_call_core::MallocCallMetadata {
-        malloc_call_core::MallocCallMetadata {
+impl MallocCallNoCallback<BlackWholeArgs> for Contract {
+    fn metadata(&self) -> malloc_call_core::MallocCallWithCallbackMetadata {
+        malloc_call_core::MallocCallWithCallbackMetadata {
             minimum_gas: None,
             minimum_attached_deposit: Some(1.into()),
             name: "Send Fungible Tokens".to_string(),
         }
     }
 
-    fn resolver(&self, args: ResolverArgs) -> Vec<ReturnItem> {
-        vec![]
-    }
-
     #[payable]
-    fn call(&mut self, args: BlackWholeArgs, amount: String, token_contract: AccountId) -> Promise {
+    fn call(
+        &mut self,
+        args: BlackWholeArgs,
+        amount: String,
+        token_contract: AccountId,
+    ) -> Vec<ReturnItem> {
         log!("Log from the blackwhole: {}", args.log_message);
-        Promise::new(env::current_account_id()).function_call(
-            malloc_call_core::resolver_method_name(),
-            "{\"args\": {}}".to_string().into_bytes(),
-            0,
-            BASIC_RESOLVER_GAS,
-        )
+        vec![]
     }
 }
 

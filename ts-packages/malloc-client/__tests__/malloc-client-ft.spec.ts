@@ -1,13 +1,19 @@
 import * as MallocClient from "../lib/malloc-client";
 import * as TestingUtils from "../../testing-utils/lib/testing-utils";
-import { SpecialAccountType } from "../lib/interfaces";
+import {
+  SpecialAccountType,
+  SpecialAccountWithKeyPair,
+} from "../lib/interfaces";
 
-let malloc: MallocClient.MallocClient;
-const TOKEN_ACCOUNT_IDS = [TestingUtils.WRAP_TESTNET_CONTRACT, "ndai.ft-fin.testnet"];
+let malloc: MallocClient.MallocClient<SpecialAccountWithKeyPair>;
+const TOKEN_ACCOUNT_IDS = [
+  TestingUtils.WRAP_TESTNET_CONTRACT,
+  "ndai.ft-fin.testnet",
+];
 let wrappedAccount: MallocClient.SpecialAccountWithKeyPair;
 
 describe("malloc-client's ft capabilities", () => {
-  jest.setTimeout(30 * 1000)
+  jest.setTimeout(30 * 1000);
   beforeAll(async () => {
     const account = await TestingUtils.getDefaultTesterAccountNear();
     wrappedAccount = MallocClient.wrapAccount(
@@ -30,7 +36,7 @@ describe("malloc-client's ft capabilities", () => {
       TOKEN_ACCOUNT_IDS,
       [bob.accountId]
     );
-    console.log(tokensRegistered)
+    console.log(tokensRegistered);
     expect(tokensRegistered.sort()).toEqual(TOKEN_ACCOUNT_IDS.sort());
     for (let i = 0; i < tokensRegistered.length; i++) {
       expect(

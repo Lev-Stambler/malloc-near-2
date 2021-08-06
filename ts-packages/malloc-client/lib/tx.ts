@@ -29,9 +29,10 @@ import {
   ExecutionStatus,
   ExecutionStatusBasic,
 } from "near-api-js/lib/providers/provider";
+import { MallocErrors } from "./errors";
 
 export const MAX_GAS_STR = "300000000000000";
-export const MAX_GAS = new BN("300000000000000");
+export const MAX_GAS = new BN(MAX_GAS_STR);
 
 // TODO: handle env w/ testnet
 const provider = new nearAPI.providers.JsonRpcProvider(
@@ -208,7 +209,7 @@ export const resolveTransactionsWithPromise = async (
         flag: TransactionWithPromiseResultFlag.SUCCESS,
       };
     }
-    console.log(result)
+    console.log(result);
     return {
       // TODO: add some reason or something for this!!
       flag: TransactionWithPromiseResultFlag.FAILURE,
@@ -220,4 +221,23 @@ export const resolveTransactionsWithPromise = async (
     await Promise.all(hashes.map(resolveTxWithPromise))
   ).flat();
   return resultStatuses.map(parseResult);
+};
+
+export const resolveTransactionsReducedWithPromises = async (
+  hashes: string[],
+  accountId: string
+): Promise<TransactionWithPromiseResult> => {
+  {
+    const results = await resolveTransactionsWithPromise(
+      hashes,
+      accountId
+    );
+    results.forEach((result) => {
+      if (result.flag !== "success")
+        throw MallocErrors.transactionPromiseFailed(result.message);
+    });
+    return {
+      flag: TransactionWithPromiseResultFlag.SUCCESS,
+    };
+  }
 };

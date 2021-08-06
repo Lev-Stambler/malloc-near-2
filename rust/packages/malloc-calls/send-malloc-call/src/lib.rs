@@ -1,7 +1,7 @@
 use std::{u64, usize};
 
 // To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
-use malloc_call_core::{MallocCall, ReturnItem};
+use malloc_call_core::{MallocCallWithCallback, ReturnItem};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, Vector};
 use near_sdk::env::predecessor_account_id;
@@ -33,9 +33,9 @@ pub struct ResolverArgs {}
 pub struct Contract {}
 
 #[near_bindgen]
-impl MallocCall<SendArgs, ResolverArgs> for Contract {
-    fn metadata(&self) -> malloc_call_core::MallocCallMetadata {
-        malloc_call_core::MallocCallMetadata {
+impl MallocCallWithCallback<SendArgs, ResolverArgs> for Contract {
+    fn metadata(&self) -> malloc_call_core::MallocCallWithCallbackMetadata {
+        malloc_call_core::MallocCallWithCallbackMetadata {
             minimum_gas: None,
             minimum_attached_deposit: Some(1.into()),
             name: "Send Fungible Tokens".to_string(),

@@ -36,7 +36,6 @@ interface CreateConnectionOpts {
   accountId: string;
 }
 
-
 export const getMallocCallPassthroughContract = () =>
   readFileSync(
     join(

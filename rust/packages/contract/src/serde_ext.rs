@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
     collections::Vector,
-    env::{random_seed, used_gas},
+    env::{self, random_seed, used_gas},
     log,
     serde::{
         self,
@@ -64,8 +64,9 @@ where
     {
         // Ah shit random seed is always the same... cause its a seed
         // TODO: need some value that is different
-        let mut ret_seq: VectorWrapper<T> =
-            VectorWrapper(Vector::new(used_gas().to_be_bytes().to_vec()));
+        let mut unique_prefix = env::random_seed();
+        unique_prefix.append(&mut used_gas().to_be_bytes().to_vec());
+        let mut ret_seq: VectorWrapper<T> = VectorWrapper(Vector::new(unique_prefix));
         while let Some(v) = seq.next_element()? {
             ret_seq.0.push(&v);
         }

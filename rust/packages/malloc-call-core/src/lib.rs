@@ -13,7 +13,7 @@ pub fn resolver_method_name() -> Vec<u8> {
 
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
-pub struct MallocCallMetadata {
+pub struct MallocCallWithCallbackMetadata {
     pub name: String,
     pub minimum_gas: Option<U128>,
     pub minimum_attached_deposit: Option<U128>,
@@ -27,12 +27,25 @@ pub struct ReturnItem {
     pub amount: String,
 }
 
-pub trait MallocCall<CallArgs, ResolverArgs> {
+pub trait MallocCallNoCallback<CallArgs> {
+    /// The wrapper function which takes in some amount of tokens which are
+    /// defined by token_contract
+    fn call(
+        &mut self,
+        args: CallArgs,
+        amount: String,
+        token_contract: AccountId,
+    ) -> Vec<ReturnItem>;
+
+    fn metadata(&self) -> MallocCallWithCallbackMetadata;
+}
+
+pub trait MallocCallWithCallback<CallArgs, ResolverArgs> {
     /// The wrapper function which takes in some amount of tokens which are
     /// defined by token_contract
     fn call(&mut self, args: CallArgs, amount: String, token_contract: AccountId) -> Promise;
 
-    fn metadata(&self) -> MallocCallMetadata;
+    fn metadata(&self) -> MallocCallWithCallbackMetadata;
 
     fn resolver(&self, args: ResolverArgs) -> Vec<ReturnItem>;
 }
