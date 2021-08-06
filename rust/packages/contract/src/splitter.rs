@@ -18,8 +18,8 @@ impl Contract {
         let mut construction_call = self.get_construction_call_unchecked(&construction_call_id);
         let call_data = construction_call.next_splitter_call_stack.0.pop().unwrap_or_else(|| panic!("TODO:"));
         let construction = self.get_construction_unchecked(&construction_call.construction_id);
-        let first_splitter_id = construction.splitters.0.get(0).unwrap();
-        let splitter = self.get_splitter_unchecked(&first_splitter_id);
+        let splitter_id = construction.splitters.0.get(call_data.splitter_index).unwrap();
+        let splitter = self.get_splitter_unchecked(&splitter_id);
         let ret_prom = self.handle_splits(
             &splitter,
             call_data.amount,
@@ -171,9 +171,7 @@ impl Contract {
         if result.len() == 0 {
             return;
         }
-        if result.len() != splitters.len() {
-            panic!("TODO:");
-        }
+        assert_eq!(result.len(), splitters.len(), "TODO:");
 
         for i in 0..splitters.len() {
             if splitters[i].ft_contract_id != result[i].token_id.to_string() {

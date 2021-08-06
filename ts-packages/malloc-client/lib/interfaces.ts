@@ -172,7 +172,7 @@ export type ConstructionCallId = string;
 type SplitterCallError = string;
 
 export interface SplitterCall {
-  index_into_splitters: BigNumberish;
+  splitter_index: BigNumberish;
   block_index: BigNumberish;
   amount: BigNumberish;
 }

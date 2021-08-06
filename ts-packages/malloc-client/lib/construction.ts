@@ -167,7 +167,6 @@ export const runEphemeralConstruction = async (
     return txRetsInit;
   };
 
-  // TODO: you can batch transactions in parrallel for this next splitter calls which are on the same block
   const runNextSplitterCalls = async (): Promise<string[]> => {
     let constructionCallData = await getConstructionCallData(
       callerAccount,
@@ -177,30 +176,33 @@ export const runEphemeralConstruction = async (
     let txHashes: string[] = [];
 
     while (constructionCallData.next_splitter_call_stack.length > 0) {
-      console.log(constructionCallData);
       const splitter_idx =
         constructionCallData.next_splitter_call_stack[
           constructionCallData.next_splitter_call_stack.length - 1
-        ].index_into_splitters;
+        ].splitter_index;
       const attachedDeposit = await getAttachedDepositForSplitter(
         callerAccount,
         splitters[parseInt(splitter_idx.toString())]
       );
-      const txs = [
-        {
-          receiverId: mallocAccountId,
-          functionCalls: [
-            {
-              methodName: "process_next_split_call",
-              args: {
-                construction_call_id,
+      const txs: Transaction[] = new Array(
+        constructionCallData.next_splitter_call_stack.length
+      )
+        .fill(0)
+        .map((_) => {
+          return {
+            receiverId: mallocAccountId,
+            functionCalls: [
+              {
+                methodName: "process_next_split_call",
+                args: {
+                  construction_call_id,
+                },
+                gas: _opts.gas.toString(),
+                amount: attachedDeposit.toString(),
               },
-              gas: _opts.gas.toString(),
-              amount: attachedDeposit.toString(),
-            },
-          ],
-        },
-      ];
+            ],
+          };
+        });
 
       const txRets = await executeMultipleTx(callerAccount, txs);
 
