@@ -109,7 +109,7 @@ export const runEphemeralConstruction = async (
   next_splitters_idxs: NextSplitterIndices,
   amount: BigNumberish,
   opts?: Partial<RunEphemeralOpts>
-): Promise<void> => {
+): Promise<string[]> => {
   const _opts: RunEphemeralOpts = {
     ...defaultRunEphemeralOpts,
     ...(opts || {}),
@@ -117,7 +117,7 @@ export const runEphemeralConstruction = async (
   const construction_call_id = makeid(16);
   const constructionName = makeid(10);
 
-  const storeAndStartConstruction = async () => {
+  const storeAndStartConstruction = async (): Promise<string[]> => {
     const attachedDeposit = await getAttachedDepositForSplitter(
       callerAccount,
       splitters[0]
@@ -163,16 +163,20 @@ export const runEphemeralConstruction = async (
 
     // Throws if unsuccessful
     await checkSuccessful(txRetsInit, callerAccount.accountId);
+
+    return txRetsInit;
   };
 
-  const runNextSplitterCalls = async () => {
+  // TODO: you can batch transactions in parrallel for this next splitter calls which are on the same block
+  const runNextSplitterCalls = async (): Promise<string[]> => {
     let constructionCallData = await getConstructionCallData(
       callerAccount,
       mallocAccountId,
       construction_call_id
     );
+    let txHashes: string[] = [];
 
-    while (constructionCallData.splitter_call_errors.length > 0) {
+    while (constructionCallData.next_splitter_call_stack.length > 0) {
       console.log(constructionCallData);
       const splitter_idx =
         constructionCallData.next_splitter_call_stack[
@@ -202,6 +206,7 @@ export const runEphemeralConstruction = async (
 
       // Throws if unsuccessful
       await checkSuccessful(txRets, callerAccount.accountId);
+      txHashes.push(...txRets);
 
       constructionCallData = await getConstructionCallData(
         callerAccount,
@@ -209,8 +214,10 @@ export const runEphemeralConstruction = async (
         construction_call_id
       );
     }
+    return txHashes;
   };
 
-  await storeAndStartConstruction();
-  await runNextSplitterCalls();
+  const txsInit = await storeAndStartConstruction();
+  const txsNextStep = await runNextSplitterCalls();
+  return [...txsInit, ...txsNextStep];
 };

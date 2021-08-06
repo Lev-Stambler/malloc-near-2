@@ -83,6 +83,9 @@ export const createMallocClient = async <
       });
       return (await executeMultipleTx(account, txs))[0];
     },
+    // TODO: Ts ignore the return type for now as we are always gonna be returning string[] while only KeyPair
+    // wallets are supported
+    // @ts-ignore
     runEphemeralConstruction: async (
       splitter,
       next_splitter_indices,
@@ -102,8 +105,10 @@ export const createMallocClient = async <
         }
       }
 
-      await runEphemeralConstruction(
-        account,
+      if (account.type !== SpecialAccountType.KeyPair)
+        throw "Malloc client currently only supports keypair connected wallets";
+      return await runEphemeralConstruction(
+        account as SpecialAccountWithKeyPair,
         mallocAccountId,
         splitter,
         next_splitter_indices,

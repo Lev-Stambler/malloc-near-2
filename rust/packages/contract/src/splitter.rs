@@ -24,7 +24,7 @@ impl Contract {
             &splitter,
             call_data.amount,
             &construction_call_id,
-            0,
+            call_data.splitter_index,
             &env::predecessor_account_id(),
         );
 
@@ -78,6 +78,7 @@ impl Contract {
         env::promise_and(&proms)
     }
 
+    // TODO: split up into helper functions
     // TODO: how to make sure all one input token type for a splitter?
     fn handle_node(
         &mut self,
@@ -103,38 +104,48 @@ impl Contract {
                 let token_contract_id = token_contract_id.clone();
                 let transfer_data =
                     Self::get_transfer_data(contract_id.clone(), amount.to_string());
+
                 let call_data = format!(
                     "{{\"args\": {}, \"amount\": \"{}\", \"token_contract\": \"{}\"}}",
                     json_args,
                     amount.to_string(),
                     token_contract_id.clone()
                 );
-                self.subtract_contract_bal_from_user(caller, token_contract_id.clone(), amount);
-                // TODO: use resolve to get the results, then pass results into handle_into_next_split
-                // TODO: have the handle node merge together the array of children proms
-                let prom_transfer = env::promise_batch_create(token_contract_id);
-                env::promise_batch_action_function_call(
-                    prom_transfer,
-                    ft_transfer_method_name.as_bytes(),
-                    &transfer_data,
-                    1,
-                    BASIC_GAS,
-                );
-                let call_prom = env::promise_then(
-                    prom_transfer,
-                    contract_id,
-                    &malloc_call_core::call_method_name(),
-                    call_data.as_bytes(),
-                    attached_amount.into(),
-                    gas,
-                );
+
+                let call_prom = if amount > 0 {
+                    self.subtract_contract_bal_from_user(caller, token_contract_id.clone(), amount);
+                    let prom_batch = env::promise_batch_create(token_contract_id);
+                    env::promise_batch_action_function_call(
+                        prom_batch,
+                        ft_transfer_method_name.as_bytes(),
+                        &transfer_data,
+                        1,
+                        BASIC_GAS,
+                    );
+                    // TODO: should the initial promise batch be returned or the call prom????
+                    let call_prom = env::promise_then(
+                        prom_batch,
+                        contract_id,
+                        &malloc_call_core::call_method_name(),
+                        call_data.as_bytes(),
+                        attached_amount.into(),
+                        gas,
+                    );
+                    call_prom
+                } else {
+                    let call_prom= env::promise_batch_create(contract_id);
+                    env::promise_batch_action_function_call(call_prom, &malloc_call_core::call_method_name(), call_data.as_bytes(), attached_amount.into(), gas);
+                    call_prom
+                };
+
+                // If check callback is false, finish the call and return
                 if let Some(check_cb) = check_callback {
                     if !check_cb {
                         return call_prom;
                     }
                 }
-                let callback = env::promise_batch_then(call_prom, env::current_account_id());
 
+                let callback = env::promise_batch_then(call_prom, env::current_account_id());
                 let callback_args = json!({ 
                 "construction_call_id": construction_call_id,
                 "splitter_idx": splitter_idx, "node_idx": node_idx, "caller": caller });
@@ -173,7 +184,7 @@ impl Contract {
                 .parse()
                 .unwrap_or_else(|_| panic!(Errors::FailedToParseNumber.to_string()));
             let call_elem = SplitterCall {
-                index_into_splitters: splitter_idxs.0.get(i as u64).unwrap(),
+                splitter_index: splitter_idxs.0.get(i as u64).unwrap(),
                 block_index: env::block_index(),
                 amount
             };

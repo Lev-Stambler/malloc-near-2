@@ -54,7 +54,7 @@ pub type SplitterId = GenericId;
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct SplitterCall {
-    index_into_splitters: u64,
+    splitter_index: u64,
     block_index: u64,
     amount: u128,
 }
@@ -177,11 +177,6 @@ impl SplitterTrait for Contract {
     fn process_next_split_call(&mut self, construction_call_id: ConstructionCallDataId) {
         let mut construction_call = self.get_construction_call_unchecked(&construction_call_id);
         assert_eq!(construction_call.caller, env::predecessor_account_id());
-        let next_call = construction_call
-            .next_splitter_call_stack
-            .0
-            .pop()
-            .unwrap_or_else(|| panic!("TODO:"));
         self._run_step(construction_call_id);
     }
 
@@ -210,7 +205,7 @@ impl SplitterTrait for Contract {
         let vect_prefix_splitter_call = vect_prefix_str_splitter_call.as_bytes();
         let mut call_stack = VectorWrapper(Vector::new(vect_prefix_splitter_call));
         let call_elem = SplitterCall {
-            index_into_splitters: 0,
+            splitter_index: 0,
             block_index: env::block_index(),
             amount: amount.into(),
         };
@@ -240,6 +235,7 @@ impl Contract {
         let mut splitter_ids = VectorWrapper(Vector::new(random_seed()));
         for i in 0..splitters.len() {
             self.check_splitter(&splitters[i]);
+            // TODO: make this more efficient by making store_splitters a fn which stores them in bulk
             splitter_ids.0.push(&self.store_splitter(&splitters[i]));
         }
         Construction {

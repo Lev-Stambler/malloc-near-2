@@ -69,12 +69,12 @@ export interface RunEphemeralOpts {
 
 export interface RegisterAccountWithFungibleTokenOpts {}
 
-export type CallEphemeralFn = (
+export type CallEphemeralFn<T extends string[] | void> = (
   splitter: Splitter[],
   next_splitter_indices: NextSplitterIndices,
   amount: string,
   opts?: Partial<RunEphemeralOpts>
-) => Promise<void>;
+) => Promise<T>;
 
 /**
  * @param  {AccountId[]} tokens A list of the token contract account ids
@@ -109,7 +109,11 @@ export interface MallocClient<
   SpecialAccountTypeGeneric extends SpecialAccount
 > {
   contractAccountId: AccountId;
-  runEphemeralConstruction: CallEphemeralFn;
+  runEphemeralConstruction: CallEphemeralFn<
+    SpecialAccountTypeGeneric extends SpecialAccountWithKeyPair
+      ? string[]
+      : void
+  >;
   deposit: DepositFn<
     SpecialAccountTypeGeneric extends SpecialAccountConnectedWallet
       ? void

@@ -124,6 +124,7 @@ export const signAndSendKP = async (
       // encodes transaction to serialized Borsh (required for all transactions)
       const signedSerializedTx = signedTransaction.encode();
       // sends transaction to NEAR blockchain via JSON RPC call and records the result
+      // TODO: may have to use promises and set timeout to stagger the txs
       const ret = await provider.sendJsonRpc("broadcast_tx_commit", [
         Buffer.from(signedSerializedTx).toString("base64"),
       ]);
