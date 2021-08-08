@@ -5,7 +5,7 @@ import {
   KeyPair,
 } from "near-api-js";
 import { MallocErrors } from "./errors";
-import { registerFtsTxs } from "./ft-token";
+import { getTokenBalance, registerFtsTxs } from "./ft-token";
 import {
   AccountId,
   SpecialAccountWithKeyPair,
@@ -89,7 +89,8 @@ export const createMallocClient = async <
       });
       return (await executeMultipleTx(account, txs))[0];
     },
-    deleteConstruction: async (constructionID: ConstructionId) => deleteConstruction(account, mallocAccountId, constructionID),
+    getTokenBalance: (accountId: AccountId, tokenId: AccountId) => getTokenBalance(account, mallocAccountId, accountId, tokenId),
+    deleteConstruction: (constructionID: ConstructionId) => deleteConstruction(account, mallocAccountId, constructionID),
     getConstructionCallData: async (constructionCallID: ConstructionCallId) =>
       getConstructionCallData(account, mallocAccountId, constructionCallID),
     // TODO: Ts ignore the return type for now as we are always gonna be returning string[] while only KeyPair

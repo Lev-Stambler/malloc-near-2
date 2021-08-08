@@ -14,7 +14,7 @@
 use std::fmt::format;
 use std::{string, usize};
 
-use ft::{FungibleTokenBalances, FungibleTokenHandlers};
+use malloc_call_core::ft::{FungibleTokenBalances, FungibleTokenHandlers};
 // To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet, Vector};
@@ -31,7 +31,6 @@ use crate::errors::Errors;
 
 mod checker;
 pub mod errors;
-pub mod ft;
 mod handle_construction;
 mod serde_ext;
 mod splitter;
@@ -40,7 +39,9 @@ mod test_utils;
 
 setup_alloc!();
 
+// TODO: what these numbers mean
 const BASIC_GAS: Gas = 5_000_000_000_000;
+const FT_TRANSFER_CALL_GAS: Gas = 25_000_000_000;
 const CALLBACK_GAS: Gas = 5_000_000_000_000 * 10;
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone)]

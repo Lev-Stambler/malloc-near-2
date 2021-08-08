@@ -1,7 +1,10 @@
 use std::{u64, usize};
 
+use malloc_call_core::ft::{FungibleTokenBalances, FungibleTokenHandlers};
 // To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
-use malloc_call_core::{MallocCallNoCallback, MallocCallWithCallback, ReturnItem};
+use malloc_call_core::{
+    MallocCallMetadata, MallocCallNoCallback, MallocCallWithCallback, ReturnItem,
+};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, Vector};
 use near_sdk::env::predecessor_account_id;
@@ -23,12 +26,25 @@ pub struct BlackWholeArgs {
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
-pub struct Contract {}
+pub struct Contract {
+    balances: FungibleTokenBalances,
+}
+
+#[near_bindgen]
+impl FungibleTokenHandlers for Contract {
+    fn ft_on_transfer(&mut self, sender_id: String, amount: String, msg: String) -> String {
+        self.balances.ft_on_transfer(sender_id, amount, msg)
+    }
+
+    fn get_ft_balance(&self, account_id: AccountId, token_id: AccountId) -> U128 {
+        self.balances.get_ft_balance(&account_id, &token_id).into()
+    }
+}
 
 #[near_bindgen]
 impl MallocCallNoCallback<BlackWholeArgs> for Contract {
-    fn metadata(&self) -> malloc_call_core::MallocCallMetadata {
-        malloc_call_core::MallocCallMetadata {
+    fn metadata(&self) -> MallocCallMetadata {
+        MallocCallMetadata {
             minimum_gas: None,
             minimum_attached_deposit: Some(1.into()),
             name: "Send Fungible Tokens".to_string(),
@@ -51,7 +67,9 @@ impl MallocCallNoCallback<BlackWholeArgs> for Contract {
 impl Contract {
     #[init]
     pub fn new() -> Self {
-        Contract {}
+        Contract {
+            balances: FungibleTokenBalances::new("balances".as_bytes()),
+        }
     }
 }
 

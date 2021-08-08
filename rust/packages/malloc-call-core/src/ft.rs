@@ -1,10 +1,10 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 
 use near_sdk::collections::UnorderedMap;
-use near_sdk::env;
+use near_sdk::json_types::ValidAccountId;
+use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{collections::LookupMap, json_types::U128, AccountId, Balance};
-
-use crate::{errors::Errors, AccountBalance, Contract};
+use near_sdk::{env, serde_json};
 
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct FungibleTokenBalances {
@@ -15,17 +15,27 @@ pub struct FungibleTokenBalances {
 
 pub trait FungibleTokenHandlers {
     fn ft_on_transfer(&mut self, sender_id: String, amount: String, msg: String) -> String;
-    fn get_ft_balance(&self, account_id: AccountId, contract_id: AccountId) -> U128;
+    fn get_ft_balance(&self, account_id: AccountId, token_id: AccountId) -> U128;
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct OnTransferOpts {
+    // The account to log the transfer to
+    pub sender_id: AccountId,
 }
 
 impl FungibleTokenBalances {
-    pub(crate) fn new(prefix: &[u8]) -> Self {
+    pub fn new(prefix: &[u8]) -> Self {
         FungibleTokenBalances {
             account_to_contract_balances: UnorderedMap::new(prefix),
         }
     }
 
-    pub(crate) fn get_ft_balance(&self, account_id: &AccountId, token_id: &AccountId) -> Balance {
+		// TODO:?
+		// pub fn ft_transfer_call_with_result(&mut self, 
+
+    pub fn get_ft_balance(&self, account_id: &AccountId, token_id: &AccountId) -> Balance {
         let mut balances = self.account_to_contract_balances.get(&account_id);
         match balances {
             None => 0,
@@ -33,28 +43,31 @@ impl FungibleTokenBalances {
         }
     }
 
-    pub(crate) fn ft_on_transfer(
-        &mut self,
-        sender_id: String,
-        amount: String,
-        msg: String,
-    ) -> String {
+    pub fn ft_on_transfer(&mut self, sender_id: String, amount: String, msg: String) -> String {
+        let opts: OnTransferOpts = if (&msg).len() == 0 {
+            OnTransferOpts {
+                sender_id: sender_id.into(),
+            }
+        } else {
+            serde_json::from_str(&msg)
+                .unwrap_or_else(|e| panic!("Failed to deserialize transfer opts: {}", e))
+        };
         let mut balances = self
             .account_to_contract_balances
-            .get(&sender_id)
-            .unwrap_or(LookupMap::new(format!("{}-ft-bals", sender_id).as_bytes()));
+            .get(&opts.sender_id)
+            .unwrap_or(LookupMap::new(format!("{}-ft-bals", opts.sender_id).as_bytes()));
         let token_id = env::predecessor_account_id();
 
         let amount = amount.parse::<u128>().unwrap();
-        let current_amount = self.get_ft_balance(&sender_id, &token_id);
+        let current_amount = self.get_ft_balance(&opts.sender_id, &token_id);
         balances.insert(&token_id, &(amount + current_amount));
 
         self.account_to_contract_balances
-            .insert(&sender_id, &balances);
+            .insert(&opts.sender_id, &balances);
         "0".to_string()
     }
 
-    pub(crate) fn subtract_contract_bal_from_user(
+    pub fn subtract_contract_bal_from_user(
         &mut self,
         account_id: &AccountId,
         token_id: AccountId,

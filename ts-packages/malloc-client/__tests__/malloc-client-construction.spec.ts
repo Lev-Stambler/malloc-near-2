@@ -32,13 +32,11 @@ describe("malloc-client's ft capabilities", () => {
     );
   });
 
-  xit("should fail because the construction is not found (this happens by deleting a construction midway through a call)", async () => {
-  })
+  xit("should fail because the construction is not found (this happens by deleting a construction midway through a call)", async () => {});
 
-  xit("should fail because a splitter is not found (this happens by deleting a splitter midway through a call)", async () => {
-  })
+  xit("should fail because a splitter is not found (this happens by deleting a splitter midway through a call)", async () => {});
 
-  it.only("should fail to make the call because the number of splitters from one child to the next splitter set does not match", async () => {
+  it("should fail to make the call because the number of splitters from one child to the next splitter set does not match", async () => {
     const MALLOC_CALL_BLACKWHOLE_CONTRACT_ID =
       TestingUtils.getMallocCallBlackwholeContract();
 
@@ -134,30 +132,9 @@ describe("malloc-client's ft capabilities", () => {
     const MALLOC_CALL_BLACKWHOLE_CONTRACT_ID =
       TestingUtils.getMallocCallBlackwholeContract();
 
-    const amount = 100;
+    const amount = 0;
 
     console.log("Account ID", wrappedTesterAccount.accountId);
-    await TestingUtils.setupWNearAccount(
-      TestingUtils.WRAP_TESTNET_CONTRACT,
-      wrappedTesterAccount.accountId,
-      wrappedTesterAccount,
-      true,
-      amount + 20
-    );
-    await malloc.registerAccountWithFungibleToken(
-      [TestingUtils.WRAP_TESTNET_CONTRACT],
-      [
-        wrappedTesterAccount.accountId,
-        malloc.contractAccountId,
-        TestingUtils.getMallocCallErrorContract(),
-      ]
-    );
-
-    const depositTransactionHash = await malloc.deposit(
-      amount.toString(),
-      TestingUtils.WRAP_TESTNET_CONTRACT
-    );
-
     try {
       await malloc.runEphemeralConstruction(
         [
@@ -166,10 +143,27 @@ describe("malloc-client's ft capabilities", () => {
             children: [
               {
                 MallocCall: {
-                  contract_id: TestingUtils.getMallocCallErrorContract(),
+                  contract_id: TestingUtils.getMallocCallPassthroughContract(),
                   // TODO: no json stringify!!
                   json_args: JSON.stringify({
                     log_message: "hello an error for alice level 1",
+                  }),
+                  gas: MALLOC_CALL_SIMPLE_GAS.toNumber(),
+                  attached_amount: "0",
+                },
+              },
+            ],
+            ft_contract_id: TestingUtils.WRAP_TESTNET_CONTRACT,
+          },
+          {
+            splits: [1],
+            children: [
+              {
+                MallocCall: {
+                  contract_id: TestingUtils.getMallocCallErrorContract(),
+                  // TODO: no json stringify!!
+                  json_args: JSON.stringify({
+                    log_message: "hello an error for alice level 2",
                   }),
                   gas: MALLOC_CALL_SIMPLE_GAS.toNumber(),
                   attached_amount: "0",
@@ -197,7 +191,97 @@ describe("malloc-client's ft capabilities", () => {
             ft_contract_id: TestingUtils.WRAP_TESTNET_CONTRACT,
           },
         ],
-        [[[1]], [[]]],
+        [[[1]], [[2]], [[]]],
+        amount.toString(),
+        { gas: MAX_GAS }
+      );
+      throw "Expected the call to fail";
+    } catch (_e) {
+      let e: CallEphemeralError = _e as any;
+      console.log(e);
+      expect(
+        (e.message as string).includes(
+          "The transaction's promises failed with a message"
+        )
+      ).toBeTruthy();
+      const callData = await malloc.getConstructionCallData(
+        e.constructionCallId
+      );
+      console.log(JSON.stringify(callData));
+      expect(callData.splitter_calls.length).toEqual(2);
+      expect(callData.next_splitter_call_stack.length).toEqual(0);
+      expect(callData.splitter_calls[1].status.Error.message).toEqual(
+        "The number of splitters for the next set of inputs does not match the call's return"
+      );
+    }
+  });
+
+  // TODO: this is fully wrong now
+  xit("should revert an entire splitter's execution if one child fails", async () => {
+    const amount = 150;
+    await TestingUtils.setupWNearAccount(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      wrappedTesterAccount.accountId,
+      wrappedTesterAccount,
+      true,
+      amount + 20
+    );
+    await malloc.registerAccountWithFungibleToken(
+      [TestingUtils.WRAP_TESTNET_CONTRACT],
+      [
+        wrappedTesterAccount.accountId,
+        malloc.contractAccountId,
+        TestingUtils.getMallocCallBlackwholeContract(),
+        TestingUtils.getMallocCallErrorContract(),
+      ]
+    );
+    console.log(
+      "WRAP BAL DEPOSITED 1",
+      await malloc.getTokenBalance(
+        wrappedTesterAccount.accountId,
+        TestingUtils.WRAP_TESTNET_CONTRACT
+      )
+    );
+
+    const depositTransactionHash = await malloc.deposit(
+      amount.toString(),
+      TestingUtils.WRAP_TESTNET_CONTRACT
+    );
+
+    console.log("Account ID", wrappedTesterAccount.accountId);
+    try {
+      await malloc.runEphemeralConstruction(
+        [
+          {
+            splits: [1, 1],
+            children: [
+              {
+                MallocCall: {
+                  contract_id: TestingUtils.getMallocCallBlackwholeContract(),
+                  // TODO: no json stringify!!
+                  json_args: JSON.stringify({
+                    log_message: "hello an error for alice level 1",
+                  }),
+                  gas: MALLOC_CALL_SIMPLE_GAS.toNumber(),
+                  attached_amount: "0",
+                },
+              },
+              {
+                MallocCall: {
+                  contract_id: TestingUtils.getMallocCallErrorContract(),
+                  // TODO: no json stringify!!
+                  json_args: JSON.stringify({
+                    log_message: "hello an error for alice level 1",
+                  }),
+                  gas: MALLOC_CALL_SIMPLE_GAS.toNumber(),
+                  attached_amount: "0",
+                },
+              },
+            ],
+            ft_contract_id: TestingUtils.WRAP_TESTNET_CONTRACT,
+          },
+        ],
+        [[[], []]],
         amount.toString(),
         { gas: MAX_GAS, depositTransactionHash }
       );
@@ -214,10 +298,13 @@ describe("malloc-client's ft capabilities", () => {
         e.constructionCallId
       );
       console.log(JSON.stringify(callData));
-      expect(callData.splitter_calls.length).toEqual(1);
-      expect(callData.next_splitter_call_stack.length).toEqual(0);
-      expect(callData.splitter_calls[0].status.Error.message).toEqual(
-        "The number of splitters for the next set of inputs does not match the call's return"
+
+      console.log(
+        "WRAP BAL DEPOSITED",
+        await malloc.getTokenBalance(
+          wrappedTesterAccount.accountId,
+          TestingUtils.WRAP_TESTNET_CONTRACT
+        )
       );
     }
   });
@@ -362,7 +449,7 @@ describe("malloc-client's ft capabilities", () => {
     TestingUtils.checkBalDifferences(myBal, newmyBal, -1 * amount, expect);
   });
 
-  it("should make a couple black whole calls and make sure that the most basic splitter succeeds", async () => {
+  it.only("should make a couple black whole calls and make sure that the most basic splitter succeeds", async () => {
     const MALLOC_CALL_BLACKWHOLE_CONTRACT_ID =
       TestingUtils.getMallocCallBlackwholeContract();
 

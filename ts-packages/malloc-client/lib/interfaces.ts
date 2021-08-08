@@ -122,6 +122,7 @@ export interface MallocClient<
   deposit: DepositFn<TxHashOrVoid<SpecialAccountTypeGeneric>>;
   resolveTransactions: ResolveTransactionsFn;
   registerAccountWithFungibleToken: RegisterAccountWithFungibleTokenFn;
+  getTokenBalance: (accountId: AccountId, tokenId: AccountId) => Promise<string>
 }
 
 export enum SpecialAccountType {

@@ -31,6 +31,7 @@ pub struct ResolverArgs {
     amount: String,
 }
 
+// TODO: makes me wonder if there should be some macro magic to get these malloc calls
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {}
@@ -51,7 +52,7 @@ impl MallocCallWithCallback<ErrorArgs, ResolverArgs, Promise> for Contract {
 
     #[payable]
     fn call(&mut self, args: ErrorArgs, amount: String, token_contract: AccountId) -> Promise {
-        log!("Log from the error call: {}", args.log_message);
+        log!("Log from the error: {}", args.log_message);
         let ret_args = json!({
             "args": {
                 "token_id": token_contract,

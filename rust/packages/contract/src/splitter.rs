@@ -1,12 +1,18 @@
 use core::panic;
+use std::string;
 
-use near_sdk::{AccountId, Promise, bs58::alphabet::Error, env, log, serde_json::json};
+use near_sdk::{AccountId, Promise, bs58::alphabet::Error, env, log, serde_json::{self, json}};
 
-use crate::{BASIC_GAS, CALLBACK_GAS, Construction, ConstructionCallData, ConstructionCallDataId, ConstructionId, ConstructionNextSplitters, Contract, Node, Splitter, SplitterCall, SplitterCallStatus, SplitterId, errors::{Errors}, handle_not_found, serde_ext::VectorWrapper};
+use crate::{BASIC_GAS, CALLBACK_GAS, Construction, ConstructionCallData, ConstructionCallDataId, ConstructionId, ConstructionNextSplitters, Contract, FT_TRANSFER_CALL_GAS, Node, Splitter, SplitterCall, SplitterCallStatus, SplitterId, errors::{Errors}, handle_not_found, serde_ext::VectorWrapper};
 
 impl Contract {
-    fn get_transfer_data(recipient: String, amount: String) -> Vec<u8> {
-        json!({ "receiver_id": recipient, "amount": amount, "msg": ""})
+    fn get_transfer_call_data(recipient: String, amount: String, sender: String) -> Vec<u8> {
+        let on_transfer_opts = malloc_call_core::ft::OnTransferOpts {
+            sender_id: sender
+        };
+        // TODO: unwrapping ok?
+        let stringified = serde_json::to_string(&on_transfer_opts).unwrap();
+        json!({ "receiver_id": recipient, "amount": amount, "msg": stringified})
             .to_string()
             .into_bytes()
     }
@@ -138,10 +144,11 @@ impl Contract {
             } => {
                 // TODO: we need a smart way of doing gas for these wcalls...
                 // Maybe each could have metadata or something
-                let ft_transfer_method_name = "ft_transfer";
+                // TODO: seperate fn
+                let ft_transfer_call_method_name = "ft_transfer_call";
                 let token_contract_id = token_contract_id.clone();
                 let transfer_data =
-                    Self::get_transfer_data(contract_id.clone(), amount.to_string());
+                    Self::get_transfer_call_data(contract_id.clone(), amount.to_string(), caller.to_owned());
 
                 let call_data = format!(
                     "{{\"args\": {}, \"amount\": \"{}\", \"token_contract\": \"{}\"}}",
@@ -152,17 +159,16 @@ impl Contract {
 
                 // TODO: is this wrong???
                 let call_prom = if amount > 0 {
-                    self.subtract_contract_bal_from_user(caller, token_contract_id.clone(), amount);
+                    self.balances.subtract_contract_bal_from_user(caller, token_contract_id.clone(), amount);
                     let prom_batch = env::promise_batch_create(token_contract_id);
                     // TODO: what if the ft_transfer prom fails???
                     env::promise_batch_action_function_call(
                         prom_batch,
-                        ft_transfer_method_name.as_bytes(),
+                        ft_transfer_call_method_name.as_bytes(),
                         &transfer_data,
                         1,
-                        BASIC_GAS,
+                        FT_TRANSFER_CALL_GAS,
                     );
-                    // TODO: should the initial promise batch be returned or the call prom????
                     let call_prom = env::promise_then(
                         prom_batch,
                         contract_id,
@@ -171,8 +177,7 @@ impl Contract {
                         attached_amount.into(),
                         gas,
                     );
-                    // call_prom
-                    prom_batch
+                    call_prom
                 } else {
                     let call_prom= env::promise_batch_create(contract_id);
                     env::promise_batch_action_function_call(call_prom, &malloc_call_core::call_method_name(), call_data.as_bytes(), attached_amount.into(), gas);
@@ -198,8 +203,7 @@ impl Contract {
                     0,
                     CALLBACK_GAS,
                 );
-                // Ok(callback)
-                Ok(call_prom)
+                Ok(callback)
             }
         }
     }
