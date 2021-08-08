@@ -1,4 +1,3 @@
-use near_contract_standards::fungible_token::FungibleToken;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 
 use near_sdk::collections::UnorderedMap;

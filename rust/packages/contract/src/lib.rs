@@ -14,7 +14,7 @@
 use std::fmt::format;
 use std::{string, usize};
 
-use ft::FungibleTokenHandlers;
+use ft::{FungibleTokenBalances, FungibleTokenHandlers};
 // To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet, Vector};
@@ -142,7 +142,7 @@ pub struct Contract {
     constructions: UnorderedMap<AccountId, UnorderedMap<String, Construction>>,
     construction_calls: UnorderedMap<ConstructionCallDataId, ConstructionCallData>,
     splitters: UnorderedMap<AccountId, Vector<Splitter>>,
-    account_id_to_ft_balances: UnorderedMap<AccountId, Vec<AccountBalance>>,
+    balances: FungibleTokenBalances,
 }
 
 pub trait ConstructionTrait {
@@ -398,45 +398,11 @@ impl Contract {
 impl FungibleTokenHandlers for Contract {
     #[payable]
     fn ft_on_transfer(&mut self, sender_id: String, amount: String, msg: String) -> String {
-        let mut balances = self
-            .account_id_to_ft_balances
-            .get(&sender_id)
-            .unwrap_or(Vec::new());
-        let contract_id = env::predecessor_account_id();
-        let bal_pos = Self::balance_pos(&balances, &contract_id);
-
-        let amount = amount.parse::<u128>().unwrap();
-        match bal_pos {
-            Some(pos) => {
-                balances[pos].balance += amount;
-            }
-            None => {
-                balances.push(AccountBalance {
-                    contract_id: env::predecessor_account_id(),
-                    balance: amount,
-                });
-            }
-        };
-        self.account_id_to_ft_balances.insert(&sender_id, &balances);
-        "0".to_string()
+        self.balances.ft_on_transfer(sender_id, amount, msg)
     }
 
     fn get_ft_balance(&self, account_id: AccountId, token_id: AccountId) -> U128 {
-        if let Some(balances) = self.account_id_to_ft_balances.get(&account_id) {
-            println!(
-                "{} {:?} {}",
-                token_id,
-                balances.len(),
-                Self::balance_pos(&balances, &token_id).is_none()
-            );
-            if let Some(pos) = Self::balance_pos(&balances, &token_id) {
-                U128::from(balances[pos].balance)
-            } else {
-                U128::from(0)
-            }
-        } else {
-            U128::from(0)
-        }
+        U128::from(self.balances.get_ft_balance(&account_id, &token_id))
     }
 }
 
@@ -445,7 +411,7 @@ impl Contract {
     #[init]
     pub fn new() -> Self {
         Contract {
-            account_id_to_ft_balances: UnorderedMap::new("account_id_to_ft_balance".as_bytes()),
+            balances: FungibleTokenBalances::new("malloc-ft".as_bytes()),
             splitters: UnorderedMap::new("splitters".as_bytes()),
             constructions: UnorderedMap::new("constructions".as_bytes()),
             construction_calls: UnorderedMap::new("construction-call-stack".as_bytes()),
