@@ -28,6 +28,11 @@ pub struct ReturnItem {
     pub amount: String,
 }
 
+// TODO: implement for calls
+pub trait Revert {
+//    fn revert() 
+}
+
 pub trait MallocCallNoCallback<CallArgs> {
     /// The wrapper function which takes in some amount of tokens which are
     /// defined by token_contract

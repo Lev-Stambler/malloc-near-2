@@ -41,8 +41,10 @@ setup_alloc!();
 
 // TODO: what these numbers mean
 const BASIC_GAS: Gas = 5_000_000_000_000;
-const FT_TRANSFER_CALL_GAS: Gas = 25_000_000_000;
-const CALLBACK_GAS: Gas = 5_000_000_000_000 * 10;
+// This can be brought down probs?
+const FT_TRANSFER_CALL_GAS: Gas = 5_000_000_000_000 * 2;
+// This can be brought down probs?
+const CALLBACK_GAS: Gas = 5_000_000_000_000 * 5;
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone)]
 #[serde(crate = "near_sdk::serde")]

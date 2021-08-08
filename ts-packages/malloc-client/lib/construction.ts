@@ -272,6 +272,7 @@ export const runEphemeralConstruction = async (
     const txsNextStep = await runNextSplitterCalls();
     return [...txsInit, ...txsNextStep];
   } catch (e) {
+    console.trace(e)
     throw {
       ...e,
       constructionCallId: construction_call_id,
