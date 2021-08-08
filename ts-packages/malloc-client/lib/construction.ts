@@ -16,10 +16,12 @@ import {
   TransactionWithPromiseResultFlag,
   ConstructionCallId,
   CallEphemeralError,
+  TxHashOrVoid,
 } from "./interfaces";
 import {
   executeMultipleTx,
   MAX_GAS,
+  MAX_GAS_STR,
   resolveTransactionsReducedWithPromises,
 } from "./tx";
 
@@ -79,6 +81,41 @@ const makeid = (length: number) => {
     result += characters.charAt(Math.floor(Math.random() * charactersLength));
   }
   return result;
+};
+
+/**
+ * @returns the transaction's hash
+ */
+export const deleteConstruction = async <
+  SpecialAccountGeneric extends SpecialAccount
+>(
+  callerAccount: SpecialAccountGeneric,
+  mallocAccountId: AccountId,
+  constructionId: ConstructionId
+): Promise<TxHashOrVoid<SpecialAccountGeneric>> => {
+  const txs = [
+    {
+      receiverId: mallocAccountId,
+      functionCalls: [
+        {
+          methodName: "delete_construction",
+          args: {
+            construction_id: constructionId,
+          },
+          gas: MAX_GAS_STR,
+          amount: "0", //TODO: storage deposit goes here ya heard
+        },
+      ],
+    },
+    ,
+  ];
+
+  const txRetsInit = await executeMultipleTx(callerAccount, txs);
+
+  //@ts-ignore
+  if (txRetsInit instanceof Array) return txRetsInit[0];
+  //@ts-ignore
+  return txRetsInit;
 };
 
 export const getConstructionCallData = async (

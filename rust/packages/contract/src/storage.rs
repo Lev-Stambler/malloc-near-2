@@ -2,11 +2,29 @@ use near_sdk::collections::UnorderedMap;
 use near_sdk::{collections::Vector, AccountId};
 use near_sdk::{env, near_bindgen, serde, setup_alloc, Gas, PanicOnDefault, Promise};
 
+use crate::errors::Errors;
 use crate::{Construction, ConstructionId, Contract, Splitter, SplitterId};
 
 impl Contract {
-    pub(crate) fn delete_construction(&mut self, construction_id: ConstructionId) {
-        todo!()
+    pub(crate) fn delete_construction_internal(
+        &mut self,
+        construction_id: ConstructionId,
+        caller: AccountId,
+    ) -> Result<(), String> {
+        if construction_id.owner != caller {
+            return Err(Errors::CALLER_DOES_NOT_OWN_CONSTRUCTION.to_string());
+        }
+        if let Some(mut caller_constructions) = self.constructions.get(&construction_id.owner) {
+            let removed = caller_constructions.remove(&construction_id.name);
+            if removed.is_none() {
+                return Err(Errors::CONSTRUCTION_NOT_FOUND.to_string());
+            }
+            self.constructions
+                .insert(&construction_id.owner, &caller_constructions);
+        } else {
+            return Err(Errors::CONSTRUCTION_OWNER_NOT_FOUND.to_string());
+        }
+        Ok(())
     }
 
     pub(crate) fn store_construction(

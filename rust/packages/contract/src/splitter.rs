@@ -1,6 +1,6 @@
 use core::panic;
 
-use near_sdk::{env, log, serde_json::json, AccountId, Promise};
+use near_sdk::{AccountId, Promise, bs58::alphabet::Error, env, log, serde_json::json};
 
 use crate::{BASIC_GAS, CALLBACK_GAS, Construction, ConstructionCallData, ConstructionCallDataId, ConstructionId, ConstructionNextSplitters, Contract, Node, Splitter, SplitterCall, SplitterCallStatus, SplitterId, errors::{Errors}, handle_not_found, serde_ext::VectorWrapper};
 
@@ -25,7 +25,8 @@ impl Contract {
         let construction_res = self.get_construction(&construction_call.construction_id);
         let construction = handle_not_found!(self, construction_res, construction_call_id, splitter_call_id, construction_call);
 
-        let splitter_id = construction.splitters.0.get(splitter_call.splitter_index).unwrap();
+        let splitter_id_res = construction.splitters.0.get(splitter_call.splitter_index).ok_or(Errors::SPLITTER_NOT_FOUND_IN_CONSTRUCTION.to_string());
+        let splitter_id = handle_not_found!(self, splitter_id_res, construction_call_id, splitter_call_id, construction_call);
 
         let splitter_res = self.get_splitter(&splitter_id);
         let splitter = handle_not_found!(self, splitter_res, construction_call_id, splitter_call_id, construction_call);
@@ -81,6 +82,8 @@ impl Contract {
 
         let mut proms = vec![];
         for i in 0..splitter.children.0.len() {
+            // unwrap does not need to be checked as splits's len equalling children's len is an invariant
+            // of the construction and i never exceeds the children's length
             let frac = (splitter.splits.0.get(i).unwrap() as f64) / (split_sum as f64);
             let transfer_amount_float = frac * amount_deposited as f64;
             let transfer_amount = transfer_amount_float.floor() as u128;
@@ -142,6 +145,7 @@ impl Contract {
                 let call_prom = if amount > 0 {
                     self.subtract_contract_bal_from_user(caller, token_contract_id.clone(), amount);
                     let prom_batch = env::promise_batch_create(token_contract_id);
+                    // TODO: what if the ft_transfer prom fails???
                     env::promise_batch_action_function_call(
                         prom_batch,
                         ft_transfer_method_name.as_bytes(),
@@ -207,6 +211,10 @@ impl Contract {
         if result.len() == 0 {
             return construction_call;
         }
+        if splitters.len() != splitter_idxs.0.len() as usize {
+            let err = SplitterCallStatus::Error {message: Errors::NUMB_OF_SPLITTER_IDXS_DID_NOT_MATCH_SPLITTERS.to_string() };
+            return Self::resolve_splitter_call(construction_call, err, splitter_call_id);
+        }
         if result.len() != splitters.len() {
             let err = SplitterCallStatus::Error {message: Errors::NUMBER_OF_SPLITTERS_DID_NOT_MATCH_RETURN.to_string() };
             return Self::resolve_splitter_call(construction_call, err, splitter_call_id);
@@ -220,6 +228,8 @@ impl Contract {
                 .amount
                 .parse()
                 .unwrap_or_else(|_| panic!(Errors::FAILED_TO_PARSE_NUMBER));
+
+        // TODO: a
             let call_elem = SplitterCall {
                 splitter_index: splitter_idxs.0.get(i as u64).unwrap(),
                 block_index: env::block_index(),

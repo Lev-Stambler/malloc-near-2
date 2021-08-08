@@ -29,19 +29,13 @@ export interface Splitter {
   ft_contract_id?: AccountId;
 }
 
-// export interface MallocContract extends Contract {
-//   run: (
-//     args: {
-//       splitter: Splitter[];
-//       next_splitters: NextSplitterIndices;
-//       amount: BigNumberish;
-//     },
-//     gas?: BigNumberish,
-//     attachedDeposit?: BigNumberish
-//   ) => Promise<any>;
-// }
 
+export type TxHashOrVoid<SpecialAccountTypeGeneric> =
+  SpecialAccountTypeGeneric extends SpecialAccountConnectedWallet
+    ? void
+    : string;
 export interface MallocCallMetadata {
+
   minimum_gas?: BN;
   minimum_attached_deposit?: BN;
   name: string;
@@ -70,8 +64,8 @@ export interface RunEphemeralOpts {
 export interface RegisterAccountWithFungibleTokenOpts {}
 
 export interface CallEphemeralError {
-  constructionCallId?: ConstructionCallId,
-  message?: string
+  constructionCallId?: ConstructionCallId;
+  message?: string;
 }
 
 export type CallEphemeralFn<T extends string[] | void> = (
@@ -80,8 +74,6 @@ export type CallEphemeralFn<T extends string[] | void> = (
   amount: string,
   opts?: Partial<RunEphemeralOpts>
 ) => Promise<T>;
-
-
 
 /**
  * @param  {AccountId[]} tokens A list of the token contract account ids
@@ -121,14 +113,13 @@ export interface MallocClient<
       ? string[]
       : void
   >;
+  deleteConstruction: (
+    constructionId: ConstructionId
+  ) => Promise<TxHashOrVoid<SpecialAccountTypeGeneric>>;
   getConstructionCallData: (
     constructionCallId: ConstructionCallId
   ) => Promise<ConstructionCall>;
-  deposit: DepositFn<
-    SpecialAccountTypeGeneric extends SpecialAccountConnectedWallet
-      ? void
-      : string
-  >;
+  deposit: DepositFn<TxHashOrVoid<SpecialAccountTypeGeneric>>;
   resolveTransactions: ResolveTransactionsFn;
   registerAccountWithFungibleToken: RegisterAccountWithFungibleTokenFn;
 }

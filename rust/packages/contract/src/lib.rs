@@ -145,7 +145,7 @@ pub struct Contract {
     account_id_to_ft_balances: UnorderedMap<AccountId, Vec<AccountBalance>>,
 }
 
-pub trait SplitterTrait {
+pub trait ConstructionTrait {
     // fn run(&self, account_id: AccountId, splitter_idx: usize);
     fn register_construction(
         &mut self,
@@ -160,13 +160,22 @@ pub trait SplitterTrait {
         amount: U128,
         caller: Option<ValidAccountId>,
     );
+    fn delete_construction(&mut self, construction_id: ConstructionId);
+}
+
+pub trait SplitterTrait {
     fn process_next_split_call(&mut self, construction_call_id: ConstructionCallDataId);
     // fn store_splitters(&mut self, splitters: Vec<Splitter>, owner: ValidAccountId);
     // fn store_construction(&mut self, construction: Construction);
 }
 
 #[near_bindgen]
-impl SplitterTrait for Contract {
+impl ConstructionTrait for Contract {
+    fn delete_construction(&mut self, construction_id: ConstructionId) {
+        self.delete_construction_internal(construction_id, env::predecessor_account_id())
+            .unwrap_or_else(|e| panic!(e))
+    }
+
     #[payable]
     fn register_construction(
         &mut self,
@@ -180,13 +189,6 @@ impl SplitterTrait for Contract {
         // self._run(construction_id, construction, amount.into());
         // TODO:
         //self.delete_construction(construction_id);
-    }
-
-    #[payable]
-    fn process_next_split_call(&mut self, construction_call_id: ConstructionCallDataId) {
-        let mut construction_call = self.get_construction_call_unchecked(&construction_call_id);
-        assert_eq!(construction_call.caller, env::predecessor_account_id());
-        self._run_step(construction_call_id);
     }
 
     #[payable]
@@ -240,6 +242,16 @@ impl SplitterTrait for Contract {
 }
 
 #[near_bindgen]
+impl SplitterTrait for Contract {
+    #[payable]
+    fn process_next_split_call(&mut self, construction_call_id: ConstructionCallDataId) {
+        let mut construction_call = self.get_construction_call_unchecked(&construction_call_id);
+        assert_eq!(construction_call.caller, env::predecessor_account_id());
+        self._run_step(construction_call_id);
+    }
+}
+
+#[near_bindgen]
 impl Contract {
     pub fn get_construction_call_unchecked(
         &self,
@@ -274,24 +286,50 @@ impl Contract {
             construction_call
         );
 
-        // The set of next splitters indexes to be called after the called splitter's (referenced by splitter_idx) child (referenced by node_idx) completes.
-        let next_splitters_idx: VectorWrapper<u64> = construction
+        let next_splitter_set_res = construction
             .next_splitters
             .0
             .get(splitter_idx)
-            .unwrap()
+            .ok_or(Errors::NEXT_SPLITTER_SET_NOT_FOUND_PER_SPLITTER.to_string());
+
+        let next_splitter_set = handle_not_found!(
+            self,
+            next_splitter_set_res,
+            construction_call_id,
+            splitter_call_id,
+            construction_call
+        );
+
+        // The set of next splitters indexes to be called after the called splitter's (referenced by splitter_idx) child (referenced by node_idx) completes.
+        let next_splitters_idx_res = next_splitter_set
             .0
             .get(node_idx)
-            .unwrap();
+            .ok_or(Errors::NEXT_SPLITTER_SET_NOT_FOUND_PER_SPLITTER.to_string());
+        let next_splitters_idx = handle_not_found!(
+            self,
+            next_splitters_idx_res,
+            construction_call_id,
+            splitter_call_id,
+            construction_call
+        );
 
         // The set of next splitters to be called after the called splitter's (referenced by splitter_idx) child (referenced by node_idx) completes.
         let mut next_splitters: Vec<Splitter> = vec![];
         for i in 0..next_splitters_idx.0.len() {
-            let splitter_id = construction
+            let splitter_id_res = construction
                 .splitters
                 .0
-                .get(next_splitters_idx.0.get(i).unwrap())
-                .unwrap();
+                .get(next_splitters_idx.0.get(i).unwrap()) // You can unwrap safely here as you know that i is from 0 to next_splitter_idx.len
+                .ok_or(Errors::SPLITTER_NOT_FOUND_IN_CONSTRUCTION.to_string());
+
+            let splitter_id = handle_not_found!(
+                self,
+                splitter_id_res,
+                construction_call_id,
+                splitter_call_id,
+                construction_call
+            );
+
             let splitter_res = self.get_splitter(&splitter_id);
             let splitter = handle_not_found!(
                 self,

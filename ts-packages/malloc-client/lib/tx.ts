@@ -106,31 +106,44 @@ export const signAndSendKP = async (
   txs: nearAPI.transactions.Transaction[],
   account: SpecialAccountWithKeyPair
 ): Promise<string[]> => {
-  return await Promise.all(
-    txs.map(async (tx) => {
-      tx.publicKey = new PublicKey(account.keypair.getPublicKey());
-      const serializedTx = tx.encode();
-      const serializedTxHash = new Uint8Array(sha256.array(serializedTx));
+  const lazyTxCalls = txs.map((tx) => {
+    tx.publicKey = new PublicKey(account.keypair.getPublicKey());
+    const serializedTx = tx.encode();
+    const serializedTxHash = new Uint8Array(sha256.array(serializedTx));
 
-      const signature = account.keypair.sign(serializedTxHash);
-      const signedTransaction = new nearAPI.transactions.SignedTransaction({
-        transaction: tx,
-        signature: new nearAPI.transactions.Signature({
-          keyType: tx.publicKey.keyType,
-          data: signature.signature,
-        }),
-      });
+    const signature = account.keypair.sign(serializedTxHash);
+    const signedTransaction = new nearAPI.transactions.SignedTransaction({
+      transaction: tx,
+      signature: new nearAPI.transactions.Signature({
+        keyType: tx.publicKey.keyType,
+        data: signature.signature,
+      }),
+    });
 
-      // encodes transaction to serialized Borsh (required for all transactions)
-      const signedSerializedTx = signedTransaction.encode();
-      // sends transaction to NEAR blockchain via JSON RPC call and records the result
-      // TODO: may have to use promises and set timeout to stagger the txs
+    // encodes transaction to serialized Borsh (required for all transactions)
+    const signedSerializedTx = signedTransaction.encode();
+    // sends transaction to NEAR blockchain via JSON RPC call and records the result
+    // TODO: may have to use promises and set timeout to stagger the txs
+    return async () => {
       const ret = await provider.sendJsonRpc("broadcast_tx_commit", [
         Buffer.from(signedSerializedTx).toString("base64"),
       ]);
       return (ret as any).transaction.hash as string;
-    })
-  );
+    };
+  });
+
+  const sleepMS = 100;
+  const txHashProms = [];
+  for (let i = 0; i < lazyTxCalls.length; i++) {
+    await new Promise<void>((res, rej) => {
+      setTimeout(() => {
+        txHashProms.push(lazyTxCalls[i]());
+        res();
+      }, sleepMS);
+    });
+  }
+
+  return await Promise.all(txHashProms);
 };
 
 // TODO: how can we have the tx hashes here... maybe something w/ callback url??
@@ -229,10 +242,7 @@ export const resolveTransactionsReducedWithPromises = async (
   accountId: string
 ): Promise<TransactionWithPromiseResult> => {
   {
-    const results = await resolveTransactionsWithPromise(
-      hashes,
-      accountId
-    );
+    const results = await resolveTransactionsWithPromise(hashes, accountId);
     results.forEach((result) => {
       if (result.flag !== "success")
         throw MallocErrors.transactionPromiseFailed(result.message);
