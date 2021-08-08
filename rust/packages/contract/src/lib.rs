@@ -14,7 +14,6 @@
 use std::fmt::format;
 use std::{string, usize};
 
-use errors::SplitterCallError;
 use ft::FungibleTokenHandlers;
 // To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
@@ -23,7 +22,8 @@ use near_sdk::env::{log, predecessor_account_id, random_seed};
 use near_sdk::json_types::{ValidAccountId, U128};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
-    env, log, near_bindgen, serde, setup_alloc, AccountId, Gas, PanicOnDefault, Promise,
+    env, log, near_bindgen, serde, serde_json, setup_alloc, utils, AccountId, Gas, PanicOnDefault,
+    Promise,
 };
 use serde_ext::VectorWrapper;
 
@@ -53,17 +53,24 @@ pub type SplitterId = GenericId;
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
-pub struct SplitterCall {
-    splitter_index: u64,
-    block_index: u64,
-    amount: u128,
+pub enum SplitterCallStatus {
+    /// The splitter call errored
+    Error { message: String },
+    /// The splitter call is waiting to be started
+    WaitingCall,
+    /// The splitter call is currently executing and waiting for a result
+    Executing { block_index_start: u64 },
+    /// The splitter call succeeded
+    Success,
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
-pub struct SplitterCallErrorData {
-    splitter_call: SplitterCall,
-    error: SplitterCallError,
+pub struct SplitterCall {
+    splitter_index: u64,
+    block_index: u64,
+    amount: u128,
+    status: SplitterCallStatus,
 }
 
 pub type ConstructionCallDataId = String;
@@ -75,8 +82,9 @@ pub struct ConstructionCallData {
     construction_id: ConstructionId,
     // TODO: ideally we want to have a queue not a stack (so we have BFS not DFS). But, Vector only supports O(1) stack ops.
     // Implementing a custom data structure may later be required
-    next_splitter_call_stack: VectorWrapper<SplitterCall>,
-    splitter_call_errors: VectorWrapper<SplitterCallErrorData>,
+    /// A vector which indexes into the splitter call vector
+    next_splitter_call_stack: VectorWrapper<u64>,
+    splitter_calls: VectorWrapper<SplitterCall>,
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone)]
@@ -197,27 +205,33 @@ impl SplitterTrait for Contract {
             self.construction_calls.get(&construction_call_id).is_none(),
             "TODO:"
         );
-        let vect_prefix_str_splitter_call_err =
-            format!("constcall-err-{}", construction_call_id.clone());
-        let vect_prefix_splitter_call_err = vect_prefix_str_splitter_call_err.as_bytes();
+        let vect_prefix_str_splitter_stack =
+            format!("constcall-stack-{}", construction_call_id.clone());
+        let vect_prefix_splitter_call_stack = vect_prefix_str_splitter_stack.as_bytes();
 
         let vect_prefix_str_splitter_call = format!("constcall-{}", construction_call_id.clone());
         let vect_prefix_splitter_call = vect_prefix_str_splitter_call.as_bytes();
-        let mut call_stack = VectorWrapper(Vector::new(vect_prefix_splitter_call));
+
+        let mut splitter_calls = VectorWrapper(Vector::new(vect_prefix_splitter_call));
         let call_elem = SplitterCall {
             splitter_index: 0,
             block_index: env::block_index(),
             amount: amount.into(),
+            status: SplitterCallStatus::WaitingCall,
         };
-        call_stack.0.push(&call_elem);
+        splitter_calls.0.push(&call_elem);
+
+        let mut splitter_call_stack = VectorWrapper(Vector::new(vect_prefix_splitter_call_stack));
+        // Add the first element (and only) in splitter calls to the call stack
+        splitter_call_stack.0.push(&0);
+
         self.construction_calls.insert(
             &construction_call_id,
             &ConstructionCallData {
                 caller,
                 construction_id: construction_id.clone(),
-                next_splitter_call_stack: call_stack,
-                // TODO: functionality around this pretty pls. How does one record errors? `\_ (- _ -) _/`
-                splitter_call_errors: VectorWrapper(Vector::new(vect_prefix_splitter_call_err)),
+                splitter_calls,
+                next_splitter_call_stack: splitter_call_stack,
             },
         );
         self._run_step(construction_call_id);
@@ -278,14 +292,16 @@ impl Contract {
     pub fn handle_node_callback(
         &mut self,
         construction_call_id: ConstructionCallDataId,
+        splitter_call_id: u64,
         splitter_idx: u64,
         node_idx: u64,
         caller: AccountId,
-        #[callback] ret: Vec<malloc_call_core::ReturnItem>,
+        // #[callback] ret: Vec<malloc_call_core::ReturnItem>,
     ) -> Option<u64> {
         let construction_call = self.get_construction_call_unchecked(&construction_call_id);
         let construction = self.get_construction_unchecked(&construction_call.construction_id);
 
+        // The set of next splitters indexes to be called after the called splitter's (referenced by splitter_idx) child (referenced by node_idx) completes.
         let next_splitters_idx: VectorWrapper<u64> = construction
             .next_splitters
             .0
@@ -294,6 +310,8 @@ impl Contract {
             .0
             .get(node_idx)
             .unwrap();
+
+        // The set of next splitters to be called after the called splitter's (referenced by splitter_idx) child (referenced by node_idx) completes.
         let mut next_splitters: Vec<Splitter> = vec![];
         for i in 0..next_splitters_idx.0.len() {
             let splitter_id = construction
@@ -303,33 +321,55 @@ impl Contract {
                 .unwrap();
             next_splitters.push(self.get_splitter_unchecked(&splitter_id));
         }
-        self.add_to_splitter_call_stack(
-            ret,
-            &next_splitters,
-            &next_splitters_idx,
-            &construction_call_id,
-        );
-        None
+        let mut construction_call = self.get_construction_call_unchecked(&construction_call_id);
 
-        // self.handle_next_splits(
-        //     ret,
-        //     &next_splitters,
-        //     &next_splitters_idx,
-        //     &construction_call_id,
-        //     &caller,
-        // )
-        // match self.handle_into_next_split(ret, &next_splitters, None, 0) {
-        //     None => None,
-        //     Some(prom_idx) => {
-        //         env::promise_return(prom_idx);
-        //         Some(prom_idx)
-        //     }
-        // }
+        let ret = utils::promise_result_as_success();
+        let mut construction_call = match ret {
+            // The callback errored
+            None => Self::resolve_splitter_call(
+                construction_call,
+                SplitterCallStatus::Success,
+                splitter_call_id,
+            ),
+            Some(ret_serial) => {
+                let ret: Result<Vec<malloc_call_core::ReturnItem>, near_sdk::serde_json::Error> =
+                    serde_json::from_slice(&ret_serial);
+
+                match ret {
+                    Ok(ret) => {
+                        // Set the splitter call to successful
+                        let mut construction_call = Self::resolve_splitter_call(
+                            construction_call,
+                            SplitterCallStatus::Success,
+                            splitter_call_id,
+                        );
+
+                        // Add the next set of splitters to the call stack so that Malloc Client knows
+                        // what to call next
+                        Self::add_to_splitter_call_stack(
+                            construction_call,
+                            ret,
+                            &next_splitters,
+                            &next_splitters_idx,
+                        )
+                    }
+                    Err(e) => Self::resolve_splitter_call(
+                        construction_call,
+                        SplitterCallStatus::Error {
+                            message: format!("Error deserializing result: {}", e),
+                        },
+                        splitter_call_id,
+                    ),
+                }
+            }
+        };
+        self.construction_calls
+            .insert(&construction_call_id, &construction_call);
+        None
     }
 }
 
 /// ************ Fungible Token handlers ***************************
-
 #[near_bindgen]
 impl FungibleTokenHandlers for Contract {
     #[payable]

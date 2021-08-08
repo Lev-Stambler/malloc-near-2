@@ -176,10 +176,14 @@ export const runEphemeralConstruction = async (
     let txHashes: string[] = [];
 
     while (constructionCallData.next_splitter_call_stack.length > 0) {
-      const splitter_idx =
+      const splitter_call_id =
         constructionCallData.next_splitter_call_stack[
           constructionCallData.next_splitter_call_stack.length - 1
-        ].splitter_index;
+        ];
+
+      const splitter_idx =
+        constructionCallData.splitter_calls[splitter_call_id].splitter_index;
+
       const attachedDeposit = await getAttachedDepositForSplitter(
         callerAccount,
         splitters[parseInt(splitter_idx.toString())]

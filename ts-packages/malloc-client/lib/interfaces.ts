@@ -169,22 +169,24 @@ export interface ConstructionId {
 
 export type ConstructionCallId = string;
 
-type SplitterCallError = string;
+export interface SplitterCallStatus {
+  Error?: { message: string };
+  // empty enum
+  WaitingCall?: any;
+  Executing?: { block_index_start: number };
+  Success?: any;
+}
 
 export interface SplitterCall {
   splitter_index: BigNumberish;
   block_index: BigNumberish;
   amount: BigNumberish;
-}
-
-export interface SplitterCallErrorData {
-  splitter_call: SplitterCall;
-  error: SplitterCallError;
+  status: SplitterCallStatus;
 }
 
 export interface ConstructionCall {
   caller: AccountId;
   construction_id: ConstructionId;
-  next_splitter_call_stack: SplitterCall[];
-  splitter_call_errors: SplitterCallErrorData[];
+  next_splitter_call_stack: number[];
+  splitter_calls: SplitterCall[];
 }
