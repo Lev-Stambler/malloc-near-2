@@ -1,39 +1,79 @@
-use near_sdk::{json_types::U128, AccountId};
+use near_contract_standards::fungible_token::FungibleToken;
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+
+use near_sdk::collections::UnorderedMap;
+use near_sdk::env;
+use near_sdk::{collections::LookupMap, json_types::U128, AccountId, Balance};
 
 use crate::{errors::Errors, AccountBalance, Contract};
+
+#[derive(BorshDeserialize, BorshSerialize)]
+pub struct FungibleTokenBalances {
+    /// AccountID -> Account balance.
+    // TODO: does it make more sense to go the other way
+    pub account_to_contract_balances: UnorderedMap<AccountId, LookupMap<AccountId, Balance>>,
+}
 
 pub trait FungibleTokenHandlers {
     fn ft_on_transfer(&mut self, sender_id: String, amount: String, msg: String) -> String;
     fn get_ft_balance(&self, account_id: AccountId, contract_id: AccountId) -> U128;
 }
 
-impl Contract {
-    pub(crate) fn balance_pos(balances: &[AccountBalance], contract_id: &str) -> Option<usize> {
-        balances.iter().position(|r| r.contract_id == contract_id)
+impl FungibleTokenBalances {
+    pub(crate) fn new(prefix: &[u8]) -> Self {
+        FungibleTokenBalances {
+            account_to_contract_balances: UnorderedMap::new(prefix),
+        }
+    }
+
+    pub(crate) fn get_ft_balance(&self, account_id: &AccountId, token_id: &AccountId) -> Balance {
+        let mut balances = self.account_to_contract_balances.get(&account_id);
+        match balances {
+            None => 0,
+            Some(bals) => bals.get(&token_id).unwrap_or(0),
+        }
+    }
+
+    pub(crate) fn ft_on_transfer(
+        &mut self,
+        sender_id: String,
+        amount: String,
+        msg: String,
+    ) -> String {
+        let mut balances = self
+            .account_to_contract_balances
+            .get(&sender_id)
+            .unwrap_or(LookupMap::new(format!("{}-ft-bals", sender_id).as_bytes()));
+        let token_id = env::predecessor_account_id();
+
+        let amount = amount.parse::<u128>().unwrap();
+        let current_amount = self.get_ft_balance(&sender_id, &token_id);
+        balances.insert(&token_id, &(amount + current_amount));
+
+        self.account_to_contract_balances
+            .insert(&sender_id, &balances);
+        "0".to_string()
     }
 
     pub(crate) fn subtract_contract_bal_from_user(
         &mut self,
         account_id: &AccountId,
-        contract_id: AccountId,
+        token_id: AccountId,
         amount: u128,
     ) {
         if amount == 0 {
             return;
         }
 
-        let mut balances = self
-            .account_id_to_ft_balances
-            .get(&account_id)
-            .unwrap_or_else(|| panic!(Errors::CALLEE_DID_NOT_DEPOSIT_SUFFICIENT_FUNDS)); // TODO change to throw err
+        let current_balance = self.get_ft_balance(account_id, &token_id);
 
-        let bal_pos = Self::balance_pos(&balances, &contract_id)
-            .unwrap_or_else(|| panic!(Errors::CALLEE_DID_NOT_DEPOSIT_SUFFICIENT_FUNDS));
-        if balances[bal_pos].balance < amount {
-            panic!(Errors::CALLEE_DID_NOT_DEPOSIT_SUFFICIENT_FUNDS);
+        if current_balance < amount {
+            panic!("The callee did not deposit sufficient funds");
         }
-        balances[bal_pos].balance -= amount;
-        self.account_id_to_ft_balances
+
+        let mut balances = self.account_to_contract_balances.get(account_id).unwrap();
+        balances.insert(&token_id, &(current_balance - amount));
+        self.account_to_contract_balances
             .insert(&account_id, &balances);
     }
 }

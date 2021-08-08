@@ -237,7 +237,8 @@ impl ConstructionTrait for Contract {
                 next_splitter_call_stack: splitter_call_stack,
             },
         );
-        self._run_step(construction_call_id);
+        let ret_prom = self._run_step(construction_call_id);
+        env::promise_return(ret_prom);
     }
 }
 
@@ -247,7 +248,8 @@ impl SplitterTrait for Contract {
     fn process_next_split_call(&mut self, construction_call_id: ConstructionCallDataId) {
         let mut construction_call = self.get_construction_call_unchecked(&construction_call_id);
         assert_eq!(construction_call.caller, env::predecessor_account_id());
-        self._run_step(construction_call_id);
+        let ret_prom = self._run_step(construction_call_id);
+        env::promise_return(ret_prom);
     }
 }
 
@@ -259,7 +261,7 @@ impl Contract {
     ) -> ConstructionCallData {
         self.construction_calls
             .get(&id)
-            .unwrap_or_else(|| panic!("TODO:"))
+            .unwrap_or_else(|| panic!(Errors::CONSTRUCTION_NOT_FOUND))
     }
 }
 
@@ -419,15 +421,15 @@ impl FungibleTokenHandlers for Contract {
         "0".to_string()
     }
 
-    fn get_ft_balance(&self, account_id: AccountId, contract_id: AccountId) -> U128 {
+    fn get_ft_balance(&self, account_id: AccountId, token_id: AccountId) -> U128 {
         if let Some(balances) = self.account_id_to_ft_balances.get(&account_id) {
             println!(
                 "{} {:?} {}",
-                contract_id,
+                token_id,
                 balances.len(),
-                Self::balance_pos(&balances, &contract_id).is_none()
+                Self::balance_pos(&balances, &token_id).is_none()
             );
-            if let Some(pos) = Self::balance_pos(&balances, &contract_id) {
+            if let Some(pos) = Self::balance_pos(&balances, &token_id) {
                 U128::from(balances[pos].balance)
             } else {
                 U128::from(0)

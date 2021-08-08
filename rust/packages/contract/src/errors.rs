@@ -6,6 +6,8 @@ pub mod Errors {
     pub const CONSTRUCTION_CALL_SPLITTER_CALL_NOT_FOUND: &str = "The splitter call for the given splitter call id was not found within the construction call";
     pub const CONSTRUCTION_CALL_ID_NOT_FOUND: &str = "Construction Call ID does not exist";
     pub const SPLITTER_OWNER_NOT_FOUND: &str = "Splitter owner not found";
+    pub const CONSTRUCTION_CALL_NOT_FOUND: &str =
+        "The construction call was not found";
     pub const CONSTRUCTION_NOT_FOUND: &str =
         "The construction with the given id not found in the owner's construction collection";
     pub const SPLITTER_NOT_FOUND: &str =

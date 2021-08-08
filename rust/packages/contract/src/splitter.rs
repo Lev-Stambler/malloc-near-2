@@ -31,7 +31,7 @@ impl Contract {
         let splitter_res = self.get_splitter(&splitter_id);
         let splitter = handle_not_found!(self, splitter_res, construction_call_id, splitter_call_id, construction_call);
 
-         let call_ret = self.handle_splits(
+         let split_call_ret = self.handle_splits(
             &splitter,
             splitter_call.amount,
             &construction_call_id,
@@ -41,7 +41,7 @@ impl Contract {
         );
 
 
-        if let Some(err) = call_ret.clone().err() {
+        if let Some(err) = split_call_ret.clone().err() {
             splitter_call.status = SplitterCallStatus::Error {
                 message: err.to_string()
             };
@@ -58,7 +58,15 @@ impl Contract {
             .insert(&construction_call_id, &construction_call);
 
         log!("Gas used for this run step: {}", env::used_gas());
-        call_ret.unwrap_or_else(|e| panic!(&e))
+
+        // This returns a joint promise (from anding a bunch of promises). Returning that is unsupported
+        let split_call_prom = split_call_ret.unwrap_or_else(|e| panic!(&e));
+
+        // let return_prom = env::promise_batch_create(env::current_account_id());
+        // return_prom
+        // split_call_prom
+        let ret_prom = env::promise_batch_then(split_call_prom, env::current_account_id());
+        ret_prom
     }
 
     // TODO: fishing transferred money out? (maybe all transfers into malloc should only be via ft_transfer_call and there should be the recipient account in the message! (this way you do not worry)
@@ -142,6 +150,7 @@ impl Contract {
                     token_contract_id.clone()
                 );
 
+                // TODO: is this wrong???
                 let call_prom = if amount > 0 {
                     self.subtract_contract_bal_from_user(caller, token_contract_id.clone(), amount);
                     let prom_batch = env::promise_batch_create(token_contract_id);
@@ -162,7 +171,8 @@ impl Contract {
                         attached_amount.into(),
                         gas,
                     );
-                    call_prom
+                    // call_prom
+                    prom_batch
                 } else {
                     let call_prom= env::promise_batch_create(contract_id);
                     env::promise_batch_action_function_call(call_prom, &malloc_call_core::call_method_name(), call_data.as_bytes(), attached_amount.into(), gas);
@@ -188,7 +198,8 @@ impl Contract {
                     0,
                     CALLBACK_GAS,
                 );
-                Ok(callback)
+                // Ok(callback)
+                Ok(call_prom)
             }
         }
     }
