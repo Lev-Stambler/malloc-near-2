@@ -18,8 +18,12 @@ import {
   TransactionWithPromiseResultFlag,
   TransactionWithPromiseResult,
   Transaction,
+  ConstructionCallId,
 } from "./interfaces";
-import { runEphemeralConstruction } from "./construction";
+import {
+  getConstructionCallData,
+  runEphemeralConstruction,
+} from "./construction";
 import {
   executeMultipleTx,
   resolveTransactionsReducedWithPromises,
@@ -83,6 +87,8 @@ export const createMallocClient = async <
       });
       return (await executeMultipleTx(account, txs))[0];
     },
+    getConstructionCallData: async (constructionID: ConstructionCallId) =>
+      getConstructionCallData(account, mallocAccountId, constructionID),
     // TODO: Ts ignore the return type for now as we are always gonna be returning string[] while only KeyPair
     // wallets are supported
     // @ts-ignore

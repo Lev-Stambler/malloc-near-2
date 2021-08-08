@@ -1,9 +1,6 @@
 use near_sdk::{json_types::U128, AccountId};
 
-use crate::{
-    errors::{throw_err, Errors},
-    AccountBalance, Contract,
-};
+use crate::{errors::Errors, AccountBalance, Contract};
 
 pub trait FungibleTokenHandlers {
     fn ft_on_transfer(&mut self, sender_id: String, amount: String, msg: String) -> String;
@@ -28,12 +25,12 @@ impl Contract {
         let mut balances = self
             .account_id_to_ft_balances
             .get(&account_id)
-            .unwrap_or_else(|| panic!(Errors::CalleeDidNotDepositSufficientFunds)); // TODO change to throw err
+            .unwrap_or_else(|| panic!(Errors::CALLEE_DID_NOT_DEPOSIT_SUFFICIENT_FUNDS)); // TODO change to throw err
 
         let bal_pos = Self::balance_pos(&balances, &contract_id)
-            .unwrap_or_else(|| panic!(Errors::CalleeDidNotDepositSufficientFunds));
+            .unwrap_or_else(|| panic!(Errors::CALLEE_DID_NOT_DEPOSIT_SUFFICIENT_FUNDS));
         if balances[bal_pos].balance < amount {
-            throw_err(Errors::CalleeDidNotDepositSufficientFunds);
+            panic!(Errors::CALLEE_DID_NOT_DEPOSIT_SUFFICIENT_FUNDS);
         }
         balances[bal_pos].balance -= amount;
         self.account_id_to_ft_balances

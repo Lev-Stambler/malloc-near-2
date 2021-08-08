@@ -1,6 +1,6 @@
 use near_sdk::{env, log, serde_json::json, AccountId, Promise};
 
-use crate::{BASIC_GAS, CALLBACK_GAS, Construction, ConstructionCallData, ConstructionCallDataId, ConstructionId, ConstructionNextSplitters, Contract, Node, Splitter, SplitterCall, SplitterCallStatus, SplitterId, errors::{throw_err, Errors}, serde_ext::VectorWrapper};
+use crate::{BASIC_GAS, CALLBACK_GAS, Construction, ConstructionCallData, ConstructionCallDataId, ConstructionId, ConstructionNextSplitters, Contract, Node, Splitter, SplitterCall, SplitterCallStatus, SplitterId, errors::{Errors}, serde_ext::VectorWrapper};
 
 impl Contract {
     fn get_transfer_data(recipient: String, amount: String) -> Vec<u8> {
@@ -17,8 +17,8 @@ impl Contract {
     ) -> u64 {
         let mut construction_call = self.get_construction_call_unchecked(&construction_call_id);
 
-        let splitter_call_id = construction_call.next_splitter_call_stack.0.pop().unwrap_or_else(|| panic!("TODO:"));
-        let mut splitter_call = construction_call.splitter_calls.0.get(splitter_call_id).unwrap_or_else(|| panic!("TODO:"));
+        let splitter_call_id = construction_call.next_splitter_call_stack.0.pop().unwrap_or_else(|| panic!(Errors::CONSTRUCTION_CALL_SPLITTER_STACK_EMPTY));
+        let mut splitter_call = construction_call.splitter_calls.0.get(splitter_call_id).unwrap_or_else(|| panic!(Errors::CONSTRUCTION_CALL_SPLITTER_CALL_NOT_FOUND));
 
         let construction = self.get_construction_unchecked(&construction_call.construction_id);
         let splitter_id = construction.splitters.0.get(splitter_call.splitter_index).unwrap();
@@ -176,7 +176,8 @@ impl Contract {
     }
 
     pub(crate) fn resolve_splitter_call(mut construction_call: ConstructionCallData, status: SplitterCallStatus, splitter_call_id: u64)-> ConstructionCallData{
-        let mut splitter_call = construction_call.splitter_calls.0.get(splitter_call_id).unwrap_or_else(|| panic!("TODO:"));
+        // If the following panics, then there is no way to register on chain that the call failed
+        let mut splitter_call = construction_call.splitter_calls.0.get(splitter_call_id).unwrap_or_else(|| panic!(Errors::CONSTRUCTION_CALL_SPLITTER_CALL_NOT_FOUND));
         splitter_call.status = status;
         construction_call.splitter_calls.0.replace(splitter_call_id, &splitter_call);
         construction_call
@@ -187,20 +188,24 @@ impl Contract {
         result: Vec<malloc_call_core::ReturnItem>,
         splitters: &[Splitter],
         splitter_idxs: &VectorWrapper<u64>,
+        splitter_call_id: u64,
      ) -> ConstructionCallData {
         if result.len() == 0 {
             return construction_call;
         }
-        assert_eq!(result.len(), splitters.len(), "TODO:");
+        if result.len() != splitters.len() {
+            let err = SplitterCallStatus::Error {message: Errors::NUMBER_OF_SPLITTERS_DID_NOT_MATCH_RETURN.to_string() };
+            return Self::resolve_splitter_call(construction_call, err, splitter_call_id);
+        }
 
         for i in 0..splitters.len() {
             if splitters[i].ft_contract_id != result[i].token_id.to_string() {
-                panic!(Errors::FTContractIdNotMatch.to_string())
+                panic!(Errors::FT_CONTRACT_ID_NOT_MATCH.to_string())
             }
             let amount = result[i]
                 .amount
                 .parse()
-                .unwrap_or_else(|_| panic!(Errors::FailedToParseNumber.to_string()));
+                .unwrap_or_else(|_| panic!(Errors::FAILED_TO_PARSE_NUMBER.to_string()));
             let call_elem = SplitterCall {
                 splitter_index: splitter_idxs.0.get(i as u64).unwrap(),
                 block_index: env::block_index(),

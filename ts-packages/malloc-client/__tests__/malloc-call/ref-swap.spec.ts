@@ -10,6 +10,8 @@ import { wrap } from "module";
 import { MAX_GAS } from "../../lib/tx";
 import { MALLOC_CALL_SIMPLE_GAS } from "../../../testing-utils/lib/testing-utils";
 import { Account } from "near-api-js";
+import { readFileSync } from "fs";
+import { join } from "path";
 
 let malloc: MallocClient.MallocClient<MallocClient.SpecialAccountWithKeyPair>;
 const NDAI_CONTRACT = "ndai.ft-fin.testnet";
@@ -17,6 +19,14 @@ const TOKEN_ACCOUNT_IDS = [TestingUtils.WRAP_TESTNET_CONTRACT, NDAI_CONTRACT];
 let masterAccount: Account;
 let wrappedTesterAccount: MallocClient.SpecialAccountWithKeyPair;
 const REF_FINANCE_CONTRACT = "ref-finance.testnet";
+
+export const getMallocCallRefSwapContract = () =>
+  readFileSync(
+    join(
+      __dirname,
+      "../../../rust/packages/malloc-calls/ref-swap-malloc-call/neardev/dev-account"
+    )
+  ).toString();
 
 describe("ref-swap call", () => {
   jest.setTimeout(60 * 1000);
@@ -31,8 +41,7 @@ describe("ref-swap call", () => {
   });
 
   it.only("should make calls to a multi level splitter with pass throughs and black whole at then end", async () => {
-    const MALLOC_CALL_SWAP_CONTRACT_ID =
-      TestingUtils.getMallocCallRefSwapContract();
+    const MALLOC_CALL_SWAP_CONTRACT_ID = getMallocCallRefSwapContract();
 
     const amount = 1000000;
 
@@ -87,8 +96,8 @@ describe("ref-swap call", () => {
                   token_out: NDAI_CONTRACT,
                   pool_id: wNearToDAIPoolId,
                   min_amount_out: minDaiRetrun.toString(),
-									// TODO: this will be removed
-                  register_tokens: [],//[NDAI_CONTRACT, TestingUtils.WRAP_TESTNET_CONTRACT],
+                  // TODO: this will be removed
+                  register_tokens: [], //[NDAI_CONTRACT, TestingUtils.WRAP_TESTNET_CONTRACT],
                   recipient: masterAccount.accountId,
                 }),
                 gas: MALLOC_CALL_SIMPLE_GAS.muln(10).toNumber(),

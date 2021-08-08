@@ -20,7 +20,7 @@ const BASIC_RESOLVER_GAS: Gas = 1_000_000_000_000;
 
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
-pub struct BlackWholeArgs {
+pub struct ErrorArgs {
     log_message: String,
 }
 
@@ -36,7 +36,7 @@ pub struct ResolverArgs {
 pub struct Contract {}
 
 #[near_bindgen]
-impl MallocCallWithCallback<BlackWholeArgs, ResolverArgs, Promise> for Contract {
+impl MallocCallWithCallback<ErrorArgs, ResolverArgs, Promise> for Contract {
     fn metadata(&self) -> malloc_call_core::MallocCallMetadata {
         malloc_call_core::MallocCallMetadata {
             minimum_gas: None,
@@ -50,8 +50,8 @@ impl MallocCallWithCallback<BlackWholeArgs, ResolverArgs, Promise> for Contract 
     }
 
     #[payable]
-    fn call(&mut self, args: BlackWholeArgs, amount: String, token_contract: AccountId) -> Promise {
-        log!("Log from the passthrough: {}", args.log_message);
+    fn call(&mut self, args: ErrorArgs, amount: String, token_contract: AccountId) -> Promise {
+        log!("Log from the error call: {}", args.log_message);
         let ret_args = json!({
             "args": {
                 "token_id": token_contract,

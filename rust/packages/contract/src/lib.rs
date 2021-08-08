@@ -27,7 +27,7 @@ use near_sdk::{
 };
 use serde_ext::VectorWrapper;
 
-use crate::errors::{throw_err, Errors};
+use crate::errors::Errors;
 
 mod checker;
 pub mod errors;
@@ -203,7 +203,7 @@ impl SplitterTrait for Contract {
         };
         assert!(
             self.construction_calls.get(&construction_call_id).is_none(),
-            "TODO:"
+            Errors::CONSTRUCTION_CALL_ID_NOT_FOUND
         );
         let vect_prefix_str_splitter_stack =
             format!("constcall-stack-{}", construction_call_id.clone());
@@ -328,7 +328,9 @@ impl Contract {
             // The callback errored
             None => Self::resolve_splitter_call(
                 construction_call,
-                SplitterCallStatus::Success,
+                SplitterCallStatus::Error {
+                    message: "Malloc Call failed".to_string(),
+                },
                 splitter_call_id,
             ),
             Some(ret_serial) => {
@@ -337,7 +339,6 @@ impl Contract {
 
                 match ret {
                     Ok(ret) => {
-                        log!("AAAAAAAb {}", ret[0].amount);
                         // Set the splitter call to successful
                         let mut construction_call = Self::resolve_splitter_call(
                             construction_call,
@@ -352,6 +353,7 @@ impl Contract {
                             ret,
                             &next_splitters,
                             &next_splitters_idx,
+                            splitter_call_id,
                         )
                     }
                     Err(e) => Self::resolve_splitter_call(

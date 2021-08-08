@@ -15,6 +15,7 @@ import {
   SpecialAccountWithKeyPair,
   TransactionWithPromiseResultFlag,
   ConstructionCallId,
+  CallEphemeralError,
 } from "./interfaces";
 import {
   executeMultipleTx,
@@ -80,7 +81,7 @@ const makeid = (length: number) => {
   return result;
 };
 
-const getConstructionCallData = async (
+export const getConstructionCallData = async (
   callerAccount: SpecialAccount,
   mallocAccountId: AccountId,
   constructionCallId: string
@@ -92,7 +93,10 @@ const getConstructionCallData = async (
   );
 };
 
-const checkSuccessful = async (hashes: string[], accountId: string) => {
+const checkTransactionSuccessful = async (
+  hashes: string[],
+  accountId: string
+) => {
   const ret = await resolveTransactionsReducedWithPromises(hashes, accountId);
   if (ret.flag !== TransactionWithPromiseResultFlag.SUCCESS) {
     throw ret.message;
@@ -101,6 +105,9 @@ const checkSuccessful = async (hashes: string[], accountId: string) => {
 
 /**
  * runEphemeralConstruction will create a construction with a random name and then delete it
+ *
+ * @error Errors with a object of type CallEphemeralError
+ * {@link CallEphemeralError | CallEphemeralError interface}
  */
 export const runEphemeralConstruction = async (
   callerAccount: SpecialAccountWithKeyPair,
@@ -162,7 +169,7 @@ export const runEphemeralConstruction = async (
     const txRetsInit = await executeMultipleTx(callerAccount, txs);
 
     // Throws if unsuccessful
-    await checkSuccessful(txRetsInit, callerAccount.accountId);
+    await checkTransactionSuccessful(txRetsInit, callerAccount.accountId);
 
     return txRetsInit;
   };
@@ -211,7 +218,7 @@ export const runEphemeralConstruction = async (
       const txRets = await executeMultipleTx(callerAccount, txs);
 
       // Throws if unsuccessful
-      await checkSuccessful(txRets, callerAccount.accountId);
+      await checkTransactionSuccessful(txRets, callerAccount.accountId);
       txHashes.push(...txRets);
 
       constructionCallData = await getConstructionCallData(
@@ -223,7 +230,14 @@ export const runEphemeralConstruction = async (
     return txHashes;
   };
 
-  const txsInit = await storeAndStartConstruction();
-  const txsNextStep = await runNextSplitterCalls();
-  return [...txsInit, ...txsNextStep];
+  try {
+    const txsInit = await storeAndStartConstruction();
+    const txsNextStep = await runNextSplitterCalls();
+    return [...txsInit, ...txsNextStep];
+  } catch (e) {
+    throw {
+      ...e,
+      constructionCallId: construction_call_id,
+    } as CallEphemeralError;
+  }
 };
