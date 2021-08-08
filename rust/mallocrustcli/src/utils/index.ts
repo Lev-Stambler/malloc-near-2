@@ -11,7 +11,7 @@
 // macOS, and Unix systems) on Windows as well.
 import { readFileSync } from "fs";
 import { join } from "path";
-import sh from "shelljs";
+import * as sh from "shelljs";
 
 type DevDeployOpts = {
   callNew?: {
@@ -21,7 +21,7 @@ type DevDeployOpts = {
 };
 
 const getContractDir = (packageDir: string): string =>
-  join(__dirname, "../packages", packageDir);
+  join(__dirname, "../../../packages", packageDir);
 
 const getPackageName = (contractDir: string) => {
   const match = readFileSync(`${contractDir}/Cargo.toml`)
@@ -87,18 +87,15 @@ export const buildAndSimLink = (projectDir: string) => {
   if (code !== 0) process.exit(code);
 };
 
-if (require.main === module) {
-  const projectDir = process.argv.pop();
-  if (!projectDir)
-    throw "Expected the last command line argument to be the package's directory";
-  buildAndSimLink(projectDir);
-  devDeploy(projectDir, {
-    callNew: {
-      caller: "levtester.testnet",
-      args: {ref_finance: "ref-finance.testnet"},
-    },
-  });
-}
-
-// TODO: add structured CLI with init commands
-// TODO: use https://oclif.io/docs/single
+// if (require.main === module) {
+//   const projectDir = process.argv.pop();
+//   if (!projectDir)
+//     throw "Expected the last command line argument to be the package's directory";
+//   buildAndSimLink(projectDir);
+//   devDeploy(projectDir, {
+//     callNew: {
+//       caller: "levtester.testnet",
+//       args: { ref_finance: "ref-finance.testnet" },
+//     },
+//   });
+// }
