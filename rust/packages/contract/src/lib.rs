@@ -32,6 +32,7 @@ use crate::errors::Errors;
 mod checker;
 pub mod errors;
 pub mod ft;
+mod handle_construction;
 mod serde_ext;
 mod splitter;
 mod storage;
@@ -240,41 +241,6 @@ impl SplitterTrait for Contract {
 
 #[near_bindgen]
 impl Contract {
-    pub(crate) fn create_construction(
-        &mut self,
-        splitters: Vec<Splitter>,
-        next_splitters: ConstructionNextSplitters,
-    ) -> Construction {
-        // TODO: checks that the splitters len is next splitters len?
-        let mut splitter_ids = VectorWrapper(Vector::new(random_seed()));
-        for i in 0..splitters.len() {
-            self.check_splitter(&splitters[i]);
-            // TODO: make this more efficient by making store_splitters a fn which stores them in bulk
-            splitter_ids.0.push(&self.store_splitter(&splitters[i]));
-        }
-        Construction {
-            splitters: splitter_ids,
-            next_splitters,
-        }
-    }
-
-    pub(crate) fn get_splitter_unchecked(&self, id: &SplitterId) -> Splitter {
-        self.splitters
-            .get(&id.owner)
-            .unwrap_or_else(|| panic!("TODO:"))
-            .get(id.index)
-            .unwrap_or_else(|| panic!("TODO:"))
-    }
-
-    // TODO: make into trait and seperate file
-    pub fn get_construction_unchecked(&self, id: &ConstructionId) -> Construction {
-        self.constructions
-            .get(&id.owner)
-            .unwrap_or_else(|| panic!("TODO:"))
-            .get(&id.name)
-            .unwrap_or_else(|| panic!("TODO:"))
-    }
-
     pub fn get_construction_call_unchecked(
         &self,
         id: &ConstructionCallDataId,
@@ -298,8 +264,15 @@ impl Contract {
         caller: AccountId,
         // #[callback] ret: Vec<malloc_call_core::ReturnItem>,
     ) -> Option<u64> {
-        let construction_call = self.get_construction_call_unchecked(&construction_call_id);
-        let construction = self.get_construction_unchecked(&construction_call.construction_id);
+        let mut construction_call = self.get_construction_call_unchecked(&construction_call_id);
+        let construction_res = self.get_construction(&construction_call.construction_id);
+        let construction = handle_not_found!(
+            self,
+            construction_res,
+            construction_call_id,
+            splitter_call_id,
+            construction_call
+        );
 
         // The set of next splitters indexes to be called after the called splitter's (referenced by splitter_idx) child (referenced by node_idx) completes.
         let next_splitters_idx: VectorWrapper<u64> = construction
@@ -319,9 +292,17 @@ impl Contract {
                 .0
                 .get(next_splitters_idx.0.get(i).unwrap())
                 .unwrap();
-            next_splitters.push(self.get_splitter_unchecked(&splitter_id));
+            let splitter_res = self.get_splitter(&splitter_id);
+            let splitter = handle_not_found!(
+                self,
+                splitter_res,
+                construction_call_id,
+                splitter_call_id,
+                construction_call
+            );
+
+            next_splitters.push(splitter);
         }
-        let mut construction_call = self.get_construction_call_unchecked(&construction_call_id);
 
         let ret = utils::promise_result_as_success();
         let mut construction_call = match ret {
@@ -329,7 +310,7 @@ impl Contract {
             None => Self::resolve_splitter_call(
                 construction_call,
                 SplitterCallStatus::Error {
-                    message: "Malloc Call failed".to_string(),
+                    message: Errors::MALLOC_CALL_FAILED.to_string(),
                 },
                 splitter_call_id,
             ),

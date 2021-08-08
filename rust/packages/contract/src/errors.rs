@@ -1,8 +1,13 @@
 pub mod Errors {
+    pub const MALLOC_CALL_FAILED: &str = "The malloc call failed";
     pub const CONSTRUCTION_CALL_SPLITTER_CALL_NOT_FOUND: &str = "The splitter call for the given splitter call id was not found within the construction call";
     pub const CONSTRUCTION_CALL_SPLITTER_STACK_EMPTY: &str =
         "The splitter stack for the construction call is empty";
     pub const CONSTRUCTION_CALL_ID_NOT_FOUND: &str = "Construction Call ID does not exist";
+    pub const CONSTRUCTION_OWNER_NOT_FOUND: &str = "Construction owner not found";
+    pub const SPLITTER_OWNER_NOT_FOUND: &str = "Splitter owner not found";
+    pub const SPLITTER_NOT_FOUND: &str = "The Splitter with the given id not found in the owner's splitter collection";
+    pub const CONSTRUCTION_NOT_FOUND: &str = "The construction with the given id not found in the owner's construction collection";
     pub const NUMBER_OF_SPLITTERS_DID_NOT_MATCH_RETURN: &str =
         "The number of splitters for the next set of inputs does not match the call's return";
     pub const FAILED_TO_PARSE_NUMBER: &str = "Failed to parse a number from the string";

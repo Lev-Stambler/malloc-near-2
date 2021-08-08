@@ -1,6 +1,8 @@
+use core::panic;
+
 use near_sdk::{env, log, serde_json::json, AccountId, Promise};
 
-use crate::{BASIC_GAS, CALLBACK_GAS, Construction, ConstructionCallData, ConstructionCallDataId, ConstructionId, ConstructionNextSplitters, Contract, Node, Splitter, SplitterCall, SplitterCallStatus, SplitterId, errors::{Errors}, serde_ext::VectorWrapper};
+use crate::{BASIC_GAS, CALLBACK_GAS, Construction, ConstructionCallData, ConstructionCallDataId, ConstructionId, ConstructionNextSplitters, Contract, Node, Splitter, SplitterCall, SplitterCallStatus, SplitterId, errors::{Errors}, handle_not_found, serde_ext::VectorWrapper};
 
 impl Contract {
     fn get_transfer_data(recipient: String, amount: String) -> Vec<u8> {
@@ -20,10 +22,15 @@ impl Contract {
         let splitter_call_id = construction_call.next_splitter_call_stack.0.pop().unwrap_or_else(|| panic!(Errors::CONSTRUCTION_CALL_SPLITTER_STACK_EMPTY));
         let mut splitter_call = construction_call.splitter_calls.0.get(splitter_call_id).unwrap_or_else(|| panic!(Errors::CONSTRUCTION_CALL_SPLITTER_CALL_NOT_FOUND));
 
-        let construction = self.get_construction_unchecked(&construction_call.construction_id);
+        let construction_res = self.get_construction(&construction_call.construction_id);
+        let construction = handle_not_found!(self, construction_res, construction_call_id, splitter_call_id, construction_call);
+
         let splitter_id = construction.splitters.0.get(splitter_call.splitter_index).unwrap();
-        let splitter = self.get_splitter_unchecked(&splitter_id);
-        let ret_prom = self.handle_splits(
+
+        let splitter_res = self.get_splitter(&splitter_id);
+        let splitter = handle_not_found!(self, splitter_res, construction_call_id, splitter_call_id, construction_call);
+
+         let call_ret = self.handle_splits(
             &splitter,
             splitter_call.amount,
             &construction_call_id,
@@ -32,10 +39,17 @@ impl Contract {
             &env::predecessor_account_id(),
         );
 
+
+        if let Some(err) = call_ret.clone().err() {
+            splitter_call.status = SplitterCallStatus::Error {
+                message: err.to_string()
+            };
+        } else {
         // Set the call's execution status to executing
         splitter_call.status = SplitterCallStatus::Executing {
             block_index_start: env::block_index()
         };
+        }
         construction_call.splitter_calls.0.replace(splitter_call_id, &splitter_call);
 
         // Update the construction call to include the new stack and status
@@ -43,7 +57,7 @@ impl Contract {
             .insert(&construction_call_id, &construction_call);
 
         log!("Gas used for this run step: {}", env::used_gas());
-        ret_prom
+        call_ret.unwrap_or_else(|e| panic!(&e))
     }
 
     // TODO: fishing transferred money out? (maybe all transfers into malloc should only be via ft_transfer_call and there should be the recipient account in the message! (this way you do not worry)
@@ -59,7 +73,7 @@ impl Contract {
         splitter_call_id: u64,
         splitter_idx: u64,
         caller: &AccountId,
-    ) -> u64 {
+    ) -> Result<u64, String> {
         let mut split_sum = 0;
         for i in 0..splitter.splits.0.len() {
             split_sum += splitter.splits.0.get(i).unwrap();
@@ -84,10 +98,10 @@ impl Contract {
                 splitter_idx,
                 i,
                 &caller,
-            );
+            )?;
             proms.push(prom);
         }
-        env::promise_and(&proms)
+        Ok(env::promise_and(&proms))
     }
 
     // TODO: split up into helper functions
@@ -102,7 +116,7 @@ impl Contract {
         splitter_idx: u64,
         node_idx: u64,
         caller: &AccountId,
-    ) -> u64 {
+    ) -> Result<u64, String> {
         match endpoint {
             Node::MallocCall {
                 contract_id,
@@ -154,7 +168,7 @@ impl Contract {
                 // If check callback is false, finish the call and return
                 if let Some(check_cb) = check_callback {
                     if !check_cb {
-                        return call_prom;
+                        return Ok(call_prom);
                     }
                 }
 
@@ -170,7 +184,7 @@ impl Contract {
                     0,
                     CALLBACK_GAS,
                 );
-                callback
+                Ok(callback)
             }
         }
     }
@@ -200,12 +214,12 @@ impl Contract {
 
         for i in 0..splitters.len() {
             if splitters[i].ft_contract_id != result[i].token_id.to_string() {
-                panic!(Errors::FT_CONTRACT_ID_NOT_MATCH.to_string())
+                panic!(Errors::FT_CONTRACT_ID_NOT_MATCH)
             }
             let amount = result[i]
                 .amount
                 .parse()
-                .unwrap_or_else(|_| panic!(Errors::FAILED_TO_PARSE_NUMBER.to_string()));
+                .unwrap_or_else(|_| panic!(Errors::FAILED_TO_PARSE_NUMBER));
             let call_elem = SplitterCall {
                 splitter_index: splitter_idxs.0.get(i as u64).unwrap(),
                 block_index: env::block_index(),
