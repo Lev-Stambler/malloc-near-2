@@ -1,0 +1,2 @@
+cargo:rustc-env=TYPENUM_BUILD_CONSTS=/home/lev/code/near/malloc/malloc-near-2/rust/packages/malloc-calls/error-malloc-call/target/debug/build/typenum-e0574ac24d3c5eed/out/consts.rs
+cargo:rustc-env=TYPENUM_BUILD_OP=/home/lev/code/near/malloc/malloc-near-2/rust/packages/malloc-calls/error-malloc-call/target/debug/build/typenum-e0574ac24d3c5eed/out/op.rs

@@ -337,6 +337,7 @@ impl Contract {
 
                 match ret {
                     Ok(ret) => {
+                        log!("AAAAAAAb {}", ret[0].amount);
                         // Set the splitter call to successful
                         let mut construction_call = Self::resolve_splitter_call(
                             construction_call,

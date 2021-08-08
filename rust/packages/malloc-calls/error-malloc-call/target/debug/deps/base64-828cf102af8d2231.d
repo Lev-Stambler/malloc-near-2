@@ -1,0 +1,15 @@
+/home/lev/code/near/malloc/ref-swap-wcall/target/debug/deps/base64-828cf102af8d2231.rmeta: /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/lib.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/chunked_encoder.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/display.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/read/mod.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/read/decoder.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/tables.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/write/mod.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/write/encoder.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/write/encoder_string_writer.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/encode.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/decode.rs
+
+/home/lev/code/near/malloc/ref-swap-wcall/target/debug/deps/base64-828cf102af8d2231.d: /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/lib.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/chunked_encoder.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/display.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/read/mod.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/read/decoder.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/tables.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/write/mod.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/write/encoder.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/write/encoder_string_writer.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/encode.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/decode.rs
+
+/home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/lib.rs:
+/home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/chunked_encoder.rs:
+/home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/display.rs:
+/home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/read/mod.rs:
+/home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/read/decoder.rs:
+/home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/tables.rs:
+/home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/write/mod.rs:
+/home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/write/encoder.rs:
+/home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/write/encoder_string_writer.rs:
+/home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/encode.rs:
+/home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/base64-0.13.0/src/decode.rs:

@@ -31,7 +31,7 @@ describe("malloc-client's ft capabilities", () => {
     );
   });
 
-  it("should make calls to a multi level splitter with pass throughs and black whole at then end", async () => {
+  it.only("should make calls to a multi level splitter with pass throughs and black whole at then end", async () => {
     const MALLOC_CALL_BLACKWHOLE_CONTRACT_ID =
       TestingUtils.getMallocCallBlackwholeContract();
     const MALLOC_CALL_PASSTHROUGH_CONTRACT_ID =

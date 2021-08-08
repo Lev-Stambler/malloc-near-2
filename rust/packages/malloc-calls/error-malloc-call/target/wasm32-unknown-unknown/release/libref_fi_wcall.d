@@ -1,0 +1,1 @@
+/home/lev/code/near/malloc/malloc-near-2/rust/packages/malloc-calls/passthrough-call/target/wasm32-unknown-unknown/release/libref_fi_wcall.rlib: /home/lev/code/near/malloc/malloc-near-2/rust/packages/malloc-call-core/src/lib.rs /home/lev/code/near/malloc/malloc-near-2/rust/packages/malloc-calls/passthrough-call/src/lib.rs

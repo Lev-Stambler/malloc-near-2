@@ -1,0 +1,13 @@
+/home/lev/code/near/malloc/malloc-near-2/rust/packages/malloc-calls/error-malloc-call/target/debug/deps/hashbrown-911a47f51b91d4e4.rmeta: /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.8.1/src/lib.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.8.1/src/macros.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.8.1/src/raw/mod.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.8.1/src/raw/bitmask.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.8.1/src/external_trait_impls/mod.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.8.1/src/map.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.8.1/src/scopeguard.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.8.1/src/set.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.8.1/src/raw/sse2.rs
+
+/home/lev/code/near/malloc/malloc-near-2/rust/packages/malloc-calls/error-malloc-call/target/debug/deps/hashbrown-911a47f51b91d4e4.d: /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.8.1/src/lib.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.8.1/src/macros.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.8.1/src/raw/mod.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.8.1/src/raw/bitmask.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.8.1/src/external_trait_impls/mod.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.8.1/src/map.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.8.1/src/scopeguard.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.8.1/src/set.rs /home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.8.1/src/raw/sse2.rs
+
+/home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.8.1/src/lib.rs:
+/home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.8.1/src/macros.rs:
+/home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.8.1/src/raw/mod.rs:
+/home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.8.1/src/raw/bitmask.rs:
+/home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.8.1/src/external_trait_impls/mod.rs:
+/home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.8.1/src/map.rs:
+/home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.8.1/src/scopeguard.rs:
+/home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.8.1/src/set.rs:
+/home/lev/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.8.1/src/raw/sse2.rs:
