@@ -9,7 +9,7 @@ use near_sdk::{env, serde_json, Gas, PromiseResult};
 
 // TODO: make lower??
 const GAS_BUFFER: Gas = 2_000_000_000_000;
-const GAS_FOR_INTERNAL_SUBTRACT: Gas = 5_000_000_000_000;
+const GAS_FOR_INTERNAL_SUBTRACT: Gas = 7_000_000_000_000;
 const GAS_FOR_ON_TRANSFER_NEP141: Gas = 5_000_000_000_000;
 const GAS_FOR_FT_RESOLVE_TRANSFER_NEP141: Gas = 5_000_000_000_000;
 const GAS_FOR_FT_TRANSFER_CALL_NEP141: Gas = GAS_FOR_FT_RESOLVE_TRANSFER_NEP141
@@ -156,6 +156,7 @@ impl FungibleTokenBalances {
             panic!("The callee did not deposit sufficient funds");
         }
 
+        // How expensive is this operation????
         let mut balances = self.account_to_contract_balances.get(account_id).unwrap();
         balances.insert(&token_id, &(current_balance - amount));
         self.account_to_contract_balances
