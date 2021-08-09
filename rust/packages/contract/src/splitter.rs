@@ -3,7 +3,7 @@ use std::string;
 
 use near_sdk::{AccountId, Promise, bs58::alphabet::Error, env, log, serde_json::{self, json}};
 
-use crate::{BASIC_GAS, CALLBACK_GAS, Construction, ConstructionCallData, ConstructionCallDataId, ConstructionId, ConstructionNextSplitters, Contract, FT_TRANSFER_CALL_GAS, Node, Splitter, SplitterCall, SplitterCallStatus, SplitterId, errors::{Errors}, handle_not_found, serde_ext::VectorWrapper};
+use crate::{BASIC_GAS, CALLBACK_GAS, Construction, ConstructionCallData, ConstructionCallDataId, ConstructionId, ConstructionNextSplitters, Contract, FT_TRANSFER_CALL_GAS, Node, NodeCallStatus, Splitter, SplitterCall, SplitterCallId, SplitterId, errors::{Errors}, handle_not_found, serde_ext::VectorWrapper, splitter};
 
 impl Contract {
     fn get_transfer_call_data(recipient: String, amount: String, sender: String) -> Vec<u8> {
@@ -28,36 +28,25 @@ impl Contract {
         let splitter_call_id = construction_call.next_splitter_call_stack.0.pop().unwrap_or_else(|| panic!(Errors::CONSTRUCTION_CALL_SPLITTER_STACK_EMPTY));
         let mut splitter_call = construction_call.splitter_calls.0.get(splitter_call_id).unwrap_or_else(|| panic!(Errors::CONSTRUCTION_CALL_SPLITTER_CALL_NOT_FOUND));
 
-        let construction_res = self.get_construction(&construction_call.construction_id);
-        let construction = handle_not_found!(self, construction_res, construction_call_id, splitter_call_id, construction_call);
+        // You can panic here as it is expected that _run_step is not called on a callback
+        // TODO: how can this be enforced?
+        let construction = self.get_construction(&construction_call.construction_id).unwrap_or_else(|e| panic!(&e));
 
-        let splitter_id_res = construction.splitters.0.get(splitter_call.splitter_index).ok_or(Errors::SPLITTER_NOT_FOUND_IN_CONSTRUCTION.to_string());
-        let splitter_id = handle_not_found!(self, splitter_id_res, construction_call_id, splitter_call_id, construction_call);
+        let splitter_id = construction.splitters.0.get(splitter_call.splitter_index).unwrap_or_else(|| panic!(&Errors::SPLITTER_NOT_FOUND_IN_CONSTRUCTION.to_string()));
 
-        let splitter_res = self.get_splitter(&splitter_id);
-        let splitter = handle_not_found!(self, splitter_res, construction_call_id, splitter_call_id, construction_call);
+        let splitter = self.get_splitter(&splitter_id).unwrap_or_else(|e| panic!(&e));
 
-         let split_call_ret = self.handle_splits(
+         let (split_call_prom, updated_splitter_call) = self.handle_splits(
             &splitter,
             splitter_call.amount,
             &construction_call_id,
             splitter_call_id,
             splitter_call.splitter_index,
+            splitter_call,
             &env::predecessor_account_id(),
-        );
+        ).unwrap_or_else(|e| panic!(&e));
 
-
-        if let Some(err) = split_call_ret.clone().err() {
-            splitter_call.status = SplitterCallStatus::Error {
-                message: err.to_string()
-            };
-        } else {
-        // Set the call's execution status to executing
-        splitter_call.status = SplitterCallStatus::Executing {
-            block_index_start: env::block_index()
-        };
-        }
-        construction_call.splitter_calls.0.replace(splitter_call_id, &splitter_call);
+       construction_call.splitter_calls.0.replace(splitter_call_id, &updated_splitter_call);
 
         // Update the construction call to include the new stack and status
         self.construction_calls
@@ -65,13 +54,7 @@ impl Contract {
 
         log!("Gas used for this run step: {}", env::used_gas());
 
-        // This returns a joint promise (from anding a bunch of promises). Returning that is unsupported
-        let split_call_prom = split_call_ret.unwrap_or_else(|e| panic!(&e));
-
-        // let return_prom = env::promise_batch_create(env::current_account_id());
-        // return_prom
-        // split_call_prom
-        let ret_prom = env::promise_batch_then(split_call_prom, env::current_account_id());
+       let ret_prom = env::promise_batch_then(split_call_prom, env::current_account_id());
         ret_prom
     }
 
@@ -85,10 +68,11 @@ impl Contract {
         splitter: &Splitter,
         amount_deposited: u128,
         construction_call_id: &ConstructionCallDataId,
-        splitter_call_id: u64,
+        splitter_call_id: SplitterCallId,
         splitter_idx: u64,
+        mut splitter_call: SplitterCall,
         caller: &AccountId,
-    ) -> Result<u64, String> {
+    ) -> Result<(u64, SplitterCall), String> {
         let mut split_sum = 0;
         for i in 0..splitter.splits.0.len() {
             split_sum += splitter.splits.0.get(i).unwrap();
@@ -106,19 +90,21 @@ impl Contract {
                 transfer_amount,
                 transfer_amount_float
             );
-            let prom = self.handle_node(
+            let (prom, new_splitter_call)= self.handle_node(
                 transfer_amount,
                 splitter.children.0.get(i).unwrap(),
                 &splitter.ft_contract_id,
                 &construction_call_id,
                 splitter_call_id,
                 splitter_idx,
+                splitter_call,
                 i,
                 &caller,
             )?;
+            splitter_call = new_splitter_call;
             proms.push(prom);
         }
-        Ok(env::promise_and(&proms))
+        Ok((env::promise_and(&proms), splitter_call))
     }
 
     // TODO: split up into helper functions
@@ -129,11 +115,14 @@ impl Contract {
         endpoint: Node,
         token_contract_id: &AccountId,
         construction_call_id: &ConstructionCallDataId,
-        splitter_call_id: u64,
+        splitter_call_id: SplitterCallId,
         splitter_idx: u64,
+        mut splitter_call: SplitterCall,
         node_idx: u64,
         caller: &AccountId,
-    ) -> Result<u64, String> {
+    ) -> Result<(u64, SplitterCall), String> {
+                // Set the child's status in the splitter call
+                splitter_call.children_status.0.replace(node_idx, &NodeCallStatus::Executing {block_index_start: env::block_index()});
         match endpoint {
             Node::MallocCall {
                 contract_id,
@@ -151,10 +140,11 @@ impl Contract {
                     Self::get_transfer_call_data(contract_id.clone(), amount.to_string(), caller.to_owned());
 
                 let call_data = format!(
-                    "{{\"args\": {}, \"amount\": \"{}\", \"token_contract\": \"{}\"}}",
+                    "{{\"args\": {}, \"amount\": \"{}\", \"token_id\": \"{}\", \"caller\": \"{}\"}}",
                     json_args,
                     amount.to_string(),
-                    token_contract_id.clone()
+                    token_contract_id.clone(),
+                    caller
                 );
 
                 // TODO: is this wrong???
@@ -187,7 +177,7 @@ impl Contract {
                 // If check callback is false, finish the call and return
                 if let Some(check_cb) = check_callback {
                     if !check_cb {
-                        return Ok(call_prom);
+                        return Ok((call_prom, splitter_call));
                     }
                 }
 
@@ -203,36 +193,39 @@ impl Contract {
                     0,
                     CALLBACK_GAS,
                 );
-                Ok(callback)
+                Ok((callback, splitter_call))
             }
         }
     }
 
-    pub(crate) fn resolve_splitter_call(mut construction_call: ConstructionCallData, status: SplitterCallStatus, splitter_call_id: u64)-> ConstructionCallData{
+    pub(crate) fn resolve_splitter_call(mut construction_call: ConstructionCallData, status: NodeCallStatus, splitter_call_id: SplitterCallId, child_index: u64)-> ConstructionCallData{
         // If the following panics, then there is no way to register on chain that the call failed
         let mut splitter_call = construction_call.splitter_calls.0.get(splitter_call_id).unwrap_or_else(|| panic!(Errors::CONSTRUCTION_CALL_SPLITTER_CALL_NOT_FOUND));
-        splitter_call.status = status;
+        splitter_call.children_status.0.replace(child_index, &status);
         construction_call.splitter_calls.0.replace(splitter_call_id, &splitter_call);
         construction_call
     }
 
-    pub(crate) fn add_to_splitter_call_stack(
+    pub(crate) fn add_next_splitters_to_call_stack(
+        &self,
         mut construction_call: ConstructionCallData,
         result: Vec<malloc_call_core::ReturnItem>,
         splitters: &[Splitter],
+        construction_call_id: &ConstructionCallDataId,
         splitter_idxs: &VectorWrapper<u64>,
-        splitter_call_id: u64,
+        prior_splitter_call_id: SplitterCallId,
+        prior_child_index: u64,
      ) -> ConstructionCallData {
         if result.len() == 0 {
             return construction_call;
         }
         if splitters.len() != splitter_idxs.0.len() as usize {
-            let err = SplitterCallStatus::Error {message: Errors::NUMB_OF_SPLITTER_IDXS_DID_NOT_MATCH_SPLITTERS.to_string() };
-            return Self::resolve_splitter_call(construction_call, err, splitter_call_id);
+            let err = NodeCallStatus::Error {message: Errors::NUMB_OF_SPLITTER_IDXS_DID_NOT_MATCH_SPLITTERS.to_string() };
+            return Self::resolve_splitter_call(construction_call, err, prior_splitter_call_id, prior_child_index);
         }
         if result.len() != splitters.len() {
-            let err = SplitterCallStatus::Error {message: Errors::NUMBER_OF_SPLITTERS_DID_NOT_MATCH_RETURN.to_string() };
-            return Self::resolve_splitter_call(construction_call, err, splitter_call_id);
+            let err = NodeCallStatus::Error {message: Errors::NUMBER_OF_SPLITTERS_DID_NOT_MATCH_RETURN.to_string() };
+            return Self::resolve_splitter_call(construction_call, err, prior_splitter_call_id, prior_child_index);
         }
 
         for i in 0..splitters.len() {
@@ -244,16 +237,21 @@ impl Contract {
                 .parse()
                 .unwrap_or_else(|_| panic!(Errors::FAILED_TO_PARSE_NUMBER));
 
-        // TODO: a
-            let call_elem = SplitterCall {
-                splitter_index: splitter_idxs.0.get(i as u64).unwrap(),
-                block_index: env::block_index(),
-                status: crate::SplitterCallStatus::WaitingCall,
-                amount
-            };
+            let splitter_call = self.create_splitter_call(
+                &splitters[i], 
+                 splitter_idxs.0.get(i as u64).unwrap(),
+                amount, &construction_call_id, construction_call.splitter_calls.0.len()
+            );
+
+            match splitter_call {
+               Err(e) => return Self::resolve_splitter_call(construction_call, NodeCallStatus::Error { message: e }, prior_splitter_call_id, prior_child_index),
+               Ok(splitter_call) => {
+
             let call_elem_id = construction_call.splitter_calls.0.len();
-            construction_call.splitter_calls.0.push(&call_elem);
+            construction_call.splitter_calls.0.push(&splitter_call);
             construction_call.next_splitter_call_stack.0.push(&call_elem_id);
+               }
+            }
         }
         construction_call
     }

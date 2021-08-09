@@ -1,22 +1,21 @@
 use core::fmt;
 use std::marker::PhantomData;
 
-use near_sdk::{
-    borsh::{self, BorshDeserialize, BorshSerialize},
-    collections::Vector,
-    env::{self, random_seed, used_gas},
-    log,
-    serde::{
+use near_sdk::{BorshIntoStorageKey, IntoStorageKey, borsh::{self, BorshDeserialize, BorshSerialize}, collections::Vector, env::{self, random_seed, used_gas}, log, serde::{
         self,
         de::{value::BoolDeserializer, SeqAccess, Visitor},
         ser::SerializeSeq,
         Deserialize, Deserializer, Serialize,
-    },
-    serde_json,
-};
+    }, serde_json};
 
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct VectorWrapper<T>(pub Vector<T>);
+
+impl<T> VectorWrapper<T> {
+    pub fn new<S: IntoStorageKey>(prefix: S) -> Self {
+        VectorWrapper(Vector::new(prefix))
+    }
+}
 
 pub struct VectorWrapperVisitor<T> {
     marker: PhantomData<fn() -> VectorWrapper<T>>,

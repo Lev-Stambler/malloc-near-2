@@ -30,7 +30,7 @@ pub struct ReturnItem {
 
 // TODO: implement for calls
 pub trait Revert {
-//    fn revert() 
+    //    fn revert()
 }
 
 pub trait MallocCallNoCallback<CallArgs> {
@@ -40,7 +40,8 @@ pub trait MallocCallNoCallback<CallArgs> {
         &mut self,
         args: CallArgs,
         amount: String,
-        token_contract: AccountId,
+        token_id: ValidAccountId,
+        caller: ValidAccountId,
     ) -> Vec<ReturnItem>;
 
     fn metadata(&self) -> MallocCallMetadata;
@@ -49,7 +50,13 @@ pub trait MallocCallNoCallback<CallArgs> {
 pub trait MallocCallWithCallback<CallArgs, ResolverArgs, CallReturnType> {
     /// The wrapper function which takes in some amount of tokens which are
     /// defined by token_contract
-    fn call(&mut self, args: CallArgs, amount: String, token_contract: AccountId) -> CallReturnType;
+    fn call(
+        &mut self,
+        args: CallArgs,
+        amount: String,
+        token_id: ValidAccountId,
+        caller: ValidAccountId,
+    ) -> CallReturnType;
 
     fn metadata(&self) -> MallocCallMetadata;
 

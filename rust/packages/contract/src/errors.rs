@@ -6,8 +6,7 @@ pub mod Errors {
     pub const CONSTRUCTION_CALL_SPLITTER_CALL_NOT_FOUND: &str = "The splitter call for the given splitter call id was not found within the construction call";
     pub const CONSTRUCTION_CALL_ID_NOT_FOUND: &str = "Construction Call ID does not exist";
     pub const SPLITTER_OWNER_NOT_FOUND: &str = "Splitter owner not found";
-    pub const CONSTRUCTION_CALL_NOT_FOUND: &str =
-        "The construction call was not found";
+    pub const CONSTRUCTION_CALL_NOT_FOUND: &str = "The construction call was not found";
     pub const CONSTRUCTION_NOT_FOUND: &str =
         "The construction with the given id not found in the owner's construction collection";
     pub const SPLITTER_NOT_FOUND: &str =
@@ -29,6 +28,10 @@ pub mod Errors {
     // Funding Errors
     pub const CALLEE_DID_NOT_DEPOSIT_SUFFICIENT_FUNDS: &str =
         "The callee did not deposit sufficient funds";
+
+    // ID Registration errors
+    pub const CONSTRUCTION_CALL_ID_ALREADY_USED: &str =
+        "The given construction call id has already been registered";
 
     // Malformed Errors: Errors corresponding to splitters and constructions with incorrect shapes and/or inputs
     pub const CONSTRUCTION_CALL_SPLITTER_STACK_EMPTY: &str =

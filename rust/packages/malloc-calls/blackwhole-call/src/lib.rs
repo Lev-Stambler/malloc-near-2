@@ -56,9 +56,20 @@ impl MallocCallNoCallback<BlackWholeArgs> for Contract {
         &mut self,
         args: BlackWholeArgs,
         amount: String,
-        token_contract: AccountId,
+        token_id: ValidAccountId,
+        caller: ValidAccountId,
     ) -> Vec<ReturnItem> {
         log!("Log from the blackwhole: {}", args.log_message);
+        let caller: AccountId = caller.into();
+        let token_id: AccountId = token_id.into();
+        let bal = self.balances.get_ft_balance(&caller, &token_id);
+        log!(
+            "Caller {} balance of {} for contract {} with amount in of {}",
+            caller,
+            bal,
+            token_id,
+            amount
+        );
         vec![]
     }
 }
