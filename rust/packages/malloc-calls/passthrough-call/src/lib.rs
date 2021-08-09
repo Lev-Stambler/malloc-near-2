@@ -8,10 +8,7 @@ use near_sdk::env::predecessor_account_id;
 use near_sdk::json_types::{ValidAccountId, U128};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::serde_json::json;
-use near_sdk::{
-    env, ext_contract, log, near_bindgen, serde, setup_alloc, AccountId, Gas, PanicOnDefault,
-    Promise,
-};
+use near_sdk::{AccountId, Gas, PanicOnDefault, Promise, PromiseId, env, ext_contract, log, near_bindgen, serde, setup_alloc};
 
 setup_alloc!();
 
@@ -53,7 +50,13 @@ impl MallocCallWithCallback<BlackWholeArgs, ResolverArgs, Promise> for Contract 
     }
 
     #[payable]
-    fn call(&mut self, args: BlackWholeArgs, amount: String, token_contract: AccountId) -> Promise {
+    fn call(
+        &mut self,
+        args: BlackWholeArgs,
+        amount: String,
+        token_contract: ValidAccountId,
+        caller: ValidAccountId,
+    ) -> Promise {
         log!("Log from the passthrough: {}", args.log_message);
         let ret_args = json!({
             "args": {

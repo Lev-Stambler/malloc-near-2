@@ -3,6 +3,7 @@ use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::Gas;
 use near_sdk::{json_types::U128, AccountId, Promise};
 pub mod ft;
+pub mod ft_macro;
 
 pub fn call_method_name() -> Vec<u8> {
     "call".to_string().into_bytes()

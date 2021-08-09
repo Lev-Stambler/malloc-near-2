@@ -1,3 +1,5 @@
+use std::fmt::format;
+
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 
 use near_sdk::collections::UnorderedMap;
@@ -9,7 +11,7 @@ use near_sdk::{env, serde_json, Gas, PromiseResult};
 
 // TODO: make lower??
 const GAS_BUFFER: Gas = 2_000_000_000_000;
-const GAS_FOR_INTERNAL_SUBTRACT: Gas = 7_000_000_000_000;
+const GAS_FOR_INTERNAL_SUBTRACT: Gas = 5_000_000_000_000;
 const GAS_FOR_ON_TRANSFER_NEP141: Gas = 5_000_000_000_000;
 const GAS_FOR_FT_RESOLVE_TRANSFER_NEP141: Gas = 5_000_000_000_000;
 const GAS_FOR_FT_TRANSFER_CALL_NEP141: Gas = GAS_FOR_FT_RESOLVE_TRANSFER_NEP141
@@ -27,7 +29,7 @@ const FT_TRANSFER_CALL_METHOD_NAME: &str = "ft_transfer_call";
 pub struct FungibleTokenBalances {
     /// AccountID -> Account balance.
     // TODO: does it make more sense to go the other way
-    pub account_to_contract_balances: UnorderedMap<AccountId, LookupMap<AccountId, Balance>>,
+    pub account_to_contract_balances: LookupMap<String, Balance>,
 }
 
 pub trait FungibleTokenHandlers {
@@ -47,7 +49,7 @@ pub struct OnTransferOpts {
 impl FungibleTokenBalances {
     pub fn new(prefix: &[u8]) -> Self {
         FungibleTokenBalances {
-            account_to_contract_balances: UnorderedMap::new(prefix),
+            account_to_contract_balances: LookupMap::new(prefix),
         }
     }
 
@@ -55,36 +57,30 @@ impl FungibleTokenBalances {
     // pub fn ft_transfer_call_with_result(&mut self,
 
     pub fn get_ft_balance(&self, account_id: &AccountId, token_id: &AccountId) -> Balance {
-        let balances = self.account_to_contract_balances.get(&account_id);
-        match balances {
-            None => 0,
-            Some(bals) => bals.get(&token_id).unwrap_or(0),
-        }
+        let current_amount = self
+            .account_to_contract_balances
+            .get(&Self::get_balances_key(&account_id, &token_id))
+            .unwrap_or(0);
+        current_amount
     }
 
     pub fn ft_on_transfer(&mut self, sender_id: String, amount: String, msg: String) -> String {
         let opts: OnTransferOpts = if (&msg).len() == 0 {
             OnTransferOpts {
-                sender_id: sender_id.into(),
+                sender_id: sender_id.clone().into(),
             }
         } else {
             serde_json::from_str(&msg)
                 .unwrap_or_else(|e| panic!("Failed to deserialize transfer opts: {}", e))
         };
-        let mut balances = self
-            .account_to_contract_balances
-            .get(&opts.sender_id)
-            .unwrap_or(LookupMap::new(
-                format!("{}-ft-bals", opts.sender_id).as_bytes(),
-            ));
         let token_id = env::predecessor_account_id();
-
-        let amount = amount.parse::<u128>().unwrap();
         let current_amount = self.get_ft_balance(&opts.sender_id, &token_id);
-        balances.insert(&token_id, &(amount + current_amount));
+        let amount = amount.parse::<u128>().unwrap();
+        self.account_to_contract_balances.insert(
+            &Self::get_balances_key(&sender_id, &token_id),
+            &(amount + current_amount),
+        );
 
-        self.account_to_contract_balances
-            .insert(&opts.sender_id, &balances);
         "0".to_string()
     }
 
@@ -156,14 +152,17 @@ impl FungibleTokenBalances {
             panic!("The callee did not deposit sufficient funds");
         }
 
-        // How expensive is this operation????
-        let mut balances = self.account_to_contract_balances.get(account_id).unwrap();
-        balances.insert(&token_id, &(current_balance - amount));
-        self.account_to_contract_balances
-            .insert(&account_id, &balances);
+        self.account_to_contract_balances.insert(
+            &Self::get_balances_key(&account_id, &token_id),
+            &(current_balance - amount),
+        );
     }
 
     /********** Helper functions **************/
+    fn get_balances_key(account_id: &AccountId, token_id: &AccountId) -> String {
+        format!("{}-.-{}", account_id, token_id)
+    }
+
     fn get_transfer_call_data(recipient: String, amount: String, sender: String) -> Vec<u8> {
         let on_transfer_opts = OnTransferOpts { sender_id: sender };
         // TODO: unwrapping ok?

@@ -39,6 +39,12 @@ impl FungibleTokenHandlers for Contract {
     fn get_ft_balance(&self, account_id: AccountId, token_id: AccountId) -> U128 {
         self.balances.get_ft_balance(&account_id, &token_id).into()
     }
+
+    #[private]
+    fn subtract_ft_balance(&mut self, account_id: AccountId, token_id: AccountId) {
+        self.balances
+            .subtract_contract_bal_from_user(&account_id, token_id);
+    }
 }
 
 #[near_bindgen]
