@@ -171,7 +171,7 @@ export interface ConstructionId {
 
 export type ConstructionCallId = string;
 
-export interface SplitterCallStatus {
+export interface NodeCallStatus {
   Error?: { message: string };
   // empty enum
   WaitingCall?: any;
@@ -183,7 +183,7 @@ export interface SplitterCall {
   splitter_index: BigNumberish;
   block_index: BigNumberish;
   amount: BigNumberish;
-  status: SplitterCallStatus;
+  children_status: NodeCallStatus[];
 }
 
 export interface ConstructionCall {

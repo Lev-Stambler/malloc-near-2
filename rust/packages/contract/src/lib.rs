@@ -31,18 +31,18 @@ use crate::errors::Errors;
 
 mod checker;
 pub mod errors;
+mod malloc_utils;
 mod serde_ext;
 mod splitter;
+mod splitter_callback;
 mod storage;
 mod test_utils;
-mod malloc_utils;
 
 setup_alloc!();
 
 // TODO: what these numbers mean
 const BASIC_GAS: Gas = 5_000_000_000_000;
 // This can be brought down probs?
-const FT_TRANSFER_CALL_GAS: Gas = 5_000_000_000_000 * 2;
 // This can be brought down probs?
 const CALLBACK_GAS: Gas = 5_000_000_000_000 * 5;
 
@@ -268,128 +268,13 @@ impl Contract {
         node_idx: u64,
         caller: AccountId,
     ) -> Option<u64> {
-        let mut construction_call = self.get_construction_call_unchecked(&construction_call_id);
-        let construction_res = self.get_construction(&construction_call.construction_id);
-        let construction = handle_not_found!(
-            self,
-            construction_res,
+        self.handle_node_callback_internal(
             construction_call_id,
             splitter_call_id,
+            splitter_idx,
             node_idx,
-            construction_call
-        );
-
-        let next_splitter_set_res = construction
-            .next_splitters
-            .0
-            .get(splitter_idx)
-            .ok_or(Errors::NEXT_SPLITTER_SET_NOT_FOUND_PER_SPLITTER.to_string());
-
-        let next_splitter_set = handle_not_found!(
-            self,
-            next_splitter_set_res,
-            construction_call_id,
-            splitter_call_id,
-            node_idx,
-            construction_call
-        );
-
-        // The set of next splitters indexes to be called after the called splitter's (referenced by splitter_idx) child (referenced by node_idx) completes.
-        let next_splitters_idx_res = next_splitter_set
-            .0
-            .get(node_idx)
-            .ok_or(Errors::NEXT_SPLITTER_SET_NOT_FOUND_PER_SPLITTER.to_string());
-        let next_splitters_idx = handle_not_found!(
-            self,
-            next_splitters_idx_res,
-            construction_call_id,
-            splitter_call_id,
-            node_idx,
-            construction_call
-        );
-
-        // The set of next splitters to be called after the called splitter's (referenced by splitter_idx) child (referenced by node_idx) completes.
-        let mut next_splitters: Vec<Splitter> = vec![];
-        for i in 0..next_splitters_idx.0.len() {
-            let splitter_id_res = construction
-                .splitters
-                .0
-                .get(next_splitters_idx.0.get(i).unwrap()) // You can unwrap safely here as you know that i is from 0 to next_splitter_idx.len
-                .ok_or(Errors::SPLITTER_NOT_FOUND_IN_CONSTRUCTION.to_string());
-
-            let splitter_id = handle_not_found!(
-                self,
-                splitter_id_res,
-                construction_call_id,
-                splitter_call_id,
-                node_idx,
-                construction_call
-            );
-
-            let splitter_res = self.get_splitter(&splitter_id);
-            let splitter = handle_not_found!(
-                self,
-                splitter_res,
-                construction_call_id,
-                splitter_call_id,
-                node_idx,
-                construction_call
-            );
-
-            next_splitters.push(splitter);
-        }
-
-        let ret = near_sdk::utils::promise_result_as_success();
-        let mut construction_call = match ret {
-            // The callback errored
-            None => Self::resolve_splitter_call(
-                construction_call,
-                NodeCallStatus::Error {
-                    message: Errors::MALLOC_CALL_FAILED.to_string(),
-                },
-                splitter_call_id,
-                node_idx,
-            ),
-            Some(ret_serial) => {
-                let ret: Result<Vec<malloc_call_core::ReturnItem>, near_sdk::serde_json::Error> =
-                    serde_json::from_slice(&ret_serial);
-
-                match ret {
-                    Ok(ret) => {
-                        // Set the splitter call to successful
-                        let mut construction_call = Self::resolve_splitter_call(
-                            construction_call,
-                            NodeCallStatus::Success,
-                            splitter_call_id,
-                            node_idx,
-                        );
-
-                        // Add the next set of splitters to the call stack so that Malloc Client knows
-                        // what to call next
-                        self.add_next_splitters_to_call_stack(
-                            construction_call,
-                            ret,
-                            &next_splitters,
-                            &construction_call_id,
-                            &next_splitters_idx,
-                            splitter_call_id,
-                            node_idx,
-                        )
-                    }
-                    Err(e) => Self::resolve_splitter_call(
-                        construction_call,
-                        NodeCallStatus::Error {
-                            message: format!("Error deserializing result: {}", e),
-                        },
-                        splitter_call_id,
-                        node_idx,
-                    ),
-                }
-            }
-        };
-        self.construction_calls
-            .insert(&construction_call_id, &construction_call);
-        None
+            caller,
+        )
     }
 }
 
@@ -403,6 +288,12 @@ impl FungibleTokenHandlers for Contract {
 
     fn get_ft_balance(&self, account_id: AccountId, token_id: AccountId) -> U128 {
         U128::from(self.balances.get_ft_balance(&account_id, &token_id))
+    }
+
+    #[private]
+    fn subtract_ft_balance(&mut self, account_id: AccountId, token_id: AccountId) {
+        self.balances
+            .subtract_contract_bal_from_user(&account_id, token_id)
     }
 }
 

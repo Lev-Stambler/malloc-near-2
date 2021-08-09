@@ -272,7 +272,16 @@ export const runEphemeralConstruction = async (
     const txsNextStep = await runNextSplitterCalls();
     return [...txsInit, ...txsNextStep];
   } catch (e) {
-    console.trace(e)
+    const call_state = await getConstructionCallData(
+      callerAccount,
+      mallocAccountId,
+      construction_call_id
+    );
+    console.trace(e);
+    console.info(
+      "The error resolved with malloc in the following state",
+      JSON.stringify(call_state)
+    );
     throw {
       ...e,
       constructionCallId: construction_call_id,
