@@ -1,16 +1,14 @@
 use std::{u64, usize};
 
-use malloc_call_core::ft::{FungibleTokenBalances, FungibleTokenHandlers};
+use malloc_call_core::malloc_call;
+use malloc_call_core::{self};
 // To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
-use malloc_call_core::{
-    MallocCallMetadata, MallocCallNoCallback, MallocCallWithCallback, ReturnItem,
-};
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use malloc_call_core::{utils::new_balances, MallocCallMetadata, MallocCallNoCallback, ReturnItem};
+use near_sdk;
 use near_sdk::collections::{LookupMap, UnorderedMap, Vector};
 use near_sdk::env::predecessor_account_id;
 use near_sdk::json_types::{ValidAccountId, U128};
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::serde_json::json;
 use near_sdk::{
     env, ext_contract, log, near_bindgen, serde, setup_alloc, AccountId, Gas, PanicOnDefault,
     Promise,
@@ -24,33 +22,15 @@ pub struct BlackWholeArgs {
     log_message: String,
 }
 
-#[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
-pub struct Contract {
-    balances: FungibleTokenBalances,
-}
 
-#[near_bindgen]
-impl FungibleTokenHandlers for Contract {
-    fn ft_on_transfer(&mut self, sender_id: String, amount: String, msg: String) -> String {
-        self.balances.ft_on_transfer(sender_id, amount, msg)
-    }
-
-    fn get_ft_balance(&self, account_id: AccountId, token_id: AccountId) -> U128 {
-        self.balances.get_ft_balance(&account_id, &token_id).into()
-    }
-
-    #[private]
-    fn subtract_ft_balance(&mut self, account_id: AccountId, token_id: AccountId) {
-        self.balances
-            .subtract_contract_bal_from_user(&account_id, token_id);
-    }
-}
+#[malloc_call]
+pub struct Contract {}
 
 #[near_bindgen]
 impl MallocCallNoCallback<BlackWholeArgs> for Contract {
     fn metadata(&self) -> MallocCallMetadata {
         MallocCallMetadata {
+
             minimum_gas: None,
             minimum_attached_deposit: Some(1.into()),
             name: "Send Fungible Tokens".to_string(),
@@ -58,7 +38,7 @@ impl MallocCallNoCallback<BlackWholeArgs> for Contract {
     }
 
     #[payable]
-    fn call(
+    fn malloc_call(
         &mut self,
         args: BlackWholeArgs,
         amount: String,
@@ -85,7 +65,7 @@ impl Contract {
     #[init]
     pub fn new() -> Self {
         Contract {
-            balances: FungibleTokenBalances::new("balances".as_bytes()),
+            balances: new_balances(),
         }
     }
 }

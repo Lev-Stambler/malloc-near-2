@@ -1,5 +1,5 @@
 [package]
-name = "malloc-call-core"
+name = "malloc-call-core-mac"
 version = "0.1.0"
 edition = "2018"
 
@@ -7,5 +7,9 @@ edition = "2018"
 
 [dependencies]
 near-sdk = "3.1.0"
-malloc-call-core-internal = { path = "./malloc-call-core-internal" }
-malloc-call-core-mac = { path = "./malloc-call-core-mac" }
+quote = "1.0.9"
+proc-macro2 = "1.0"
+syn = "1.0.57"
+
+[lib]
+proc-macro = true
