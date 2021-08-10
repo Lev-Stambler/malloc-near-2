@@ -31,7 +31,6 @@ pub fn malloc_call(args: TokenStream, input: TokenStream) -> TokenStream {
 
     let stream = quote! {
                 use near_sdk::borsh::{self};
-                use malloc_call_core::ft::FungibleTokenHandlers;
 
             #[near_bindgen]
             #[derive(
