@@ -1,8 +1,9 @@
 use std::{string, u64, usize};
+use malloc_call_core::ft::FungibleTokenHandlers;
 
 // To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
-use malloc_call_core::{MallocCallWithCallback, ReturnItem};
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use malloc_call_core::{MallocCallWithCallback, ReturnItem, malloc_call};
+// use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, Vector};
 use near_sdk::env::predecessor_account_id;
 use near_sdk::json_types::{ValidAccountId, U128};
@@ -33,10 +34,16 @@ pub struct RefSwapArgs {
     recipient: Option<AccountId>,
 }
 
-#[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct NewArgs {
+    pub ref_finance: ValidAccountId
+}
+
+#[malloc_call]
 pub struct Contract {
-    ref_finance: AccountId,
+    pub ref_finance: AccountId,
 }
 
 #[ext_contract]
@@ -102,21 +109,22 @@ impl Contract {
         receiver_id: &str,
         amount: &str,
         token_contract: &AccountId,
+        caller: &AccountId
     ) -> u64 {
-        let ft_transfer_data = json!({
-            "receiver_id": receiver_id,
-            "amount": amount,
-            "msg": ""
-        });
-        let prom = env::promise_batch_create(token_contract.to_owned());
-        env::promise_batch_action_function_call(
-            prom,
-            "ft_transfer_call".to_string().as_bytes(),
-            ft_transfer_data.to_string().as_bytes(),
-            1,
-            GAS_FOR_FT_TRANSFER_CALL,
-        );
-        prom
+        self.balances.internal_ft_transfer_call(token_contract, receiver_id.to_owned(), amount.to_owned(), caller.to_owned(), None)
+        // let ft_transfer_data = json!({
+        //     "receiver_id": receiver_id,
+        //     "amount": amount,
+        //     "msg": ""
+        // });
+        // let prom = env::promise_batch_create(token_contract.to_owned());
+        // env::promise_batch_action_function_call(
+        //     prom,
+        //     "ft_transfer_call".to_string().as_bytes(),
+        //     ft_transfer_data.to_string().as_bytes(),
+        //     1,
+        //     GAS_FOR_FT_TRANSFER_CALL,
+        // );
     }
 
     fn get_swap(
@@ -194,17 +202,17 @@ impl MallocCallWithCallback<RefSwapArgs, ReturnItem, u64> for Contract {
     }
 
     #[payable]
-    fn call(&mut self, args: RefSwapArgs, amount: String, token_contract: AccountId) -> u64 {
-        log!("A");
+    fn malloc_call(&mut self, args: RefSwapArgs, amount: String, token_id: ValidAccountId, caller: ValidAccountId) -> u64 {
+        let token_id: AccountId = token_id.into();
         // Send the funds back to the Malloc Contract if their is no recipient
         let recipient = args
             .recipient
             .clone()
             .unwrap_or(env::predecessor_account_id());
-        let transfer_call = self.get_transfer_call(&self.ref_finance.clone(), &amount, &token_contract);
+        let transfer_call = self.get_transfer_call(&self.ref_finance.clone(), &amount, &token_id, &caller.into());
         // TODO: remove regiser
         // let register_tokens = self.get_register_tokens(transfer_call, &args.register_tokens);
-        let swap = self.get_swap(transfer_call, &amount, &token_contract, &args);
+        let swap = self.get_swap(transfer_call, &amount, &token_id, &args);
 
         log!("A");
         let bal_args = json!({
@@ -243,8 +251,12 @@ impl MallocCallWithCallback<RefSwapArgs, ReturnItem, u64> for Contract {
 #[near_bindgen]
 impl Contract {
     #[init]
-    pub fn new(ref_finance: AccountId) -> Self {
-        Contract { ref_finance }
+    fn new(malloc_contract_id: ValidAccountId, ref_finance: ValidAccountId) -> Self {
+        Contract {  
+            balances: malloc_call_core::utils::new_balances(),
+            malloc_contract_id: malloc_contract_id.into(), 
+            ref_finance: ref_finance.into()
+        }
     }
 }
 

@@ -34,6 +34,11 @@ pub trait Revert {
     //    fn revert()
 }
 
+// TODO: delete me
+pub trait NewMallocCall<NewCallArgs> {
+    fn new(malloc_contract_id: ValidAccountId, args: NewCallArgs) -> Self;
+}
+
 pub trait MallocCallNoCallback<CallArgs> {
     /// The wrapper function which takes in some amount of tokens which are
     /// defined by token_contract

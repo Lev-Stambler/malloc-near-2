@@ -12,9 +12,19 @@ pub fn malloc_call(args: TokenStream, input: TokenStream) -> TokenStream {
     let _ = parse_macro_input!(args as Nothing);
     let mut input_struct = parse_macro_input!(input as ItemStruct);
     let mut fields = input_struct.fields;
-    // syn::Field::parse_named(input)
 
-            // pub whitelisted_malloc_id: nearAccountId
+    // Add the whitelisted malloc contract
+    let malloc_contract_id = Field::parse_named
+        .parse2(quote! {
+            pub malloc_contract_id: near_sdk::AccountId
+        })
+        .unwrap();
+    match &mut fields {
+        syn::Fields::Named(fields) => fields.named.push(malloc_contract_id),
+        _ => panic!("Expected named fields"),
+    }
+
+    // Add the balances field
     let bal_field = Field::parse_named
         .parse2(quote! {
             pub balances: malloc_call_core::ft::FungibleTokenBalances
@@ -30,34 +40,34 @@ pub fn malloc_call(args: TokenStream, input: TokenStream) -> TokenStream {
     let struct_name = &input_struct.ident;
 
     let stream = quote! {
-                use near_sdk::borsh::{self};
+        use near_sdk::borsh::{self};
 
-            #[near_bindgen]
-            #[derive(
-                near_sdk::borsh::BorshDeserialize, near_sdk::borsh::BorshSerialize, near_sdk::PanicOnDefault,
-            )]
-            #input_struct
-            //    #vis struct #struct_name #ty_generics #where_clause {
-            //        #(#fields),*
-            //        balances: malloc_call_core::ft::FungibleTokenBalances,
-            //     }
+    #[near_bindgen]
+    #[derive(
+        near_sdk::borsh::BorshDeserialize, near_sdk::borsh::BorshSerialize, near_sdk::PanicOnDefault,
+    )]
+    #input_struct
+    //    #vis struct #struct_name #ty_generics #where_clause {
+    //        #(#fields),*
+    //        balances: malloc_call_core::ft::FungibleTokenBalances,
+    //     }
 
-                #[near_sdk::near_bindgen]
-                impl #impl_generics malloc_call_core::ft::FungibleTokenHandlers for #struct_name #ty_generics #where_clause {
-                    fn ft_on_transfer(&mut self, sender_id: String, amount: String, msg: String) -> String {
-                        self.balances.ft_on_transfer(sender_id, amount, msg)
-                    }
+        #[near_sdk::near_bindgen]
+        impl #impl_generics malloc_call_core::ft::FungibleTokenHandlers for #struct_name #ty_generics #where_clause {
+            fn ft_on_transfer(&mut self, sender_id: String, amount: String, msg: String) -> String {
+                self.balances.ft_on_transfer(sender_id, amount, msg)
+            }
 
-                    fn get_ft_balance(&self, account_id: AccountId, token_id: AccountId) -> U128 {
-                        self.balances.get_ft_balance(&account_id, &token_id).into()
-                    }
+            fn get_ft_balance(&self, account_id: AccountId, token_id: AccountId) -> U128 {
+                self.balances.get_ft_balance(&account_id, &token_id).into()
+            }
 
-                    #[private]
-                    fn subtract_ft_balance(&mut self, account_id: AccountId, token_id: AccountId) {
-                        self.balances
-                            .subtract_contract_bal_from_user(&account_id, token_id);
-                    }
-                }
-            };
+            #[private]
+            fn subtract_ft_balance(&mut self, account_id: AccountId, token_id: AccountId) {
+                self.balances
+                    .subtract_contract_bal_from_user(&account_id, token_id);
+            }
+        }
+    };
     TokenStream::from(stream)
 }
