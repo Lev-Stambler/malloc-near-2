@@ -102,7 +102,7 @@ impl CoreFunctionality for Contract {
         let owner = Some(env::predecessor_account_id());
         for i in 0..node_names.len() {
             self.nodes
-                .insert(&NodeId::new(node_names[i], owner), &nodes[i]);
+                .insert(&NodeId::new(node_names[i].clone(), owner.clone()), &nodes[i]);
         }
     }
 

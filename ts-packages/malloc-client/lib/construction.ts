@@ -21,6 +21,7 @@ import {
   RegisterNodesArgs,
   Construction,
   ProcessNextNodeCallArgs,
+  InitConstructionArgs,
 } from "./interfaces";
 import {
   executeMultipleTx,
@@ -159,6 +160,8 @@ export const runEphemeralConstruction = async (
     }),
   };
 
+  // TODO: move this out to a separate function and test registration
+  // Use the get malloc call state for testing!
   const storeAndStartConstruction = async (): Promise<string[]> => {
     // const attachedDeposit = await getNodeAttachedDepositForNode(
     //   callerAccount,
@@ -174,7 +177,7 @@ export const runEphemeralConstruction = async (
               node_names: nodeNames,
               nodes: nodes,
             } as RegisterNodesArgs,
-            gas: _opts.gas.toString(),
+            gas: MAX_GAS.divn(3).toString(),
             amount: "0", // TODO: storage
           },
           {
@@ -183,7 +186,22 @@ export const runEphemeralConstruction = async (
               construction_name: constructionName,
               construction,
             } as RegisterConstructionArgs,
-            gas: _opts.gas.toString(),
+            gas: MAX_GAS.divn(3).toString(),
+            amount: "0", //TODO: storage deposit goes here ya heard
+          },
+          {
+            methodName: "init_construction",
+            args: {
+              construction_call_id,
+              construction_id: {
+                name: constructionName,
+                owner: callerAccount.accountId,
+              },
+              amount: amount.toString(),
+              initial_node_indices: [0, 1], //TODO:
+              initial_splits: [1, 1],
+            } as InitConstructionArgs,
+            gas: MAX_GAS.divn(3).toString(),
             amount: "0", //TODO: storage deposit goes here ya heard
           },
         ],
@@ -213,6 +231,16 @@ export const runEphemeralConstruction = async (
     // Throws if unsuccessful
     await checkTransactionSuccessful(txRetsInit, callerAccount.accountId);
 
+    const call_state = await getConstructionCallData(
+      callerAccount,
+      mallocAccountId,
+      construction_call_id
+    );
+    console.info(
+      "The error resolved with malloc in the following state",
+      JSON.stringify(call_state)
+    );
+    
     return txRetsInit;
   };
 
@@ -276,14 +304,14 @@ export const runEphemeralConstruction = async (
   try {
     const txsInit = await storeAndStartConstruction();
     // const txsNextStep = await runNextNodeCalls(); // TODO: add back
-    return [...txsInit]//, ...txsNextStep];
+    return [...txsInit]; //, ...txsNextStep];
   } catch (e) {
+    console.trace(e);
     const call_state = await getConstructionCallData(
       callerAccount,
       mallocAccountId,
       construction_call_id
     );
-    console.trace(e);
     console.info(
       "The error resolved with malloc in the following state",
       JSON.stringify(call_state)

@@ -180,7 +180,6 @@ export class MallocClient<
       this.account as SpecialAccountWithKeyPair,
       this.mallocAccountId,
       nodes,
-      [],
       amount,
       opts
     );
