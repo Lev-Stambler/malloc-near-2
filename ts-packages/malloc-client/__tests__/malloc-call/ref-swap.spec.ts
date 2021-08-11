@@ -54,7 +54,7 @@ describe("ref-swap call", () => {
     );
     await malloc.registerAccountWithFungibleToken(TOKEN_ACCOUNT_IDS, [
       wrappedTesterAccount.accountId,
-      malloc.contractAccountId,
+      malloc.mallocAccountId,
       MALLOC_CALL_SWAP_CONTRACT_ID,
     ]);
 

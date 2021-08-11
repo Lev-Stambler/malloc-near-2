@@ -21,7 +21,7 @@ describe("malloc-client's ft capabilities", () => {
       SpecialAccountType.KeyPair,
       TestingUtils.getDefaultTesterKeypair()
     ) as MallocClient.SpecialAccountWithKeyPair;
-    malloc = await MallocClient.createMallocClient(
+    malloc = new MallocClient.MallocClient(
       wrappedAccount,
       TestingUtils.getMallocContract()
     );

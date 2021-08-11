@@ -17,6 +17,10 @@ import {
   ConstructionCallId,
   CallEphemeralError,
   TxHashOrVoid,
+  RegisterConstructionArgs,
+  RegisterNodesArgs,
+  Construction,
+  ProcessNextNodeCallArgs,
 } from "./interfaces";
 import {
   executeMultipleTx,
@@ -35,7 +39,7 @@ const defaultRunEphemeralOpts: RunEphemeralOpts = {
  * @param  {Node} node
  * @returns Promise
  */
-const getNodeAttachedDeposit = async (
+const getNodeAttachedDepositForNode = async (
   callerAccount: SpecialAccount,
   node: Node
 ): Promise<BN> => {
@@ -48,26 +52,12 @@ const getNodeAttachedDeposit = async (
   }
 };
 
-const getAttachedDepositForSplitter = async (
-  callerAccount: SpecialAccount,
-  splitter: Splitter
-): Promise<BN> => {
-  const nodeAttachedDeposits = await Promise.all(
-    splitter.children.map((node, i) => {
-      return getNodeAttachedDeposit(callerAccount, node);
-    })
-  );
-  const add = (a: BN, b: BN) => a.add(b);
-  const nodesSummed = nodeAttachedDeposits.reduce(add, new BN(0));
-  return nodesSummed;
-};
-
 const getAttachedDeposit = async (
   caller: SpecialAccount,
-  splitters: Splitter[]
+  nodes: Node[]
 ): Promise<BN> => {
   const deps = await Promise.all(
-    splitters.map((splitter) => getAttachedDepositForSplitter(caller, splitter))
+    nodes.map((n) => getNodeAttachedDepositForNode(caller, n))
   );
   return deps.reduce((a, b) => a.add(b), new BN(0));
 };
@@ -149,8 +139,7 @@ const checkTransactionSuccessful = async (
 export const runEphemeralConstruction = async (
   callerAccount: SpecialAccountWithKeyPair,
   mallocAccountId: AccountId,
-  splitters: Splitter[],
-  next_splitters_idxs: NextSplitterIndices,
+  nodes: Node[],
   amount: BigNumberish,
   opts?: Partial<RunEphemeralOpts>
 ): Promise<string[]> => {
@@ -160,47 +149,63 @@ export const runEphemeralConstruction = async (
   };
   const construction_call_id = makeid(16);
   const constructionName = makeid(10);
+  const nodeNames = nodes.map((n) => makeid(12));
+  const construction: Construction = {
+    nodes: nodeNames.map((name) => {
+      return {
+        name,
+        owner: callerAccount.accountId,
+      };
+    }),
+  };
 
   const storeAndStartConstruction = async (): Promise<string[]> => {
-    const attachedDeposit = await getAttachedDepositForSplitter(
-      callerAccount,
-      splitters[0]
-    );
+    // const attachedDeposit = await getNodeAttachedDepositForNode(
+    //   callerAccount,
+    //   nodes[0]
+    // );
     const txs = [
       {
         receiverId: mallocAccountId,
         functionCalls: [
           {
+            methodName: "register_nodes",
+            args: {
+              node_names: nodeNames,
+              nodes: nodes,
+            } as RegisterNodesArgs,
+            gas: _opts.gas.toString(),
+            amount: "0", // TODO: storage
+          },
+          {
             methodName: "register_construction",
             args: {
               construction_name: constructionName,
-              splitters,
-              next_splitters: next_splitters_idxs,
-              amount: amount.toString(),
-            },
+              construction,
+            } as RegisterConstructionArgs,
             gas: _opts.gas.toString(),
             amount: "0", //TODO: storage deposit goes here ya heard
           },
         ],
       },
-      {
-        receiverId: mallocAccountId,
-        functionCalls: [
-          {
-            methodName: "start_construction",
-            args: {
-              construction_id: {
-                owner: callerAccount.accountId,
-                name: constructionName,
-              } as ConstructionId,
-              construction_call_id,
-              amount: amount.toString(),
-            },
-            gas: _opts.gas.toString(),
-            amount: attachedDeposit.toString(),
-          },
-        ],
-      },
+      // {
+      //   receiverId: mallocAccountId,
+      //   functionCalls: [
+      //     {
+      //       methodName: "init_construction",
+      //       args: {
+      //         construction_id: {
+      //           owner: callerAccount.accountId,
+      //           name: constructionName,
+      //         } as ConstructionId,
+      //         construction_call_id,
+      //         amount: amount.toString(),
+      //       },
+      //       gas: _opts.gas.toString(),
+      //       amount: attachedDeposit.toString(),
+      //     },
+      //   ],
+      // },
     ];
 
     const txRetsInit = await executeMultipleTx(callerAccount, txs);
@@ -211,7 +216,7 @@ export const runEphemeralConstruction = async (
     return txRetsInit;
   };
 
-  const runNextSplitterCalls = async (): Promise<string[]> => {
+  const runNextNodeCalls = async (): Promise<string[]> => {
     let constructionCallData = await getConstructionCallData(
       callerAccount,
       mallocAccountId,
@@ -219,21 +224,22 @@ export const runEphemeralConstruction = async (
     );
     let txHashes: string[] = [];
 
-    while (constructionCallData.next_splitter_call_stack.length > 0) {
-      const splitter_call_id =
-        constructionCallData.next_splitter_call_stack[
-          constructionCallData.next_splitter_call_stack.length - 1
+    while (constructionCallData.next_node_calls_stack.length > 0) {
+      const node_call_index =
+        constructionCallData.next_node_calls_stack[
+          constructionCallData.next_node_calls_stack.length - 1
         ];
 
-      const splitter_idx =
-        constructionCallData.splitter_calls[splitter_call_id].splitter_index;
+      const node_index_in_construction =
+        constructionCallData.node_calls[node_call_index]
+          .node_index_in_construction;
 
-      const attachedDeposit = await getAttachedDepositForSplitter(
+      const attachedDeposit = await getNodeAttachedDepositForNode(
         callerAccount,
-        splitters[parseInt(splitter_idx.toString())]
+        nodes[parseInt(node_index_in_construction.toString())]
       );
       const txs: Transaction[] = new Array(
-        constructionCallData.next_splitter_call_stack.length
+        constructionCallData.next_node_calls_stack.length
       )
         .fill(0)
         .map((_) => {
@@ -241,10 +247,10 @@ export const runEphemeralConstruction = async (
             receiverId: mallocAccountId,
             functionCalls: [
               {
-                methodName: "process_next_split_call",
+                methodName: "process_next_node_call",
                 args: {
                   construction_call_id,
-                },
+                } as ProcessNextNodeCallArgs,
                 gas: _opts.gas.toString(),
                 amount: attachedDeposit.toString(),
               },
@@ -269,8 +275,8 @@ export const runEphemeralConstruction = async (
 
   try {
     const txsInit = await storeAndStartConstruction();
-    const txsNextStep = await runNextSplitterCalls();
-    return [...txsInit, ...txsNextStep];
+    // const txsNextStep = await runNextNodeCalls(); // TODO: add back
+    return [...txsInit]//, ...txsNextStep];
   } catch (e) {
     const call_state = await getConstructionCallData(
       callerAccount,

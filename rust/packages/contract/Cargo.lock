@@ -286,6 +286,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "malloc-contract"
+version = "0.1.0"
+dependencies = [
+ "malloc-call-core",
+ "near-contract-standards",
+ "near-sdk",
+]
+
+[[package]]
 name = "memchr"
 version = "2.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -593,15 +602,6 @@ dependencies = [
  "digest 0.8.1",
  "keccak",
  "opaque-debug 0.2.3",
-]
-
-[[package]]
-name = "splitter"
-version = "0.1.0"
-dependencies = [
- "malloc-call-core",
- "near-contract-standards",
- "near-sdk",
 ]
 
 [[package]]

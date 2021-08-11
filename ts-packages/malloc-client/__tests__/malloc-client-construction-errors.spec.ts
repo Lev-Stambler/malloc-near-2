@@ -54,7 +54,7 @@ describe("malloc-client's error handling", () => {
       [TestingUtils.WRAP_TESTNET_CONTRACT],
       [
         wrappedTesterAccount.accountId,
-        malloc.contractAccountId,
+        malloc.mallocAccountId,
         TestingUtils.getMallocCallPassthroughContract(),
       ]
     );
@@ -230,7 +230,7 @@ describe("malloc-client's error handling", () => {
       [TestingUtils.WRAP_TESTNET_CONTRACT],
       [
         wrappedTesterAccount.accountId,
-        malloc.contractAccountId,
+        malloc.mallocAccountId,
         TestingUtils.getMallocCallBlackwholeContract(),
         TestingUtils.getMallocCallErrorContract(),
       ]

@@ -21,7 +21,7 @@ describe("malloc-client's ft capabilities", () => {
       SpecialAccountType.KeyPair,
       TestingUtils.getDefaultTesterKeypair()
     ) as MallocClient.SpecialAccountWithKeyPair;
-    malloc = await MallocClient.createMallocClient(
+    malloc = new MallocClient.MallocClient(
       wrappedAccount,
       TestingUtils.getMallocContract()
     );
@@ -47,17 +47,17 @@ describe("malloc-client's ft capabilities", () => {
       TestingUtils.WRAP_TESTNET_CONTRACT
     );
     const priorBalOnWrapRegistry = await (wrappedContract as any).ft_balance_of(
-      { account_id: malloc.contractAccountId }
+      { account_id: malloc.mallocAccountId }
     );
     const tokensRegistered = await malloc.registerAccountWithFungibleToken(
       TOKEN_ACCOUNT_IDS,
-      [malloc.contractAccountId]
+      [malloc.mallocAccountId]
     );
 
     const tx = await malloc.deposit(amount.toString(), TestingUtils.WRAP_TESTNET_CONTRACT);
 
     const newBalOnWrapRegistry = await (wrappedContract as any).ft_balance_of({
-      account_id: malloc.contractAccountId,
+      account_id: malloc.mallocAccountId,
     });
     const newBalOnMallocRegistry = await malloc.getTokenBalance(
       wrappedAccount.accountId,

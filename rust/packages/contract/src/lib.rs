@@ -14,6 +14,7 @@
 use std::fmt::format;
 use std::{string, usize};
 
+use construction::{Construction, ConstructionCall, ConstructionCallId, ConstructionId};
 use malloc_call_core::ft::{FungibleTokenBalances, FungibleTokenHandlers};
 // To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
@@ -25,17 +26,19 @@ use near_sdk::{
     env, log, near_bindgen, serde, serde_json, setup_alloc, utils, AccountId, Gas, PanicOnDefault,
     Promise,
 };
+use node::{Node, NodeCall, NodeCallId, NodeId};
 use serde_ext::VectorWrapper;
 
 use crate::errors::Errors;
 
-mod checker;
+// mod checker;
+mod construction;
 pub mod errors;
-mod malloc_utils;
+// mod malloc_utils;
+mod node;
+// mod node_callback;
 mod serde_ext;
-mod splitter;
-mod splitter_callback;
-mod storage;
+// mod storage;
 mod test_utils;
 
 setup_alloc!();
@@ -49,234 +52,161 @@ const CALLBACK_GAS: Gas = 5_000_000_000_000 * 5;
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone)]
 #[serde(crate = "near_sdk::serde")]
 pub struct GenericId {
-    owner: AccountId,
-    index: u64,
-}
-
-pub type SplitterId = GenericId;
-
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub enum NodeCallStatus {
-    /// The splitter call errored
-    Error { message: String },
-    /// The splitter call is waiting to be started
-    WaitingCall,
-    /// The splitter call is currently executing and waiting for a result
-    Executing { block_index_start: u64 },
-    /// The splitter call succeeded
-    Success,
-}
-
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct SplitterCall {
-    splitter_index: u64,
-    block_index: u64,
-    amount: u128,
-    /// The length of children_status should always equal the length of the splitter's children
-    children_status: VectorWrapper<NodeCallStatus>,
-}
-
-pub type ConstructionCallDataId = String;
-
-pub type SplitterCallId = u64;
-
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct ConstructionCallData {
-    caller: AccountId,
-    construction_id: ConstructionId,
-    // TODO: ideally we want to have a queue not a stack (so we have BFS not DFS). But, Vector only supports O(1) stack ops.
-    // Implementing a custom data structure may later be required
-    /// A vector which indexes into the splitter call vector
-    next_splitter_call_stack: VectorWrapper<u64>,
-    splitter_calls: VectorWrapper<SplitterCall>,
-}
-
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone)]
-#[serde(crate = "near_sdk::serde")]
-pub struct ConstructionId {
-    owner: AccountId,
-    name: String,
-}
-
-// The indexes into the next splitters from the construction's splitter list
-pub type NodeNextSplitters = VectorWrapper<u64>;
-pub type SplitterNextSplitters = VectorWrapper<NodeNextSplitters>;
-pub type ConstructionNextSplitters = VectorWrapper<SplitterNextSplitters>;
-
-/// A Construction is the collection of splitters and next splitter which form the
-/// contract call tree
-/// Note: its assumed that the first splitter is the initial starting point
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct Construction {
-    splitters: VectorWrapper<SplitterId>,
-    next_splitters: ConstructionNextSplitters,
-}
-
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub enum Node {
-    MallocCall {
-        check_callback: Option<bool>,
-        contract_id: AccountId,
-        json_args: String,
-        gas: Gas,
-        attached_amount: U128,
-    },
-}
-
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct Splitter {
-    children: VectorWrapper<Node>,
-    splits: VectorWrapper<u128>,
-    ft_contract_id: AccountId,
-}
-
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
-pub struct AccountBalance {
-    contract_id: AccountId,
-    balance: u128,
+    pub owner: AccountId,
+    pub name: String,
 }
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
-    constructions: UnorderedMap<AccountId, UnorderedMap<String, Construction>>,
-    construction_calls: UnorderedMap<ConstructionCallDataId, ConstructionCallData>,
-    splitters: UnorderedMap<AccountId, Vector<Splitter>>,
+    constructions: UnorderedMap<ConstructionId, Construction>,
+    construction_calls: UnorderedMap<ConstructionCallId, ConstructionCall>,
+    node_calls: UnorderedMap<NodeCallId, NodeCall>,
+    nodes: UnorderedMap<NodeId, Node>,
     balances: FungibleTokenBalances,
+    next_node_call_id: NodeCallId,
 }
 
-pub trait ConstructionTrait {
-    // fn run(&self, account_id: AccountId, splitter_idx: usize);
-    fn register_construction(
+pub trait CoreFunctionality {
+    fn register_nodes(&mut self, node_names: Vec<String>, nodes: Vec<Node>);
+    fn register_construction(&mut self, construction_name: String, construction: Construction);
+    fn init_construction(
         &mut self,
-        construction_name: String,
-        splitters: Vec<Splitter>,
-        next_splitters: ConstructionNextSplitters,
-    );
-    fn start_construction(
-        &mut self,
-        construction_call_id: ConstructionCallDataId,
+        construction_call_id: ConstructionCallId,
         construction_id: ConstructionId,
         amount: U128,
+        initial_node_indices: Vec<u64>,
+        initial_splits: VectorWrapper<u128>,
+        // TODO: disable?
         caller: Option<ValidAccountId>,
     );
     fn delete_construction(&mut self, construction_id: ConstructionId);
-}
-
-pub trait SplitterTrait {
-    fn process_next_split_call(&mut self, construction_call_id: ConstructionCallDataId);
-    // fn store_splitters(&mut self, splitters: Vec<Splitter>, owner: ValidAccountId);
-    // fn store_construction(&mut self, construction: Construction);
+    fn process_next_node_call(&mut self, construction_call_id: ConstructionCallId);
 }
 
 #[near_bindgen]
-impl ConstructionTrait for Contract {
+impl CoreFunctionality for Contract {
     fn delete_construction(&mut self, construction_id: ConstructionId) {
-        self.delete_construction_internal(construction_id, env::predecessor_account_id())
-            .unwrap_or_else(|e| panic!(e))
+        // self.delete_construction_internal(construction_id, env::predecessor_account_id())
+        //     .unwrap_or_else(|e| panic!(e))
+    }
+
+    fn register_nodes(&mut self, node_names: Vec<String>, nodes: Vec<Node>) {
+        assert_eq!(
+            node_names.len(),
+            nodes.len(),
+            "{}",
+            Errors::NUMB_OF_NODES_NOT_EQUAL_TO_NUMB_NAMES
+        );
+
+        let owner = Some(env::predecessor_account_id());
+        for i in 0..node_names.len() {
+            self.nodes
+                .insert(&NodeId::new(node_names[i], owner), &nodes[i]);
+        }
     }
 
     #[payable]
-    fn register_construction(
-        &mut self,
-        construction_name: String,
-        splitters: Vec<Splitter>,
-        next_splitters: ConstructionNextSplitters,
-    ) {
-        // env::gas
-        let construction = self.create_construction(splitters, next_splitters);
-        let construction_id = self.store_construction(construction_name, &construction, None);
-        // self._run(construction_id, construction, amount.into());
-        // TODO:
-        //self.delete_construction(construction_id);
+    fn register_construction(&mut self, construction_name: String, construction: Construction) {
+        self.constructions
+            .insert(&ConstructionId::new(construction_name, None), &construction);
     }
 
-    #[payable]
-    fn start_construction(
+    fn init_construction(
         &mut self,
-        construction_call_id: ConstructionCallDataId,
+        construction_call_id: ConstructionCallId,
         construction_id: ConstructionId,
         amount: U128,
+        initial_node_indices: Vec<u64>,
+        initial_splits: VectorWrapper<u128>,
         caller: Option<ValidAccountId>,
     ) {
-        // TODO: do we want to let someone else call for you?
         let caller = if let Some(caller) = caller {
             caller.into()
         } else {
             env::predecessor_account_id()
         };
-        assert!(
-            self.construction_calls.get(&construction_call_id).is_none(),
-            Errors::CONSTRUCTION_CALL_ID_ALREADY_USED
-        );
 
-        let construction_call = self
-            .create_construction_call(
-                caller,
-                construction_id,
-                &construction_call_id,
-                amount.into(),
-            )
+        let construction = self
+            .get_construction(&construction_id)
             .unwrap_or_else(|e| panic!(e));
+
+        let initial_amounts = Construction::get_split_amounts(amount.into(), initial_splits);
+
+        let init_node_calls = NodeCall::node_calls_from_construction_indices(
+            self,
+            initial_node_indices,
+            initial_amounts,
+        )
+        .unwrap_or_else(|e| panic!(e));
+
+        let node_call_ids_prefix = format!("{}-nodes", construction_call_id);
+        let node_call_ids =
+            VectorWrapper::from_vec(init_node_calls, node_call_ids_prefix.as_bytes());
+
+        let construction_call = ConstructionCall::new(
+            &self,
+            caller,
+            construction_id,
+            &construction_call_id,
+            node_call_ids,
+        )
+        .unwrap_or_else(|e| panic!(e));
 
         self.construction_calls
             .insert(&construction_call_id, &construction_call);
-        let ret_prom = self._run_step(construction_call_id);
-        env::promise_return(ret_prom);
     }
-}
 
-#[near_bindgen]
-impl SplitterTrait for Contract {
+    // #[payable]
+    // fn init(
+    //     &mut self,
+    //     construction_call_id: ConstructionCallDataId,
+    //     construction_id: ConstructionId,
+    //     amount: U128,
+    //     caller: Option<ValidAccountId>,
+    // ) {
+    //     // TODO: do we want to let someone else call for you?
+    // }
     #[payable]
-    fn process_next_split_call(&mut self, construction_call_id: ConstructionCallDataId) {
-        let mut construction_call = self.get_construction_call_unchecked(&construction_call_id);
-        assert_eq!(construction_call.caller, env::predecessor_account_id());
-        let ret_prom = self._run_step(construction_call_id);
-        env::promise_return(ret_prom);
+    fn process_next_node_call(&mut self, construction_call_id: ConstructionCallId) {
+        // let mut construction_call = self.get_construction_call_unchecked(&construction_call_id);
+        // assert_eq!(construction_call.caller, env::predecessor_account_id());
+        // let ret_prom = self._run_step(construction_call_id);
+        // env::promise_return(ret_prom);
     }
 }
 
 #[near_bindgen]
 impl Contract {
-    pub fn get_construction_call_unchecked(
-        &self,
-        id: &ConstructionCallDataId,
-    ) -> ConstructionCallData {
+    pub fn get_construction_call_unchecked(&self, id: &ConstructionCallId) -> ConstructionCall {
         self.construction_calls
             .get(&id)
             .unwrap_or_else(|| panic!(Errors::CONSTRUCTION_NOT_FOUND))
     }
 }
 
-#[near_bindgen]
-impl Contract {
-    // TODO: clean up
-    #[private]
-    #[payable]
-    pub fn handle_node_callback(
-        &mut self,
-        construction_call_id: ConstructionCallDataId,
-        splitter_call_id: SplitterCallId,
-        splitter_idx: u64,
-        node_idx: u64,
-        caller: AccountId,
-    ) -> Option<u64> {
-        self.handle_node_callback_internal(
-            construction_call_id,
-            splitter_call_id,
-            splitter_idx,
-            node_idx,
-            caller,
-        )
-    }
-}
+// #[near_bindgen]
+// impl Contract {
+//     // TODO: clean up
+//     #[private]
+//     #[payable]
+//     pub fn handle_node_callback(
+//         &mut self,
+//         construction_call_id: ConstructionCallId,
+//         splitter_call_id: SplitterCallId,
+//         splitter_idx: u64,
+//         node_idx: u64,
+//         caller: AccountId,
+//     ) -> Option<u64> {
+//         self.handle_node_callback_internal(
+//             construction_call_id,
+//             splitter_call_id,
+//             splitter_idx,
+//             node_idx,
+//             caller,
+//         )
+//     }
+// }
 
 /// ************ Fungible Token handlers ***************************
 #[near_bindgen]
@@ -303,9 +233,20 @@ impl Contract {
     pub fn new() -> Self {
         Contract {
             balances: FungibleTokenBalances::new("malloc-ft".as_bytes()),
-            splitters: UnorderedMap::new("splitters".as_bytes()),
+            node_calls: UnorderedMap::<NodeCallId, NodeCall>::new("nodecalls".as_bytes()),
+            nodes: UnorderedMap::new("nodes".as_bytes()),
+            next_node_call_id: 0,
             constructions: UnorderedMap::new("constructions".as_bytes()),
             construction_calls: UnorderedMap::new("construction-call-stack".as_bytes()),
+        }
+    }
+}
+
+impl GenericId {
+    pub fn new(name: String, owner: Option<AccountId>) -> ConstructionId {
+        ConstructionId {
+            name,
+            owner: owner.unwrap_or(env::predecessor_account_id()),
         }
     }
 }

@@ -3,7 +3,7 @@ use crate::{errors::Errors, Contract, Node, Splitter};
 impl Contract {
     pub(crate) fn check_splitter(&self, splitter: &Splitter) {
         if splitter.splits.0.len() != splitter.children.0.len() {
-            panic!(Errors::NUMB_ENDPOINTS_DNE_NUMB_SPLITS);
+            panic!(Errors::NUMB_NODES_DNE_NUMB_SPLITS);
         }
         if splitter.splits.0.len() == 0 {
             panic!(Errors::NO_CHILDREN_SPECIFIED)

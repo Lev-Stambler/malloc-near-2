@@ -27,32 +27,32 @@ impl Contract {
         Ok(())
     }
 
-    pub(crate) fn store_construction(
-        &mut self,
-        name: String,
-        construction: &Construction,
-        owner: Option<AccountId>,
-    ) -> ConstructionId {
-        let owner = owner.unwrap_or(env::predecessor_account_id());
-        let mut constructions_by_account = self.constructions.get(&owner);
-        let (constructions, idx) = match constructions_by_account {
-            None => {
-                let mut constructions =
-                    UnorderedMap::new(format!("{}-construction", owner).as_bytes());
-                constructions.insert(&name, construction);
-                let len = constructions.len();
-                (constructions, len - 1)
-            }
-            Some(mut constructions) => {
-                constructions.insert(&name, &construction);
-                let len = constructions.len();
-                (constructions, len - 1)
-            }
-        };
-        self.constructions.insert(&owner, &constructions);
+    // pub(crate) fn store_construction(
+    //     &mut self,
+    //     name: String,
+    //     construction: &Construction,
+    //     owner: Option<AccountId>,
+    // ) -> ConstructionId {
+    //     let owner = owner.unwrap_or(env::predecessor_account_id());
+    //     let mut constructions_by_account = self.constructions.get(&owner);
+    //     let (constructions, idx) = match constructions_by_account {
+    //         None => {
+    //             let mut constructions =
+    //                 UnorderedMap::new(format!("{}-construction", owner).as_bytes());
+    //             constructions.insert(&name, construction);
+    //             let len = constructions.len();
+    //             (constructions, len - 1)
+    //         }
+    //         Some(mut constructions) => {
+    //             constructions.insert(&name, &construction);
+    //             let len = constructions.len();
+    //             (constructions, len - 1)
+    //         }
+    //     };
+    //     self.constructions.insert(&owner, &constructions);
 
-        ConstructionId { owner: owner, name }
-    }
+    //     ConstructionId { owner: owner, name }
+    // }
 
     pub(crate) fn store_splitter(&mut self, splitter: &Splitter) -> SplitterId {
         let splitters_by_account = self.splitters.get(&env::predecessor_account_id());

@@ -1,9 +1,7 @@
 import * as MallocClient from "../lib/malloc-client";
 import * as TestingUtils from "../../testing-utils/lib/testing-utils";
 import {
-  CallEphemeralError,
   SpecialAccountType,
-  Splitter,
   TransactionWithPromiseResultFlag,
 } from "../lib/interfaces";
 import BN from "bn.js";
@@ -26,7 +24,7 @@ describe("malloc-client's ft capabilities", () => {
     masterAccount = await TestingUtils.getDefaultTesterAccountNear();
     const testerAccount = await TestingUtils.newRandAccount(masterAccount);
     wrappedTesterAccount = testerAccount;
-    malloc = await MallocClient.createMallocClient(
+    malloc = new MallocClient.MallocClient(
       wrappedTesterAccount,
       TestingUtils.getMallocContract()
     );
@@ -51,7 +49,7 @@ describe("malloc-client's ft capabilities", () => {
       [TestingUtils.WRAP_TESTNET_CONTRACT],
       [
         wrappedTesterAccount.accountId,
-        malloc.contractAccountId,
+        malloc.mallocAccountId,
         MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
         MALLOC_CALL_PASSTHROUGH_CONTRACT_ID,
       ]
@@ -157,7 +155,6 @@ describe("malloc-client's ft capabilities", () => {
           ft_contract_id: TestingUtils.WRAP_TESTNET_CONTRACT,
         },
       ],
-      [[[1], [2], []], [[2], []], [[]]],
       amount.toString(),
       { gas: MAX_GAS, depositTransactionHash }
     );
@@ -189,7 +186,7 @@ describe("malloc-client's ft capabilities", () => {
       [TestingUtils.WRAP_TESTNET_CONTRACT],
       [
         wrappedTesterAccount.accountId,
-        malloc.contractAccountId,
+        malloc.mallocAccountId,
         MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
       ]
     );
@@ -273,7 +270,7 @@ describe("malloc-client's ft capabilities", () => {
         alice.accountId,
         bob.accountId,
         wrappedTesterAccount.accountId,
-        malloc.contractAccountId,
+        malloc.mallocAccountId,
         MALLOC_CALL_SEND_CONTRACT_ID,
       ]
     );

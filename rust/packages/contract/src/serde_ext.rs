@@ -11,11 +11,18 @@ use near_sdk::{BorshIntoStorageKey, IntoStorageKey, borsh::{self, BorshDeseriali
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct VectorWrapper<T>(pub Vector<T>);
 
-impl<T> VectorWrapper<T> {
+impl<T: BorshSerialize> VectorWrapper<T> {
     pub fn new<S: IntoStorageKey>(prefix: S) -> Self {
         VectorWrapper(Vector::new(prefix))
     }
+
+    pub fn from_vec<S: IntoStorageKey>(v: Vec<T>, prefix: S) -> Self {
+        let mut vector = Vector::new(prefix);
+        v.iter().for_each(|i| vector.push(i));
+        VectorWrapper(vector)
+    }
 }
+
 
 pub struct VectorWrapperVisitor<T> {
     marker: PhantomData<fn() -> VectorWrapper<T>>,

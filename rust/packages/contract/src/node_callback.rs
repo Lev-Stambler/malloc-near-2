@@ -10,7 +10,7 @@ use near_sdk::{
 
 use crate::{
     errors::Errors, handle_not_found, serde_ext::VectorWrapper, splitter, Construction,
-    ConstructionCallData, ConstructionCallDataId, ConstructionId, ConstructionNextSplitters,
+    ConstructionCall, ConstructionCallId, ConstructionId, ConstructionNextSplitters,
     Contract, Node, NodeCallStatus, Splitter, SplitterCall, SplitterCallId, SplitterId, BASIC_GAS,
     CALLBACK_GAS,
 };
@@ -18,7 +18,7 @@ use crate::{
 impl Contract {
     pub(crate) fn handle_node_callback_internal(
         &mut self,
-        construction_call_id: ConstructionCallDataId,
+        construction_call_id: ConstructionCallId,
         splitter_call_id: SplitterCallId,
         splitter_idx: u64,
         node_idx: u64,
@@ -149,11 +149,11 @@ impl Contract {
     }
 
     pub(crate) fn resolve_splitter_call(
-        mut construction_call: ConstructionCallData,
+        mut construction_call: ConstructionCall,
         status: NodeCallStatus,
         splitter_call_id: SplitterCallId,
         child_index: u64,
-    ) -> ConstructionCallData {
+    ) -> ConstructionCall {
         // If the following panics, then there is no way to register on chain that the call failed
         let mut splitter_call = construction_call
             .splitter_calls
@@ -173,14 +173,14 @@ impl Contract {
 
     pub(crate) fn add_next_splitters_to_call_stack(
         &self,
-        mut construction_call: ConstructionCallData,
+        mut construction_call: ConstructionCall,
         result: Vec<malloc_call_core::ReturnItem>,
         splitters: &[Splitter],
-        construction_call_id: &ConstructionCallDataId,
+        construction_call_id: &ConstructionCallId,
         splitter_idxs: &VectorWrapper<u64>,
         prior_splitter_call_id: SplitterCallId,
         prior_child_index: u64,
-    ) -> ConstructionCallData {
+    ) -> ConstructionCall {
         if result.len() == 0 {
             return construction_call;
         }
