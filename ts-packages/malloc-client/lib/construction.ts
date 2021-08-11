@@ -231,16 +231,6 @@ export const runEphemeralConstruction = async (
     // Throws if unsuccessful
     await checkTransactionSuccessful(txRetsInit, callerAccount.accountId);
 
-    const call_state = await getConstructionCallData(
-      callerAccount,
-      mallocAccountId,
-      construction_call_id
-    );
-    console.info(
-      "The error resolved with malloc in the following state",
-      JSON.stringify(call_state)
-    );
-    
     return txRetsInit;
   };
 
