@@ -98,7 +98,7 @@ describe("malloc-client's ft capabilities", () => {
       [0],
       [1],
       [[[1]], []],
-      [[], []],
+      [[[1]], []],
       { gas: MAX_GAS, depositTransactionHash }
     );
     const ret = await malloc.resolveTransactions(txRess);

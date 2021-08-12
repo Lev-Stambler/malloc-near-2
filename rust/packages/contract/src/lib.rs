@@ -24,7 +24,7 @@ use malloc_call_core::ReturnItem;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet, Vector};
 use near_sdk::env::{log, predecessor_account_id, random_seed};
-use near_sdk::json_types::{U128, U64, ValidAccountId};
+use near_sdk::json_types::{ValidAccountId, U128, U64};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
     env, log, near_bindgen, serde, serde_json, setup_alloc, utils, AccountId, Gas, PanicOnDefault,
@@ -141,7 +141,6 @@ impl CoreFunctionality for Contract {
             .unwrap_or_else(|e| panic!(e));
 
         let initial_amounts = Construction::get_split_amounts(amount.into(), initial_splits);
-        log!("Init amounts: {:?}", initial_amounts);
 
         let init_node_calls = NodeCall::node_calls_from_construction_indices(
             self,
@@ -216,7 +215,6 @@ impl Contract {
         let results: Vec<ReturnItem> = match utils::promise_result_as_success() {
             None => panic!("TODO: err handle here"),
             Some(bytes) => {
-                log!("Promise res {:?}", bytes);
                 serde_json::from_slice(&bytes).unwrap() // TODO: err handle
             }
         };
