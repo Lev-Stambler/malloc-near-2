@@ -6,7 +6,7 @@ pub mod ft;
 pub mod utils;
 
 pub fn call_method_name() -> Vec<u8> {
-    "call".to_string().into_bytes()
+    "malloc_call".to_string().into_bytes()
 }
 
 pub fn resolver_method_name() -> Vec<u8> {

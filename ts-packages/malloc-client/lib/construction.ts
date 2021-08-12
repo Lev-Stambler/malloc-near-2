@@ -214,8 +214,8 @@ export const runEphemeralConstruction = async (
                 owner: callerAccount.accountId,
               },
               amount: amount.toString(),
-              initial_node_indices: [0, 1], //TODO:
-              initial_splits: [1, 1],
+              initial_node_indices: initial_node_indices,
+              initial_splits: initial_splits,
               next_nodes_indices,
               next_nodes_splits,
             } as InitConstructionArgs,
@@ -264,6 +264,7 @@ export const runEphemeralConstruction = async (
 
       console.log("AAA", attachedDeposit);
 
+      // TODO: get || to work !!!!!!!
       const txs: Transaction[] = new Array(
         constructionCallData.next_node_calls_stack.length
       )

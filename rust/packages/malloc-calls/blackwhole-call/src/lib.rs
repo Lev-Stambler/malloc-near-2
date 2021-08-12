@@ -1,6 +1,6 @@
 use std::{u64, usize};
 
-use malloc_call_core::malloc_call;
+use malloc_call_core::MallocCallFT;
 use malloc_call_core::{self};
 // To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
 use malloc_call_core::ft::FungibleTokenHandlers;
@@ -8,6 +8,7 @@ use malloc_call_core::{
     utils::new_balances, MallocCallMetadata, MallocCallNoCallback, NewMallocCall, ReturnItem,
 };
 use near_sdk;
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, Vector};
 use near_sdk::env::predecessor_account_id;
 use near_sdk::json_types::{ValidAccountId, U128};
@@ -29,8 +30,12 @@ pub struct BlackWholeArgs {
     log_message: String,
 }
 
-#[malloc_call]
-pub struct Contract {}
+#[near_bindgen]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, MallocCallFT)]
+pub struct Contract {
+    balances: malloc_call_core::ft::FungibleTokenBalances,
+    malloc_contract_id: AccountId,
+}
 
 #[near_bindgen]
 impl MallocCallNoCallback<BlackWholeArgs> for Contract {
@@ -66,9 +71,9 @@ impl MallocCallNoCallback<BlackWholeArgs> for Contract {
 }
 
 #[near_bindgen]
-impl NewMallocCall<NewArgs> for Contract {
+impl Contract {
     #[init]
-    fn new(malloc_contract_id: ValidAccountId, args: NewArgs) -> Self {
+    pub fn new(malloc_contract_id: ValidAccountId) -> Self {
         Contract {
             balances: new_balances(),
             malloc_contract_id: malloc_contract_id.into(),

@@ -7,46 +7,39 @@ use syn::{
     FieldsUnnamed, ItemStruct,
 };
 
-#[proc_macro_attribute]
-pub fn malloc_call(args: TokenStream, input: TokenStream) -> TokenStream {
-    let _ = parse_macro_input!(args as Nothing);
+#[proc_macro_derive(MallocCallFT)]
+pub fn malloc_call_ft(input: TokenStream) -> TokenStream {
     let mut input_struct = parse_macro_input!(input as ItemStruct);
     let mut fields = input_struct.fields;
 
-    // Add the whitelisted malloc contract
-    let malloc_contract_id = Field::parse_named
-        .parse2(quote! {
-            pub malloc_contract_id: near_sdk::AccountId
-        })
-        .unwrap();
-    match &mut fields {
-        syn::Fields::Named(fields) => fields.named.push(malloc_contract_id),
-        _ => panic!("Expected named fields"),
-    }
+    // // Add the whitelisted malloc contract
+    // let malloc_contract_id = Field::parse_named
+    //     .parse2(quote! {
+    //         pub malloc_contract_id: near_sdk::AccountId
+    //     })
+    //     .unwrap();
+    // match &mut fields {
+    //     syn::Fields::Named(fields) => fields.named.push(malloc_contract_id),
+    //     _ => panic!("Expected named fields"),
+    // }
 
-    // Add the balances field
-    let bal_field = Field::parse_named
-        .parse2(quote! {
-            pub balances: malloc_call_core::ft::FungibleTokenBalances
-        })
-        .unwrap();
-    match &mut fields {
-        syn::Fields::Named(fields) => fields.named.push(bal_field),
-        _ => panic!("Expected named fields"),
-    }
+    // // Add the balances field
+    // let bal_field = Field::parse_named
+    //     .parse2(quote! {
+    //         pub balances: malloc_call_core::ft::FungibleTokenBalances
+    //     })
+    //     .unwrap();
+    // match &mut fields {
+    //     syn::Fields::Named(fields) => fields.named.push(bal_field),
+    //     _ => panic!("Expected named fields"),
+    // }
 
-    input_struct.fields = fields;
+    // input_struct.fields = fields;
     let (impl_generics, ty_generics, where_clause) = input_struct.generics.split_for_impl();
     let struct_name = &input_struct.ident;
 
     let stream = quote! {
-        use near_sdk::borsh::{self};
 
-    #[near_bindgen]
-    #[derive(
-        near_sdk::borsh::BorshDeserialize, near_sdk::borsh::BorshSerialize, near_sdk::PanicOnDefault,
-    )]
-    #input_struct
     //    #vis struct #struct_name #ty_generics #where_clause {
     //        #(#fields),*
     //        balances: malloc_call_core::ft::FungibleTokenBalances,

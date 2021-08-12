@@ -9,8 +9,6 @@ export interface Node {
     json_args: string;
     gas: number;
     attached_amount: string;
-    next_node_indices: number[][];
-    next_node_splits: number[][];
     token_id: AccountId;
   };
 }

@@ -102,19 +102,14 @@ impl NodeCall {
             return Err(Errors::NUMB_NODES_DNE_NUMB_SPLITS.to_string());
         }
 
-        // TODO: sep fn
-        let node_calls: Vec<NodeCallId> = node_indices
-            .iter()
-            .map(|i| {
-                let (node_call, id) = NodeCall::new(
-                    contract,
-                    0, // TODO:
-                    i.to_owned(),
-                );
-                contract.node_calls.insert(&id, &node_call);
-                id
-            })
-            .collect();
+        let mut node_calls: Vec<NodeCallId> = Vec::with_capacity(node_indices.len());
+        for i in 0..node_indices.len() {
+            let (node_call, id) = NodeCall::new(contract, amounts[i], node_indices[i].to_owned());
+            contract.node_calls.insert(&id, &node_call);
+
+            node_calls.push(id);
+        }
+
         Ok(node_calls)
     }
 }
@@ -125,11 +120,12 @@ impl Contract {
     pub(crate) fn _run_step(&mut self, construction_call_id: ConstructionCallId) -> u64 {
         let mut construction_call = self.get_construction_call_unchecked(&construction_call_id);
 
-        let node_call_id = construction_call
+        let node_call_index = construction_call
             .next_node_calls_stack
             .0
             .pop()
             .unwrap_or_else(|| panic!(Errors::CONSTRUCTION_CALL_SPLITTER_STACK_EMPTY));
+        let node_call_id = construction_call.node_calls.0.get(node_call_index).unwrap();
         let mut node_call = self
             .node_calls
             .get(&node_call_id)
@@ -141,13 +137,13 @@ impl Contract {
             .get_construction(&construction_call.construction_id)
             .unwrap_or_else(|e| panic!(&e));
 
-        let node_id = construction
-            .nodes
-            .0
-            .get(node_call.node_index_in_construction)
-            .unwrap();
+        let node_index = node_call.node_index_in_construction;
+        let node_id = construction.nodes.0.get(node_index).unwrap();
 
         let mut node = self.nodes.get(&node_id).unwrap();
+
+        self.construction_calls
+            .insert(&construction_call_id, &&construction_call);
 
         let (prom, node_call) = node
             .handle_node(
@@ -155,7 +151,6 @@ impl Contract {
                 node_call,
                 &construction_call_id,
                 node_call_id,
-                node_call.node_index_in_construction,
                 &env::predecessor_account_id(),
             )
             .unwrap_or_else(|e| panic!(&e));
@@ -173,7 +168,6 @@ impl Node {
         mut node_call: NodeCall,
         construction_call_id: &ConstructionCallId,
         node_call_id: NodeCallId,
-        node_idx: u64,
         caller: &AccountId,
     ) -> Result<(u64, NodeCall), String> {
         // Set the child's status in the splitter call
@@ -200,6 +194,8 @@ impl Node {
                     token_contract_id.clone(),
                     caller
                 );
+
+                log!("Node call amount: {}", node_call.amount);
 
                 // TODO: is this wrong???
                 let call_prom = if node_call.amount > 0 {
@@ -244,9 +240,9 @@ impl Node {
 
                 let callback = env::promise_batch_then(call_prom, env::current_account_id());
                 let callback_args = json!({
-                    "splitter_call_id": splitter_call_id,
-                "construction_call_id": construction_call_id,
-                "splitter_idx": splitter_idx, "node_idx": node_idx, "caller": caller });
+                    "construction_call_id": construction_call_id,
+                "node_call_id": node_call_id,
+                "caller": caller});
                 env::promise_batch_action_function_call(
                     callback,
                     b"handle_node_callback",
@@ -323,8 +319,11 @@ impl NodeCall {
     ) -> ConstructionCall {
         let next_amounts = Construction::get_split_amounts(amount, next_splits);
         for i in 0..next_amounts.len() {
-            let (node_call, node_call_id) =
-                NodeCall::new(contract, amount, next_node_indxs.0.get(i as u64).unwrap());
+            let (node_call, node_call_id) = NodeCall::new(
+                contract,
+                next_amounts[i],
+                next_node_indxs.0.get(i as u64).unwrap(),
+            );
             contract.node_calls.insert(&node_call_id, &node_call);
             construction_call
                 .next_node_calls_stack

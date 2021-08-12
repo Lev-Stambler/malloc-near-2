@@ -30,7 +30,89 @@ describe("malloc-client's ft capabilities", () => {
     );
   });
 
-  it.only("should make a couple black whole calls and make sure that the most basic splitter succeeds", async () => {
+  it.only("should test multi layered calls with a passthrough", async () => {
+    const MALLOC_CALL_BLACKWHOLE_CONTRACT_ID =
+      TestingUtils.getMallocCallBlackwholeContract();
+    const MALLOC_CALL_PASSTHROUGH =
+      TestingUtils.getMallocCallPassthroughContract();
+
+    const amount = 100;
+
+    await TestingUtils.setupWNearAccount(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      wrappedTesterAccount.accountId,
+      wrappedTesterAccount,
+      true,
+      amount + 20
+    );
+    await malloc.registerAccountWithFungibleToken(
+      [TestingUtils.WRAP_TESTNET_CONTRACT],
+      [
+        wrappedTesterAccount.accountId,
+        malloc.mallocAccountId,
+        MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
+        MALLOC_CALL_PASSTHROUGH
+      ]
+    );
+
+    const myBal = await TestingUtils.ftBalOf(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      wrappedTesterAccount.accountId,
+      wrappedTesterAccount
+    );
+
+    const depositTransactionHash = await malloc.deposit(
+      amount.toString(),
+      TestingUtils.WRAP_TESTNET_CONTRACT
+    );
+
+    const txRess = await malloc.runEphemeralConstruction(
+      [
+        {
+          MallocCall: {
+            malloc_call_id: MALLOC_CALL_PASSTHROUGH,
+            token_id: TestingUtils.WRAP_TESTNET_CONTRACT,
+            // check_callback: false,
+            // TODO: no json stringify!!
+            json_args: JSON.stringify({
+              log_message: "hello for alice",
+            }),
+            gas: MAX_GAS.divn(2).toNumber(),
+            attached_amount: "0",
+          },
+        },
+        {
+          MallocCall: {
+            malloc_call_id: MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
+            token_id: TestingUtils.WRAP_TESTNET_CONTRACT,
+            check_callback: false,
+            json_args: JSON.stringify({
+              log_message: "hello for bob",
+            }),
+            gas: MALLOC_CALL_SIMPLE_GAS.toNumber(),
+            attached_amount: "0",
+          },
+        },
+      ],
+      amount.toString(),
+      [0],
+      [1],
+      [[[1]], []],
+      [[], []],
+      { gas: MAX_GAS, depositTransactionHash }
+    );
+    const ret = await malloc.resolveTransactions(txRess);
+    expect(ret.flag).toBe(TransactionWithPromiseResultFlag.SUCCESS);
+
+    const newmyBal = await TestingUtils.ftBalOf(
+      TestingUtils.WRAP_TESTNET_CONTRACT,
+      wrappedTesterAccount.accountId,
+      wrappedTesterAccount
+    );
+    TestingUtils.checkBalDifferences(myBal, newmyBal, -1 * amount, expect);
+  });
+
+  it("should make a couple black whole calls and make sure that the most basic splitter succeeds", async () => {
     const MALLOC_CALL_BLACKWHOLE_CONTRACT_ID =
       TestingUtils.getMallocCallBlackwholeContract();
 
@@ -69,9 +151,7 @@ describe("malloc-client's ft capabilities", () => {
           MallocCall: {
             malloc_call_id: MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
             token_id: TestingUtils.WRAP_TESTNET_CONTRACT,
-            next_node_splits: [],
-            next_node_indices: [],
-            check_callback: false,
+            // check_callback: false,
             // TODO: no json stringify!!
             json_args: JSON.stringify({
               log_message: "hello for alice",
@@ -84,8 +164,6 @@ describe("malloc-client's ft capabilities", () => {
           MallocCall: {
             malloc_call_id: MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
             token_id: TestingUtils.WRAP_TESTNET_CONTRACT,
-            next_node_splits: [],
-            next_node_indices: [],
             check_callback: false,
             json_args: JSON.stringify({
               log_message: "hello for bob",
@@ -96,10 +174,10 @@ describe("malloc-client's ft capabilities", () => {
         },
       ],
       amount.toString(),
-      [0],
-      [1],
-      [[[]], [[]]],
-      [[[]], [[]]],
+      [0, 1],
+      [1, 1],
+      [[], []],
+      [[], []],
       { gas: MAX_GAS, depositTransactionHash }
     );
     const ret = await malloc.resolveTransactions(txRess);

@@ -24,7 +24,7 @@ use malloc_call_core::ReturnItem;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet, Vector};
 use near_sdk::env::{log, predecessor_account_id, random_seed};
-use near_sdk::json_types::{ValidAccountId, U128};
+use near_sdk::json_types::{U128, U64, ValidAccountId};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
     env, log, near_bindgen, serde, serde_json, setup_alloc, utils, AccountId, Gas, PanicOnDefault,
@@ -40,7 +40,6 @@ mod construction;
 pub mod errors;
 // mod malloc_utils;
 mod node;
-mod node_callback;
 mod serde_ext;
 // mod storage;
 mod test_utils;
@@ -142,6 +141,7 @@ impl CoreFunctionality for Contract {
             .unwrap_or_else(|e| panic!(e));
 
         let initial_amounts = Construction::get_split_amounts(amount.into(), initial_splits);
+        log!("Init amounts: {:?}", initial_amounts);
 
         let init_node_calls = NodeCall::node_calls_from_construction_indices(
             self,
@@ -181,6 +181,7 @@ impl CoreFunctionality for Contract {
     // }
     #[payable]
     fn process_next_node_call(&mut self, construction_call_id: ConstructionCallId) {
+        self._run_step(construction_call_id);
         // let mut construction_call = self.get_construction_call_unchecked(&construction_call_id);
         // assert_eq!(construction_call.caller, env::predecessor_account_id());
         // let ret_prom = self._run_step(construction_call_id);
@@ -190,6 +191,9 @@ impl CoreFunctionality for Contract {
 
 #[near_bindgen]
 impl Contract {
+    pub fn get_node_call_unchecked(&self, id: U64) -> NodeCall {
+        self.node_calls.get(&id.into()).unwrap()
+    }
     pub fn get_construction_call_unchecked(&self, id: &ConstructionCallId) -> ConstructionCall {
         self.construction_calls
             .get(&id)
@@ -208,10 +212,13 @@ impl Contract {
         caller: AccountId,
     ) -> Option<u64> {
         // TODO: err handle!!
-        let node_call = self.node_calls.get(&node_call_id).unwrap();
+        let mut node_call = self.node_calls.get(&node_call_id).unwrap();
         let results: Vec<ReturnItem> = match utils::promise_result_as_success() {
             None => panic!("TODO: err handle here"),
-            Some(bytes) => serde_json::from_slice(&bytes).unwrap(), // TODO: err handle
+            Some(bytes) => {
+                log!("Promise res {:?}", bytes);
+                serde_json::from_slice(&bytes).unwrap() // TODO: err handle
+            }
         };
         node_call.handle_node_callback_internal(self, construction_call_id, caller, results)
     }

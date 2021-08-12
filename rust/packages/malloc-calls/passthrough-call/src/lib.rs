@@ -1,14 +1,18 @@
 use std::{u64, usize};
 
 // To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
-use malloc_call_core::{MallocCallWithCallback, ReturnItem};
+use malloc_call_core::MallocCallFT;
+use malloc_call_core::{self, ft::FungibleTokenHandlers, MallocCallWithCallback, ReturnItem};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, Vector};
 use near_sdk::env::predecessor_account_id;
 use near_sdk::json_types::{ValidAccountId, U128};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::serde_json::json;
-use near_sdk::{AccountId, Gas, PanicOnDefault, Promise, PromiseId, env, ext_contract, log, near_bindgen, serde, setup_alloc};
+use near_sdk::{
+    env, ext_contract, log, near_bindgen, serde, setup_alloc, AccountId, Balance, Gas,
+    PanicOnDefault, Promise, PromiseId,
+};
 
 setup_alloc!();
 
@@ -17,7 +21,7 @@ const BASIC_RESOLVER_GAS: Gas = 1_000_000_000_000;
 
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
-pub struct BlackWholeArgs {
+pub struct PassThroughArgs {
     log_message: String,
 }
 
@@ -29,11 +33,13 @@ pub struct ResolverArgs {
 }
 
 #[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
-pub struct Contract {}
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, MallocCallFT)]
+pub struct Contract {
+    balances: malloc_call_core::ft::FungibleTokenBalances,
+}
 
 #[near_bindgen]
-impl MallocCallWithCallback<BlackWholeArgs, ResolverArgs, Promise> for Contract {
+impl MallocCallWithCallback<PassThroughArgs, ResolverArgs, ()> for Contract {
     fn metadata(&self) -> malloc_call_core::MallocCallMetadata {
         malloc_call_core::MallocCallMetadata {
             minimum_gas: None,
@@ -50,26 +56,40 @@ impl MallocCallWithCallback<BlackWholeArgs, ResolverArgs, Promise> for Contract 
     }
 
     #[payable]
-    fn call(
+    fn malloc_call(
         &mut self,
-        args: BlackWholeArgs,
+        args: PassThroughArgs,
         amount: String,
-        token_contract: ValidAccountId,
+        token_id: ValidAccountId,
         caller: ValidAccountId,
-    ) -> Promise {
+    ) {
         log!("Log from the passthrough: {}", args.log_message);
+        let token_id: AccountId = token_id.into();
         let ret_args = json!({
             "args": {
-                "token_id": token_contract,
-                "amount": "0"
+                "token_id": token_id,
+                "amount": amount
             }
         });
-        Promise::new(env::current_account_id()).function_call(
-            malloc_call_core::resolver_method_name(),
-            ret_args.to_string().into_bytes(),
+        let caller: AccountId = caller.into();
+        // Send the money back to malloc contract
+        let transfer_prom = self.balances.internal_ft_transfer_call(
+            &token_id,
+            caller,
+            amount,
+            env::predecessor_account_id(),
+            None,
+        );
+        // TODO: needs to chec that the transfer was successful
+        let ret_prom = env::promise_then(
+            transfer_prom,
+            env::current_account_id(),
+            &malloc_call_core::resolver_method_name(),
+            ret_args.to_string().as_bytes(),
             0,
             BASIC_RESOLVER_GAS,
-        )
+        );
+        env::promise_return(ret_prom);
     }
 }
 
@@ -77,7 +97,9 @@ impl MallocCallWithCallback<BlackWholeArgs, ResolverArgs, Promise> for Contract 
 impl Contract {
     #[init]
     pub fn new() -> Self {
-        Contract {}
+        Contract {
+            balances: malloc_call_core::utils::new_balances(),
+        }
     }
 }
 
