@@ -1,9 +1,8 @@
-use std::{string, u64, usize};
-use malloc_call_core::ft::FungibleTokenHandlers;
+use std::{thread::AccessError, u64, usize};
 
 // To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
-use malloc_call_core::{MallocCallWithCallback, ReturnItem, malloc_call};
-// use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use malloc_call_core::{MallocCallWithCallback, ReturnItem, MallocCallFT, ft::{FungibleTokenHandlers, FungibleTokenBalances}};
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, Vector};
 use near_sdk::env::predecessor_account_id;
 use near_sdk::json_types::{ValidAccountId, U128};
@@ -19,10 +18,11 @@ setup_alloc!();
 // See https://github.com/mikedotexe/nep-141-examples/blob/master/basic/src/fungible_token_core.rs
 const GAS_FOR_RESOLVE_TRANSFER: Gas = 5_000_000_000_000;
 const GAS_FOR_FT_TRANSFER_CALL: Gas = 25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER;
-const VIEW_GAS: Gas = 1_000_000_000_000;
+const VIEW_GAS: Gas = 5_000_000_000_000;
 const BASIC_GAS: Gas = 5_000_000_000_000;
+const GAS_FOR_RESOLVE_GET_AMOUNT: Gas = BASIC_GAS  * 2;
 const SWAP_GAS: Gas = BASIC_GAS + BASIC_GAS;
-const WITHDRAW_GAS: Gas = BASIC_GAS + BASIC_GAS + BASIC_GAS + GAS_FOR_FT_TRANSFER_CALL;
+const WITHDRAW_GAS: Gas = BASIC_GAS + GAS_FOR_RESOLVE_GET_AMOUNT + BASIC_GAS + GAS_FOR_FT_TRANSFER_CALL;
 
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
@@ -41,9 +41,12 @@ pub struct NewArgs {
     pub ref_finance: ValidAccountId
 }
 
-#[malloc_call]
+#[near_bindgen]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, MallocCallFT)]
 pub struct Contract {
     pub ref_finance: AccountId,
+    balances: FungibleTokenBalances,
+    malloc_contract_id: AccountId
 }
 
 #[ext_contract]
@@ -70,16 +73,17 @@ impl Contract {
         )
     }
 
-    fn get_register_tokens(&mut self, promise_idx: u64, tokens: &[ValidAccountId]) -> u64 {
+    fn get_register_tokens(&mut self, tokens: &[ValidAccountId]) -> u64 {
         let data = json!({ "token_ids": tokens });
-        env::promise_then(
-            promise_idx,
-            self.ref_finance.clone(),
+        let prom = env::promise_batch_create(&self.ref_finance);
+        env::promise_batch_action_function_call(
+            prom,
             "register_tokens".to_string().as_bytes(),
             data.to_string().as_bytes(),
             1,
             BASIC_GAS,
-        )
+        );
+        prom
     }
 
     fn get_transfer(
@@ -104,27 +108,27 @@ impl Contract {
         )
     }
 
-    fn get_transfer_call(
+    fn get_transfer_call_to_ref(
         &mut self,
+        register_token_prom: u64,
         receiver_id: &str,
         amount: &str,
-        token_contract: &AccountId,
-        caller: &AccountId
+        token_id: &AccountId,
+        caller: &AccountId,
+        swap_args: &RefSwapArgs,
     ) -> u64 {
-        self.balances.internal_ft_transfer_call(token_contract, receiver_id.to_owned(), amount.to_owned(), caller.to_owned(), None)
-        // let ft_transfer_data = json!({
-        //     "receiver_id": receiver_id,
-        //     "amount": amount,
-        //     "msg": ""
-        // });
-        // let prom = env::promise_batch_create(token_contract.to_owned());
-        // env::promise_batch_action_function_call(
-        //     prom,
-        //     "ft_transfer_call".to_string().as_bytes(),
-        //     ft_transfer_data.to_string().as_bytes(),
-        //     1,
-        //     GAS_FOR_FT_TRANSFER_CALL,
-        // );
+        let tok_rec_message = json!({ "Execute": json!({
+            "actions":  vec![json!({
+                "pool_id": swap_args.pool_id,
+                "token_in": token_id,
+                "token_out": swap_args.token_out,
+                "min_amount_out": swap_args.min_amount_out,
+                "amount_in": amount
+            })],
+            "force": 0
+        })});
+        let tok_recv_message_str = tok_rec_message.to_string();
+        self.balances.internal_ft_transfer_call_custom_message(token_id, receiver_id.to_owned(), amount.to_owned(), caller.to_owned(), Some(register_token_prom), tok_recv_message_str)
     }
 
     fn get_swap(
@@ -168,12 +172,9 @@ impl Contract {
         let amount: u128 = amount.into();
         let amount: String = amount.to_string();
         let token_out_id: AccountId = token_out_id.into();
-        log!("Amount {}", amount);
         let withdraw = self.get_withdraw(token_out_id.clone(), &amount);
-        log!("A");
         let transfer =
             self.get_transfer(withdraw, &recipient.into(), &amount, &token_out_id);
-        log!("A");
         let resolver_args = format!(
             "{{\"amount\": \"{}\", \"token_id\": \"{}\"}}",
             amount, &token_out_id
@@ -188,31 +189,25 @@ impl Contract {
         );
         env::promise_return(resolver);
         resolver
-        // self.resolver(ReturnItem {
-        //     token_id,
-        //     amount: "0".to_string()
-        // })
     }
 }
 
 #[near_bindgen]
-impl MallocCallWithCallback<RefSwapArgs, ReturnItem, u64> for Contract {
+impl MallocCallWithCallback<RefSwapArgs, ReturnItem, ()> for Contract {
     fn resolver(&self, ret: ReturnItem) -> Vec<malloc_call_core::ReturnItem> {
         vec![ret]
     }
 
     #[payable]
-    fn malloc_call(&mut self, args: RefSwapArgs, amount: String, token_id: ValidAccountId, caller: ValidAccountId) -> u64 {
+    fn malloc_call(&mut self, args: RefSwapArgs, amount: String, token_id: ValidAccountId, caller: ValidAccountId) {
         let token_id: AccountId = token_id.into();
         // Send the funds back to the Malloc Contract if their is no recipient
         let recipient = args
             .recipient
             .clone()
             .unwrap_or(env::predecessor_account_id());
-        let transfer_call = self.get_transfer_call(&self.ref_finance.clone(), &amount, &token_id, &caller.into());
-        // TODO: remove regiser
-        // let register_tokens = self.get_register_tokens(transfer_call, &args.register_tokens);
-        let swap = self.get_swap(transfer_call, &amount, &token_id, &args);
+        let register_tokens = self.get_register_tokens(&args.register_tokens);
+        let transfer_call = self.get_transfer_call_to_ref(register_tokens, &self.ref_finance.clone(), &amount, &token_id, &caller.into(), &args);
 
         log!("A");
         let bal_args = json!({
@@ -221,7 +216,7 @@ impl MallocCallWithCallback<RefSwapArgs, ReturnItem, u64> for Contract {
         });
 
         log!("A");
-        let mft_bal_prom = env::promise_then(swap, self.ref_finance.to_owned(), "mft_balance_of".as_bytes(), bal_args.to_string().as_bytes(), 0, VIEW_GAS);
+        let mft_bal_prom = env::promise_then(transfer_call, self.ref_finance.to_owned(), "mft_balance_of".as_bytes(), bal_args.to_string().as_bytes(), 0, VIEW_GAS);
         let callback = env::promise_batch_then(mft_bal_prom, env::current_account_id());
         log!("A");
         let callback_args = json!({ 
@@ -232,11 +227,10 @@ impl MallocCallWithCallback<RefSwapArgs, ReturnItem, u64> for Contract {
             callback,
             b"_resolve_get_amount",
             callback_args.to_string().as_bytes(),
-            3,
-            BASIC_GAS,
+            0,
+            GAS_FOR_RESOLVE_GET_AMOUNT,
         );
         env::promise_return(callback);
-        callback
     }
 
     fn metadata(&self) -> malloc_call_core::MallocCallMetadata {
@@ -251,7 +245,7 @@ impl MallocCallWithCallback<RefSwapArgs, ReturnItem, u64> for Contract {
 #[near_bindgen]
 impl Contract {
     #[init]
-    fn new(malloc_contract_id: ValidAccountId, ref_finance: ValidAccountId) -> Self {
+    pub fn new(malloc_contract_id: ValidAccountId, ref_finance: ValidAccountId) -> Self {
         Contract {  
             balances: malloc_call_core::utils::new_balances(),
             malloc_contract_id: malloc_contract_id.into(), 
@@ -287,3 +281,10 @@ mod tests {
     #[test]
     fn test_simple_swap() {}
 }
+
+/*
+Helper for deploy:
+mallocrustcli deploy malloc-calls/ref-swap-malloc-call -n '{"ref_finance": "ref-finance.testnet", "malloc_contract_id": "<CONTRACT_ID>"}'
+
+    malloc_contract_id: ValidAccountId, ref_finance: ValidAccountId
+*/
