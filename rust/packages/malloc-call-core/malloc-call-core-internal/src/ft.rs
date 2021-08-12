@@ -35,13 +35,14 @@ pub struct FungibleTokenBalances {
 pub trait FungibleTokenHandlers {
     fn ft_on_transfer(&mut self, sender_id: String, amount: String, msg: String) -> String;
     fn get_ft_balance(&self, account_id: AccountId, token_id: AccountId) -> U128;
-    /// A private function
+    /// A private contract function which resolves the ft transfer by updating the amount used in the balances
+    /// @returns the amount used
     fn resolve_internal_ft_transfer_call(
         &mut self,
         account_id: AccountId,
         token_id: AccountId,
         amount: U128,
-    );
+    ) -> U128;
 }
 
 #[derive(Serialize, Deserialize)]
@@ -102,7 +103,7 @@ impl FungibleTokenBalances {
         sender: AccountId,
         prior_promise: Option<u64>,
         custom_message: String,
-        amount_near: Balance
+        amount_near: Balance,
     ) -> u64 {
         self._internal_ft_transfer_call(
             token_id,
@@ -162,7 +163,7 @@ impl FungibleTokenBalances {
                     prom_batch,
                     FT_TRANSFER_CALL_METHOD_NAME.as_bytes(),
                     &data,
-                amount_near,
+                    amount_near,
                     GAS_FOR_FT_TRANSFER_CALL_NEP141,
                 );
                 prom_batch
@@ -188,15 +189,17 @@ impl FungibleTokenBalances {
         )
     }
 
+    /// Resolve the ft transfer by updating the amount used in the balances
+    /// @returns the amount used
     pub fn resolve_internal_ft_transfer_call(
         &mut self,
         account_id: &AccountId,
         token_id: AccountId,
         amount: U128,
-    ) {
+    ) -> U128 {
         let amount: u128 = amount.into();
         if amount == 0 {
-            return;
+            return U128(0);
         }
 
         let current_balance = self.get_ft_balance(account_id, &token_id);
@@ -207,6 +210,7 @@ impl FungibleTokenBalances {
                     &Self::get_balances_key(&account_id, &token_id),
                     &(current_balance + amount),
                 );
+                U128(0)
             }
             Some(data) => {
                 // TODO: err handling?
@@ -225,8 +229,9 @@ impl FungibleTokenBalances {
                         &(current_balance + amount_unused),
                     );
                 }
+                U128(amount_used)
             }
-        };
+        }
     }
 
     /********** Helper functions **************/

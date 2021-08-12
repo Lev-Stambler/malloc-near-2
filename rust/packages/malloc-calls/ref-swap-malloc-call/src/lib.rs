@@ -178,7 +178,7 @@ impl Contract {
             self.get_transfer(withdraw, &recipient.into(), &amount, &token_out_id);
         log!("A");
         let resolver_args = format!(
-            "{{\"amount\": \"{}\", \"token_id\": \"{}\"}}",
+            "{{\"ret\": {{\"amount\": \"{}\", \"token_id\": \"{}\"}}}}",
             amount, &token_out_id
         );
         log!("A");

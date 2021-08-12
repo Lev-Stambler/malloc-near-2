@@ -43,7 +43,7 @@ describe("ref-swap call", () => {
   it.only("should make calls to a multi level splitter with pass throughs and black whole at then end", async () => {
     const MALLOC_CALL_SWAP_CONTRACT_ID = getMallocCallRefSwapContract();
 
-    const amount = 1000000;
+    const amount = 1000000000;
 
     await TestingUtils.setupWNearAccount(
       TestingUtils.WRAP_TESTNET_CONTRACT,
@@ -117,7 +117,7 @@ describe("ref-swap call", () => {
               recipient: masterAccount.accountId,
             }),
             // 2/3 rds of max gas and have the remaining third for processing the call
-            gas: MAX_GAS.divn(100).muln(72).toNumber(),
+            gas: MAX_GAS.divn(100).muln(80).toNumber(),
             attached_amount: "16",
           },
         },
@@ -125,8 +125,8 @@ describe("ref-swap call", () => {
       amount.toString(),
       [0],
       [1],
-      [[[]]],
-      [[[]]],
+      [[[1]], [[]]],
+      [[[1]], [[]]],
       { gas: MAX_GAS, depositTransactionHash }
     );
     const ret = await malloc.resolveTransactions(txRess);

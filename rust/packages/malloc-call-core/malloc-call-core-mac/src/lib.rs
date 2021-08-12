@@ -56,9 +56,9 @@ pub fn malloc_call_ft(input: TokenStream) -> TokenStream {
             }
 
             #[private]
-            fn resolve_internal_ft_transfer_call(&mut self, account_id: AccountId, token_id: AccountId, amount: near_sdk::json_types::U128) {
+            fn resolve_internal_ft_transfer_call(&mut self, account_id: AccountId, token_id: AccountId, amount: near_sdk::json_types::U128) -> U128 {
                 self.balances
-                    .resolve_internal_ft_transfer_call(&account_id, token_id, amount);
+                    .resolve_internal_ft_transfer_call(&account_id, token_id, amount)
             }
         }
     };

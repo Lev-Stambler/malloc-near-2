@@ -205,7 +205,21 @@ impl Node {
                     caller.clone(),
                     None,
                 );
-                Ok((prom, node_call))
+                // TODO: you want a seperate callback here
+                let callback = env::promise_batch_then(prom, env::current_account_id());
+                // TODO: refactor this with the callback portion of MallocCall
+                let callback_args = json!({
+                    "construction_call_id": construction_call_id,
+                "node_call_id": node_call_id,
+                "caller": caller});
+                env::promise_batch_action_function_call(
+                    callback,
+                    b"handle_node_ft_transfer_call_malloc_callback",
+                    callback_args.to_string().as_bytes(),
+                    0,
+                    CALLBACK_GAS,
+                );
+                Ok((callback, node_call))
             }
             Node::MallocCall {
                 malloc_call_id,
@@ -278,7 +292,7 @@ impl Node {
                 "caller": caller});
                 env::promise_batch_action_function_call(
                     callback,
-                    b"handle_node_callback",
+                    b"handle_node_malloc_call_callback",
                     callback_args.to_string().as_bytes(),
                     0,
                     CALLBACK_GAS,
@@ -326,7 +340,61 @@ impl Node {
 }
 
 impl NodeCall {
-    pub(crate) fn handle_node_callback_internal(
+    // TODO: refactor the two next functions to not share so much damn code
+    pub(crate) fn handle_node_ft_transfer_call_internal(
+        &mut self,
+        contract: &mut Contract,
+        construction_call_id: ConstructionCallId,
+        caller: AccountId,
+        amount: u128,
+    ) -> Option<u64> {
+        let mut construction_call = contract.get_construction_call_unchecked(&construction_call_id);
+        let construction_res = contract.get_construction(&construction_call.construction_id);
+        // TODO: error handling with the malloc call cores
+        let construction = construction_res.unwrap();
+
+        // // TODO: error handling with the malloc call cores
+        // let node_call_res = self.node_calls.get(&node_call_id);
+        // let node_call = node_call_res.unwrap();
+
+        // TODO: error handle with malloc call core
+        let next_nodes_indices = construction_call
+            .next_nodes_indices_in_construction
+            .0
+            .get(self.node_index_in_construction)
+            .unwrap();
+
+        // TODO: error handle with malloc call core
+        let next_nodes_splits = construction_call
+            .next_nodes_splits
+            .0
+            .get(self.node_index_in_construction)
+            .unwrap();
+        if next_nodes_indices.0.len() != next_nodes_splits.0.len() {
+            // TODO: error handling with the malloc call cores
+            panic!("");
+        }
+
+        assert_eq!(
+            next_nodes_indices.0.len(),
+            1,
+            "TODO: err handle, but should be 1"
+        );
+
+        construction_call = self.handle_next_split_set(
+            contract,
+            construction_call,
+            next_nodes_indices.0.get(0).unwrap(),
+            next_nodes_splits.0.get(0).unwrap(),
+            amount,
+        );
+        contract
+            .construction_calls
+            .insert(&construction_call_id, &construction_call);
+        None
+    }
+
+    pub(crate) fn handle_node_malloc_call_callback_internal(
         &mut self,
         contract: &mut Contract,
         construction_call_id: ConstructionCallId,

@@ -19,7 +19,7 @@ use construction::{
     NextNodesIndicesForConstruction, NextNodesSplitsForConstruction,
 };
 use malloc_call_core::ft::{FungibleTokenBalances, FungibleTokenHandlers};
-use malloc_call_core::{MallocCallFT, GasUsage, ReturnItem};
+use malloc_call_core::{GasUsage, MallocCallFT, ReturnItem};
 // To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet, Vector};
@@ -213,7 +213,30 @@ impl GasUsage for Contract {
 impl Contract {
     #[private]
     #[payable]
-    pub fn handle_node_callback(
+    pub fn handle_node_ft_transfer_call_malloc_callback(
+        &mut self,
+        construction_call_id: ConstructionCallId,
+        node_call_id: u64,
+        caller: AccountId,
+    ) -> Option<u64> {
+        let mut node_call = self.node_calls.get(&node_call_id).unwrap();
+        let amount: U128 = match utils::promise_result_as_success() {
+            None => panic!("TODO: err handle here"),
+            Some(bytes) => {
+                serde_json::from_slice(&bytes).unwrap() // TODO: err handle
+            }
+        };
+        node_call.handle_node_ft_transfer_call_internal(
+            self,
+            construction_call_id,
+            caller,
+            amount.into(),
+        )
+    }
+
+    #[private]
+    #[payable]
+    pub fn handle_node_malloc_call_callback(
         &mut self,
         construction_call_id: ConstructionCallId,
         node_call_id: u64,
@@ -227,7 +250,12 @@ impl Contract {
                 serde_json::from_slice(&bytes).unwrap() // TODO: err handle
             }
         };
-        node_call.handle_node_callback_internal(self, construction_call_id, caller, results)
+        node_call.handle_node_malloc_call_callback_internal(
+            self,
+            construction_call_id,
+            caller,
+            results,
+        )
     }
 }
 
