@@ -45,7 +45,7 @@ describe("malloc-client's ft capabilities", () => {
       true,
       amount + 20
     );
-    await malloc.registerAccountWithFungibleToken(
+    await malloc.registerAccountDeposits(
       [TestingUtils.WRAP_TESTNET_CONTRACT],
       [
         wrappedTesterAccount.accountId,
@@ -74,7 +74,7 @@ describe("malloc-client's ft capabilities", () => {
             {
               MallocCall: {
                 contract_id: MALLOC_CALL_PASSTHROUGH_CONTRACT_ID,
-                // TODO: no json stringify!!
+                
                 json_args: JSON.stringify({
                   log_message: "hello for alice level 1",
                 }),
@@ -85,7 +85,7 @@ describe("malloc-client's ft capabilities", () => {
             {
               MallocCall: {
                 contract_id: MALLOC_CALL_PASSTHROUGH_CONTRACT_ID,
-                // TODO: no json stringify!!
+                
                 json_args: JSON.stringify({
                   log_message: "hello for karen level 1",
                 }),
@@ -113,7 +113,7 @@ describe("malloc-client's ft capabilities", () => {
             {
               MallocCall: {
                 contract_id: MALLOC_CALL_PASSTHROUGH_CONTRACT_ID,
-                // TODO: no json stringify!!
+                
                 json_args: JSON.stringify({
                   log_message: "hello for alice level 1",
                 }),
@@ -125,7 +125,7 @@ describe("malloc-client's ft capabilities", () => {
               MallocCall: {
                 contract_id: MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
                 check_callback: false,
-                // TODO: no json stringify!!
+                
                 json_args: JSON.stringify({
                   log_message: "hello for karen level 1",
                 }),
@@ -143,7 +143,7 @@ describe("malloc-client's ft capabilities", () => {
               MallocCall: {
                 check_callback: false,
                 contract_id: MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
-                // TODO: no json stringify!!
+                
                 json_args: JSON.stringify({
                   log_message: "hello for alice level 1",
                 }),
@@ -182,7 +182,7 @@ describe("malloc-client's ft capabilities", () => {
       true,
       amount + 20
     );
-    await malloc.registerAccountWithFungibleToken(
+    await malloc.registerAccountDeposits(
       [TestingUtils.WRAP_TESTNET_CONTRACT],
       [
         wrappedTesterAccount.accountId,
@@ -211,7 +211,7 @@ describe("malloc-client's ft capabilities", () => {
               MallocCall: {
                 contract_id: MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
                 check_callback: false,
-                // TODO: no json stringify!!
+                
                 json_args: JSON.stringify({
                   log_message: "hello for alice",
                 }),
@@ -264,7 +264,7 @@ describe("malloc-client's ft capabilities", () => {
       true,
       amount + 20
     );
-    await malloc.registerAccountWithFungibleToken(
+    await malloc.registerAccountDeposits(
       [TestingUtils.WRAP_TESTNET_CONTRACT],
       [
         alice.accountId,
@@ -303,7 +303,7 @@ describe("malloc-client's ft capabilities", () => {
             {
               MallocCall: {
                 contract_id: MALLOC_CALL_SEND_CONTRACT_ID,
-                // TODO: no json stringify!!
+                
                 json_args: JSON.stringify({
                   recipient: alice.accountId,
                 }),

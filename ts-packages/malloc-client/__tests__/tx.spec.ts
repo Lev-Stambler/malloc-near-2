@@ -48,7 +48,7 @@ describe("test transaction utils", () => {
   xit("should register an accountId with the given fungible tokens with one tx call, then ensure that the tokens are not reregistered", async () => {
     const bob = await TestingUtils.newRandAccount(wrappedAccount);
     const alice = await TestingUtils.newRandAccount(wrappedAccount);
-    const tokensRegistered = await malloc.registerAccountWithFungibleToken(
+    const tokensRegistered = await malloc.registerAccountDeposits(
       TOKEN_ACCOUNT_IDS,
       [bob.accountId]
     );
@@ -62,7 +62,7 @@ describe("test transaction utils", () => {
         )
       ).toBeTruthy();
     }
-    const newTokensRegistered = await malloc.registerAccountWithFungibleToken(
+    const newTokensRegistered = await malloc.registerAccountDeposits(
       TOKEN_ACCOUNT_IDS,
       [bob.accountId]
     );

@@ -50,6 +50,8 @@ const getNodeAttachedDepositForNode = async (
       "metadata"
     );
     return new BN(metadata.minimum_attached_deposit || 1);
+  } else if (node.FtTransferCallToMallocCall) {
+    return new BN(1);
   }
 };
 
@@ -138,7 +140,7 @@ const checkTransactionSuccessful = async (
 ) => {
   const ret = await resolveTransactionsReducedWithPromises(hashes, accountId);
   if (ret.flag !== TransactionWithPromiseResultFlag.SUCCESS) {
-    throw ret.message;
+    throw JSON.stringify(ret.message);
   }
 };
 
@@ -233,7 +235,10 @@ export const runEphemeralConstruction = async (
       },
     ];
 
-    const txRetsInit = await executeMultipleTx(callerAccount, [...txs, ...initTx]);
+    const txRetsInit = await executeMultipleTx(callerAccount, [
+      ...txs,
+      ...initTx,
+    ]);
 
     // Throws if unsuccessful
     await checkTransactionSuccessful(txRetsInit, callerAccount.accountId);

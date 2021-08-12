@@ -1,6 +1,7 @@
 use core::panic;
 use std::str::FromStr;
 
+use malloc_call_core::ft::MALLOC_CALL_CORE_GAS_FOR_FT_TRANSFER_CALL;
 use malloc_call_core::ReturnItem;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
@@ -52,9 +53,18 @@ pub type NodeCallId = u64;
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub enum Node {
+    FtTransfer {
+        receiver_id: AccountId,
+        token_id: AccountId,
+    },
+    FtTransferCallToMallocCall {
+        malloc_call_id: AccountId,
+        token_id: AccountId,
+    },
     MallocCall {
         // TODO: expected_number_inputs
         check_callback: Option<bool>,
+        skip_ft_transfer: Option<bool>,
         malloc_call_id: AccountId,
         token_id: AccountId,
         json_args: String,
@@ -145,6 +155,9 @@ impl Contract {
         self.construction_calls
             .insert(&construction_call_id, &&construction_call);
 
+        // TODO: delete me
+        node.get_gas_for_cross_contract(&node_call);
+
         let (prom, node_call) = node
             .handle_node(
                 self,
@@ -175,9 +188,29 @@ impl Node {
             block_index_start: env::block_index(),
         };
         match self {
+            Node::FtTransfer {
+                receiver_id,
+                token_id,
+            } => {
+                todo!()
+            }
+            Node::FtTransferCallToMallocCall {
+                malloc_call_id,
+                token_id,
+            } => {
+                let prom = contract.balances.internal_ft_transfer_call(
+                    &token_id,
+                    malloc_call_id.clone(),
+                    U128(node_call.amount),
+                    caller.clone(),
+                    None,
+                );
+                Ok((prom, node_call))
+            }
             Node::MallocCall {
                 malloc_call_id,
                 token_id,
+                skip_ft_transfer,
                 json_args,
                 attached_amount,
                 check_callback,
@@ -198,14 +231,14 @@ impl Node {
                 log!("Node call amount: {}", node_call.amount);
 
                 // TODO: is this wrong???
-                let call_prom = if node_call.amount > 0 {
+                let call_prom = if node_call.amount > 0 && !skip_ft_transfer.unwrap_or(false) {
                     // self.balances.subtract_contract_bal_from_user(caller, token_contract_id.clone(), amount);
                     // TODO: what if the ft_transfer prom fails???
                     // TODO: the malloc call (next on the line) has to check that the prior promise resolved
                     let transfer_call_prom = contract.balances.internal_ft_transfer_call(
                         &token_id,
                         malloc_call_id.clone(),
-                        node_call.amount.to_string(),
+                        U128(node_call.amount),
                         caller.clone(),
                         None,
                     );
@@ -253,6 +286,42 @@ impl Node {
                 Ok((callback, node_call))
             }
         }
+    }
+
+    /** Helper functions **/
+    fn get_gas_for_cross_contract(&self, node_call: &NodeCall) -> Gas {
+        let total = match self {
+            Node::MallocCall {
+                gas,
+                check_callback,
+                skip_ft_transfer,
+                ..
+            } => {
+                let callback_gas = if check_callback.unwrap_or(true) {
+                    CALLBACK_GAS
+                } else {
+                    0
+                };
+                let ft_transfer_call_gas =
+                    if skip_ft_transfer.unwrap_or(false) || node_call.amount == 0 {
+                        0
+                    } else {
+                        MALLOC_CALL_CORE_GAS_FOR_FT_TRANSFER_CALL
+                    };
+                callback_gas + gas + ft_transfer_call_gas
+            }
+            Node::FtTransferCallToMallocCall { .. } => MALLOC_CALL_CORE_GAS_FOR_FT_TRANSFER_CALL,
+            Node::FtTransfer { .. } => todo!(),
+        };
+        total
+        // let ft_transfer_gas = if node_call.amount > 0 {
+        //     MALLOC_CALL_CORE_GAS_FOR_FT_TRANSFER_CALL
+        // } else {
+        //     0
+        // };
+        // let total = ft_transfer_gas + node_gas + callback_gas;
+        // log!("Gas used by cross contract calls. Ft_transfer_call: {}, node call: {}, resolve: {}, total: {}", ft_transfer_gas, node_gas, callback_gas, total);
+        // total
     }
 }
 
@@ -328,7 +397,10 @@ impl NodeCall {
                 next_node_indxs.0.get(i as u64).unwrap(),
             );
             contract.node_calls.insert(&node_call_id, &node_call);
-            log!("Pushing a node_call with index into construction node calls of {}", node_call.node_index_in_construction);
+            log!(
+                "Pushing a node_call with index into construction node calls of {}",
+                node_call.node_index_in_construction
+            );
             construction_call
                 .next_node_calls_stack
                 .0

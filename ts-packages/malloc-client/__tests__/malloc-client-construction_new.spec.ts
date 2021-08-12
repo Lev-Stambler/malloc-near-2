@@ -45,7 +45,7 @@ describe("malloc-client's ft capabilities", () => {
       true,
       amount + 20
     );
-    await malloc.registerAccountWithFungibleToken(
+    await malloc.registerAccountDeposits(
       [TestingUtils.WRAP_TESTNET_CONTRACT],
       [
         wrappedTesterAccount.accountId,
@@ -73,7 +73,7 @@ describe("malloc-client's ft capabilities", () => {
             malloc_call_id: MALLOC_CALL_PASSTHROUGH,
             token_id: TestingUtils.WRAP_TESTNET_CONTRACT,
             // check_callback: false,
-            // TODO: no json stringify!!
+            
             json_args: JSON.stringify({
               log_message: "hello for jimbo the flimbo",
             }),
@@ -86,7 +86,7 @@ describe("malloc-client's ft capabilities", () => {
             malloc_call_id: MALLOC_CALL_PASSTHROUGH,
             token_id: TestingUtils.WRAP_TESTNET_CONTRACT,
             // check_callback: false,
-            // TODO: no json stringify!!
+            
             json_args: JSON.stringify({
               log_message: "hello for bob",
             }),
@@ -99,7 +99,7 @@ describe("malloc-client's ft capabilities", () => {
             malloc_call_id: MALLOC_CALL_PASSTHROUGH,
             token_id: TestingUtils.WRAP_TESTNET_CONTRACT,
             // check_callback: false,
-            // TODO: no json stringify!!
+            
             json_args: JSON.stringify({
               log_message: "hello for alice",
             }),
@@ -151,7 +151,7 @@ describe("malloc-client's ft capabilities", () => {
       true,
       amount + 20
     );
-    await malloc.registerAccountWithFungibleToken(
+    await malloc.registerAccountDeposits(
       [TestingUtils.WRAP_TESTNET_CONTRACT],
       [
         wrappedTesterAccount.accountId,
@@ -178,7 +178,7 @@ describe("malloc-client's ft capabilities", () => {
             malloc_call_id: MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
             token_id: TestingUtils.WRAP_TESTNET_CONTRACT,
             // check_callback: false,
-            // TODO: no json stringify!!
+            
             json_args: JSON.stringify({
               log_message: "hello for alice",
             }),

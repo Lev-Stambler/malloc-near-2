@@ -2,7 +2,6 @@ import * as MallocClient from "../../lib/malloc-client";
 import * as TestingUtils from "../../../testing-utils/lib/testing-utils";
 import {
   SpecialAccountType,
-  Splitter,
   TransactionWithPromiseResultFlag,
 } from "../../lib/interfaces";
 import BN from "bn.js";
@@ -19,6 +18,7 @@ const TOKEN_ACCOUNT_IDS = [TestingUtils.WRAP_TESTNET_CONTRACT, NDAI_CONTRACT];
 let masterAccount: Account;
 let wrappedTesterAccount: MallocClient.SpecialAccountWithKeyPair;
 const REF_FINANCE_CONTRACT = "ref-finance.testnet";
+const EXTRA_DEPOSIT_FOR_FT_STORE = "1660000000000000000000";
 
 export const getMallocCallRefSwapContract = () =>
   readFileSync(
@@ -32,8 +32,8 @@ describe("ref-swap call", () => {
   jest.setTimeout(60 * 1000);
   beforeAll(async () => {
     masterAccount = await TestingUtils.getDefaultTesterAccountNear();
-    const testerAccount = await TestingUtils.newRandAccount(masterAccount);
-    wrappedTesterAccount = testerAccount;
+    // const testerAccount = await TestingUtils.newRandAccount(masterAccount);
+    wrappedTesterAccount = masterAccount;
     malloc = new MallocClient.MallocClient(
       wrappedTesterAccount,
       TestingUtils.getMallocContract()
@@ -52,7 +52,14 @@ describe("ref-swap call", () => {
       true,
       amount + 20
     );
-    await malloc.registerAccountWithFungibleToken(TOKEN_ACCOUNT_IDS, [
+
+    await malloc.registerAccountDeposits(
+      [REF_FINANCE_CONTRACT],
+      [MALLOC_CALL_SWAP_CONTRACT_ID],
+      { extraAmount: EXTRA_DEPOSIT_FOR_FT_STORE }
+    );
+
+    await malloc.registerAccountDeposits(TOKEN_ACCOUNT_IDS, [
       wrappedTesterAccount.accountId,
       malloc.mallocAccountId,
       MALLOC_CALL_SWAP_CONTRACT_ID,
@@ -87,18 +94,30 @@ describe("ref-swap call", () => {
     const txRess = await malloc.runEphemeralConstruction(
       [
         {
+          FtTransferCallToMallocCall: {
+            malloc_call_id: MALLOC_CALL_SWAP_CONTRACT_ID,
+            token_id: TestingUtils.WRAP_TESTNET_CONTRACT,
+          },
+        },
+        {
           MallocCall: {
             malloc_call_id: MALLOC_CALL_SWAP_CONTRACT_ID,
             token_id: TestingUtils.WRAP_TESTNET_CONTRACT,
+            check_callback: false,
+            skip_ft_transfer: true,
             json_args: JSON.stringify({
               token_out: NDAI_CONTRACT,
               pool_id: wNearToDAIPoolId,
               min_amount_out: minDaiRetrun.toString(),
               // TODO: this will be removed
-              register_tokens: [], //[NDAI_CONTRACT, TestingUtils.WRAP_TESTNET_CONTRACT],
+              register_tokens: [
+                NDAI_CONTRACT,
+                TestingUtils.WRAP_TESTNET_CONTRACT,
+              ],
               recipient: masterAccount.accountId,
             }),
-            gas: MAX_GAS.divn(2).toNumber(),
+            // 2/3 rds of max gas and have the remaining third for processing the call
+            gas: MAX_GAS.divn(100).muln(72).toNumber(),
             attached_amount: "16",
           },
         },

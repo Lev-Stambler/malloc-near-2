@@ -19,7 +19,7 @@ const GAS_FOR_FT_TRANSFER_CALL_NEP141: Gas = GAS_FOR_FT_RESOLVE_TRANSFER_NEP141
     + 25_000_000_000_000
     + GAS_BUFFER;
 
-pub const GAS_FOR_FT_TRANSFER_CALL: Gas =
+pub const MALLOC_CALL_CORE_GAS_FOR_FT_TRANSFER_CALL: Gas =
     GAS_FOR_FT_TRANSFER_CALL_NEP141 + GAS_FOR_INTERNAL_RESOLVE + GAS_BUFFER;
 
 const RESOLVE_FT_NAME: &str = "resolve_internal_ft_transfer_call";
@@ -94,14 +94,15 @@ impl FungibleTokenBalances {
         "0".to_string()
     }
 
-    pub fn internal_ft_transfer_call_custom_message(
+    pub fn internal_ft_transfer_call_custom(
         &mut self,
         token_id: &AccountId,
         recipient: AccountId,
-        amount: String,
+        amount: U128,
         sender: AccountId,
         prior_promise: Option<u64>,
         custom_message: String,
+        amount_near: Balance
     ) -> u64 {
         self._internal_ft_transfer_call(
             token_id,
@@ -110,6 +111,7 @@ impl FungibleTokenBalances {
             sender,
             prior_promise,
             Some(custom_message),
+            amount_near,
         )
     }
 
@@ -117,11 +119,11 @@ impl FungibleTokenBalances {
         &mut self,
         token_id: &AccountId,
         recipient: AccountId,
-        amount: String,
+        amount: U128,
         sender: AccountId,
         prior_promise: Option<u64>,
     ) -> u64 {
-        self._internal_ft_transfer_call(token_id, recipient, amount, sender, prior_promise, None)
+        self._internal_ft_transfer_call(token_id, recipient, amount, sender, prior_promise, None, 1)
     }
 
     /// Do an internal transfer and subtract the internal balance for {@param sender}
@@ -131,19 +133,18 @@ impl FungibleTokenBalances {
         &mut self,
         token_id: &AccountId,
         recipient: AccountId,
-        amount: String,
+        amount: U128,
         sender: AccountId,
         prior_promise: Option<u64>,
         custom_message: Option<String>,
+        amount_near: Balance,
     ) -> u64 {
         let data =
             Self::get_transfer_call_data(recipient, amount.clone(), sender.clone(), custom_message);
 
         let current_balance = self.get_ft_balance(&sender, &token_id);
 
-        let amount_parsed = amount
-            .parse()
-            .unwrap_or_else(|e| panic!("Failed to parse result with {}", e));
+        let amount_parsed = amount.0;
 
         if current_balance < amount_parsed {
             panic!("The callee did not deposit sufficient funds");
@@ -161,7 +162,7 @@ impl FungibleTokenBalances {
                     prom_batch,
                     FT_TRANSFER_CALL_METHOD_NAME.as_bytes(),
                     &data,
-                    1,
+                amount_near,
                     GAS_FOR_FT_TRANSFER_CALL_NEP141,
                 );
                 prom_batch
@@ -171,7 +172,7 @@ impl FungibleTokenBalances {
                 token_id.to_string(),
                 FT_TRANSFER_CALL_METHOD_NAME.as_bytes(),
                 &data,
-                1,
+                amount_near,
                 GAS_FOR_FT_TRANSFER_CALL_NEP141,
             ),
         };
@@ -235,7 +236,7 @@ impl FungibleTokenBalances {
 
     fn get_transfer_call_data(
         recipient: String,
-        amount: String,
+        amount: U128,
         sender: String,
         custom_message: Option<String>,
     ) -> Vec<u8> {

@@ -19,7 +19,10 @@ import {
   SpecialAccountType,
   SpecialAccountWithKeyPair,
 } from "../../malloc-client/lib/interfaces";
-import { wrapAccount } from "../../malloc-client/lib/malloc-client";
+import {
+  MallocClient,
+  wrapAccount,
+} from "../../malloc-client/lib/malloc-client";
 import tester from "./tester.json";
 
 let generatedAccounts: Account[] = [];
@@ -70,13 +73,18 @@ export const getMallocContract = () =>
     join(__dirname, "../../../rust/packages/contract/neardev/dev-account")
   ).toString();
 
-export const getDefaultTesterAccountNear = async (): Promise<Account> => {
-  const near = await createNear({
-    privateKey: tester.private_key,
-    accountId: tester.account_id,
-  });
-  return await near.account(tester.account_id);
-};
+export const getDefaultTesterAccountNear =
+  async (): Promise<SpecialAccountWithKeyPair> => {
+    const near = await createNear({
+      privateKey: tester.private_key,
+      accountId: tester.account_id,
+    });
+    return wrapAccount(
+      await near.account(tester.account_id),
+      SpecialAccountType.KeyPair,
+      new KeyPairEd25519(tester.private_key.split(":")[1])
+    ) as SpecialAccountWithKeyPair;
+  };
 
 export const getDefaultTesterKeypair = (): KeyPair =>
   KeyPair.fromString(tester.private_key);
@@ -188,7 +196,7 @@ export const newRandAccount = async (
   await _masterAccount.createAccount(
     newAccountId,
     kp.getPublicKey(),
-    new BN(utils.format.parseNearAmount("0.8") as string)
+    new BN(utils.format.parseNearAmount("1.2") as string)
   );
   const near = await createNear({
     accountId: newAccountId,

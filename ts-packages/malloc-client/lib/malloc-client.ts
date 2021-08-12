@@ -5,7 +5,6 @@ import {
   KeyPair,
 } from "near-api-js";
 import { MallocErrors } from "./errors";
-import { getTokenBalance, registerFtsTxs } from "./ft-token";
 import {
   AccountId,
   SpecialAccountWithKeyPair,
@@ -32,6 +31,8 @@ import {
   resolveTransactionsReducedWithPromises,
   resolveTransactionsWithPromise,
 } from "./tx";
+import { getTokenBalance } from "./ft-token";
+import { registerDepositsTxs } from "./storage-deposit";
 
 export * from "./interfaces";
 
@@ -63,7 +64,9 @@ interface RunEphemeralOpts {
 interface MallocClientOpts {}
 
 const mallocClientDefaultOpts: MallocClientOpts = {};
-interface RegisterAccountWithFungibleTokenOpts {}
+interface RegisterAccountDepositsOpts {
+  extraAmount: BigNumberish;
+}
 
 /**
  * MallocClient is the for interacting with the set of Malloc Contracts via the Malloc SDK
@@ -191,22 +194,23 @@ export class MallocClient<
   }
 
   /**
-   * @param  {AccountId[]} tokens A list of the token contract account ids
+   * @param  {AccountId[]} contracts A list of the token contract account ids
    * @param  {AccountId[]} registerForAccounts The accounts to register for all the token contracts
-   * @param  {RegisterAccountWithFungibleTokenOpts} opts?
+   * @param  {RegisterAccountDepositsOpts} opts?
    * @returns A list of token account ids which were newly registered
    */
-  public async registerAccountWithFungibleToken(
-    tokens: AccountId[],
+  public async registerAccountDeposits(
+    contracts: AccountId[],
     registerForAccounts: AccountId[],
-    opts?: RegisterAccountWithFungibleTokenOpts
+    opts?: RegisterAccountDepositsOpts
   ): Promise<AccountId[]> {
-    const { txs, tokensToRegister } = await registerFtsTxs(
-      tokens,
+    const { txs, contractsToRegister } = await registerDepositsTxs(
+      contracts,
       registerForAccounts,
-      this.account
+      this.account,
+      opts?.extraAmount
     );
     await executeMultipleTx(this.account, txs);
-    return tokensToRegister;
+    return contractsToRegister;
   }
 }

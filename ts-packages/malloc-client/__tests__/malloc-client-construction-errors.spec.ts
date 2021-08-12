@@ -50,7 +50,7 @@ describe("malloc-client's error handling", () => {
       true,
       amount + 20
     );
-    await malloc.registerAccountWithFungibleToken(
+    await malloc.registerAccountDeposits(
       [TestingUtils.WRAP_TESTNET_CONTRACT],
       [
         wrappedTesterAccount.accountId,
@@ -73,7 +73,7 @@ describe("malloc-client's error handling", () => {
               {
                 MallocCall: {
                   contract_id: TestingUtils.getMallocCallPassthroughContract(),
-                  // TODO: no json stringify!!
+                  
                   json_args: JSON.stringify({
                     log_message: "hello an error for alice level 1",
                   }),
@@ -91,7 +91,7 @@ describe("malloc-client's error handling", () => {
                 MallocCall: {
                   check_callback: false,
                   contract_id: MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
-                  // TODO: no json stringify!!
+                  
                   json_args: JSON.stringify({
                     log_message: "hello for alice level 1",
                   }),
@@ -144,7 +144,7 @@ describe("malloc-client's error handling", () => {
               {
                 MallocCall: {
                   contract_id: TestingUtils.getMallocCallPassthroughContract(),
-                  // TODO: no json stringify!!
+                  
                   json_args: JSON.stringify({
                     log_message: "hello an error for alice level 1",
                   }),
@@ -161,7 +161,7 @@ describe("malloc-client's error handling", () => {
               {
                 MallocCall: {
                   contract_id: TestingUtils.getMallocCallErrorContract(),
-                  // TODO: no json stringify!!
+                  
                   json_args: JSON.stringify({
                     log_message: "hello an error for alice level 2",
                   }),
@@ -179,7 +179,7 @@ describe("malloc-client's error handling", () => {
                 MallocCall: {
                   check_callback: false,
                   contract_id: MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
-                  // TODO: no json stringify!!
+                  
                   json_args: JSON.stringify({
                     log_message: "hello for alice level 1",
                   }),
@@ -226,7 +226,7 @@ describe("malloc-client's error handling", () => {
       true,
       amount + 20
     );
-    await malloc.registerAccountWithFungibleToken(
+    await malloc.registerAccountDeposits(
       [TestingUtils.WRAP_TESTNET_CONTRACT],
       [
         wrappedTesterAccount.accountId,
@@ -258,7 +258,7 @@ describe("malloc-client's error handling", () => {
               {
                 MallocCall: {
                   contract_id: TestingUtils.getMallocCallBlackwholeContract(),
-                  // TODO: no json stringify!!
+                  
                   json_args: JSON.stringify({
                     log_message: "hello an error for alice level 1",
                   }),
@@ -269,7 +269,7 @@ describe("malloc-client's error handling", () => {
               {
                 MallocCall: {
                   contract_id: TestingUtils.getMallocCallErrorContract(),
-                  // TODO: no json stringify!!
+                  
                   json_args: JSON.stringify({
                     log_message: "hello an error for alice level 1",
                   }),

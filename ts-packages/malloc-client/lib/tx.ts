@@ -223,7 +223,7 @@ export const resolveTransactionsWithPromise = async (
         flag: TransactionWithPromiseResultFlag.SUCCESS,
       };
     }
-    console.log(result);
+    console.log(JSON.stringify(result));
     return {
       // TODO: add some reason or something for this!!
       flag: TransactionWithPromiseResultFlag.FAILURE,

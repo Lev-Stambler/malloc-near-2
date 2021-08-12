@@ -19,7 +19,7 @@ use construction::{
     NextNodesIndicesForConstruction, NextNodesSplitsForConstruction,
 };
 use malloc_call_core::ft::{FungibleTokenBalances, FungibleTokenHandlers};
-use malloc_call_core::{MallocCallFT, ReturnItem};
+use malloc_call_core::{MallocCallFT, GasUsage, ReturnItem};
 // To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet, Vector};
@@ -181,6 +181,7 @@ impl CoreFunctionality for Contract {
     #[payable]
     fn process_next_node_call(&mut self, construction_call_id: ConstructionCallId) {
         self._run_step(construction_call_id);
+        log!("Gas used: {}", env::used_gas());
         // let mut construction_call = self.get_construction_call_unchecked(&construction_call_id);
         // assert_eq!(construction_call.caller, env::predecessor_account_id());
         // let ret_prom = self._run_step(construction_call_id);
@@ -193,10 +194,18 @@ impl Contract {
     pub fn get_node_call_unchecked(&self, id: U64) -> NodeCall {
         self.node_calls.get(&id.into()).unwrap()
     }
+
     pub fn get_construction_call_unchecked(&self, id: &ConstructionCallId) -> ConstructionCall {
         self.construction_calls
             .get(&id)
             .unwrap_or_else(|| panic!(Errors::CONSTRUCTION_NOT_FOUND))
+    }
+}
+
+#[near_bindgen]
+impl GasUsage for Contract {
+    fn get_gas_usage(&self) -> Gas {
+        75_000_000_000_000
     }
 }
 

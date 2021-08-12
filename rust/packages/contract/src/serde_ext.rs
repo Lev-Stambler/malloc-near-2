@@ -68,8 +68,6 @@ where
     where
         A: near_sdk::serde::de::SeqAccess<'de>,
     {
-        // Ah shit random seed is always the same... cause its a seed
-        // TODO: need some value that is different
         let mut unique_prefix = env::random_seed();
         unique_prefix.append(&mut used_gas().to_be_bytes().to_vec());
         let mut ret_seq: VectorWrapper<T> = VectorWrapper(Vector::new(unique_prefix));

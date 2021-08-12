@@ -4,13 +4,13 @@ import {
   SpecialAccountType,
   SpecialAccountWithKeyPair,
 } from "../lib/interfaces";
-import BN from "bn.js";
-import { Contract } from "near-api-js";
 
 let malloc: MallocClient.MallocClient<SpecialAccountWithKeyPair>;
-const TOKEN_ACCOUNT_IDS = [TestingUtils.WRAP_TESTNET_CONTRACT];
+const TOKEN_ACCOUNT_IDS = [
+  TestingUtils.WRAP_TESTNET_CONTRACT,
+  "ndai.ft-fin.testnet",
+];
 let wrappedAccount: MallocClient.SpecialAccountWithKeyPair;
-let wrappedContract: Contract;
 
 describe("malloc-client's ft capabilities", () => {
   jest.setTimeout(30 * 1000);
@@ -25,57 +25,33 @@ describe("malloc-client's ft capabilities", () => {
       wrappedAccount,
       TestingUtils.getMallocContract()
     );
-    wrappedContract = await TestingUtils.getFtContract(
-      wrappedAccount,
-      TestingUtils.WRAP_TESTNET_CONTRACT
-    );
   });
 
   // TODO: test w/ the multiple account ids
 
-  it("should deposit wNear into the Malloc Contract", async () => {
-    const amount = 100;
-    await TestingUtils.setupWNearAccount(
-      TestingUtils.WRAP_TESTNET_CONTRACT,
-      wrappedAccount.accountId,
-      wrappedAccount,
-      true,
-      amount + 20
-    );
-    const priorBalOnMallocRegistry = await malloc.getTokenBalance(
-      wrappedAccount.accountId,
-      TestingUtils.WRAP_TESTNET_CONTRACT
-    );
-    const priorBalOnWrapRegistry = await (wrappedContract as any).ft_balance_of(
-      { account_id: malloc.mallocAccountId }
-    );
-    const tokensRegistered = await malloc.registerAccountWithFungibleToken(
+  it("should register an accountId with the given fungible tokens with one tx call, then ensure that the tokens are not reregistered", async () => {
+    const bob = await TestingUtils.newRandAccount(wrappedAccount);
+    const alice = await TestingUtils.newRandAccount(wrappedAccount);
+    const tokensRegistered = await malloc.registerAccountDeposits(
       TOKEN_ACCOUNT_IDS,
-      [malloc.mallocAccountId]
+      [bob.accountId]
     );
-
-    const tx = await malloc.deposit(amount.toString(), TestingUtils.WRAP_TESTNET_CONTRACT);
-
-    const newBalOnWrapRegistry = await (wrappedContract as any).ft_balance_of({
-      account_id: malloc.mallocAccountId,
-    });
-    const newBalOnMallocRegistry = await malloc.getTokenBalance(
-      wrappedAccount.accountId,
-      TestingUtils.WRAP_TESTNET_CONTRACT
+    console.log(tokensRegistered);
+    expect(tokensRegistered.sort()).toEqual(TOKEN_ACCOUNT_IDS.sort());
+    for (let i = 0; i < tokensRegistered.length; i++) {
+      expect(
+        await TestingUtils.isFtRegistered(
+          tokensRegistered[i],
+          bob.accountId,
+          wrappedAccount
+        )
+      ).toBeTruthy();
+    }
+    const newTokensRegistered = await malloc.registerAccountDeposits(
+      TOKEN_ACCOUNT_IDS,
+      [bob.accountId]
     );
-
-    TestingUtils.checkBalDifferences(
-      priorBalOnMallocRegistry,
-      newBalOnMallocRegistry,
-      amount,
-      expect
-    );
-    TestingUtils.checkBalDifferences(
-      priorBalOnWrapRegistry,
-      newBalOnWrapRegistry,
-      amount,
-      expect
-    );
+    expect(newTokensRegistered).toEqual([]);
   });
 
   afterAll(async () => {

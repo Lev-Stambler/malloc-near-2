@@ -17,8 +17,6 @@ pub fn resolver_method_name() -> Vec<u8> {
 #[serde(crate = "near_sdk::serde")]
 pub struct MallocCallMetadata {
     pub name: String,
-    pub minimum_gas: Option<U128>,
-    pub minimum_attached_deposit: Option<U128>,
 }
 
 /// The call should return a Vec of ReturnItems
@@ -32,6 +30,14 @@ pub struct ReturnItem {
 // TODO: implement for calls
 pub trait Revert {
     //    fn revert()
+}
+
+pub trait GasUsage {
+    fn get_gas_usage(&self) -> Gas;
+}
+
+pub trait DepositRequirement {
+    fn get_deposit_requirement(&self) -> U128;
 }
 
 // TODO: delete me
@@ -59,7 +65,7 @@ pub trait MallocCallWithCallback<CallArgs, ResolverArgs, CallReturnType> {
     fn malloc_call(
         &mut self,
         args: CallArgs,
-        amount: String,
+        amount: U128,
         token_id: ValidAccountId,
         caller: ValidAccountId,
     ) -> CallReturnType;
