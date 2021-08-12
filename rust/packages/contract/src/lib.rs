@@ -11,11 +11,15 @@
  *
  */
 
-use std::fmt::format;
+use std::fmt::{format, Result};
 use std::{string, usize};
 
-use construction::{Construction, ConstructionCall, ConstructionCallId, ConstructionId};
+use construction::{
+    Construction, ConstructionCall, ConstructionCallId, ConstructionId,
+    NextNodesIndicesForConstruction, NextNodesSplitsForConstruction,
+};
 use malloc_call_core::ft::{FungibleTokenBalances, FungibleTokenHandlers};
+use malloc_call_core::ReturnItem;
 // To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet, Vector};
@@ -36,7 +40,7 @@ mod construction;
 pub mod errors;
 // mod malloc_utils;
 mod node;
-// mod node_callback;
+mod node_callback;
 mod serde_ext;
 // mod storage;
 mod test_utils;
@@ -79,6 +83,8 @@ pub trait CoreFunctionality {
         initial_splits: VectorWrapper<u128>,
         // TODO: disable?
         caller: Option<ValidAccountId>,
+        next_nodes_indices: NextNodesIndicesForConstruction,
+        next_nodes_splits: NextNodesSplitsForConstruction,
     );
     fn delete_construction(&mut self, construction_id: ConstructionId);
     fn process_next_node_call(&mut self, construction_call_id: ConstructionCallId);
@@ -101,8 +107,10 @@ impl CoreFunctionality for Contract {
 
         let owner = Some(env::predecessor_account_id());
         for i in 0..node_names.len() {
-            self.nodes
-                .insert(&NodeId::new(node_names[i].clone(), owner.clone()), &nodes[i]);
+            self.nodes.insert(
+                &NodeId::new(node_names[i].clone(), owner.clone()),
+                &nodes[i],
+            );
         }
     }
 
@@ -120,6 +128,8 @@ impl CoreFunctionality for Contract {
         initial_node_indices: Vec<u64>,
         initial_splits: VectorWrapper<u128>,
         caller: Option<ValidAccountId>,
+        next_nodes_indices: NextNodesIndicesForConstruction,
+        next_nodes_splits: NextNodesSplitsForConstruction,
     ) {
         let caller = if let Some(caller) = caller {
             caller.into()
@@ -150,6 +160,8 @@ impl CoreFunctionality for Contract {
             construction_id,
             &construction_call_id,
             node_call_ids,
+            next_nodes_indices,
+            next_nodes_splits,
         )
         .unwrap_or_else(|e| panic!(e));
 
@@ -185,28 +197,25 @@ impl Contract {
     }
 }
 
-// #[near_bindgen]
-// impl Contract {
-//     // TODO: clean up
-//     #[private]
-//     #[payable]
-//     pub fn handle_node_callback(
-//         &mut self,
-//         construction_call_id: ConstructionCallId,
-//         splitter_call_id: SplitterCallId,
-//         splitter_idx: u64,
-//         node_idx: u64,
-//         caller: AccountId,
-//     ) -> Option<u64> {
-//         self.handle_node_callback_internal(
-//             construction_call_id,
-//             splitter_call_id,
-//             splitter_idx,
-//             node_idx,
-//             caller,
-//         )
-//     }
-// }
+#[near_bindgen]
+impl Contract {
+    #[private]
+    #[payable]
+    pub fn handle_node_callback(
+        &mut self,
+        construction_call_id: ConstructionCallId,
+        node_call_id: u64,
+        caller: AccountId,
+    ) -> Option<u64> {
+        // TODO: err handle!!
+        let node_call = self.node_calls.get(&node_call_id).unwrap();
+        let results: Vec<ReturnItem> = match utils::promise_result_as_success() {
+            None => panic!("TODO: err handle here"),
+            Some(bytes) => serde_json::from_slice(&bytes).unwrap(), // TODO: err handle
+        };
+        node_call.handle_node_callback_internal(self, construction_call_id, caller, results)
+    }
+}
 
 /// ************ Fungible Token handlers ***************************
 #[near_bindgen]

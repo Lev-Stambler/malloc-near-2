@@ -1,3 +1,4 @@
+use crate::node::{NextNodesIndicesForNode, NextNodesSplitsForNode, NodeId};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{collections::Vector, env, AccountId};
@@ -13,6 +14,9 @@ pub struct Construction {
 
 pub type ConstructionId = GenericId;
 
+pub type NextNodesIndicesForConstruction = VectorWrapper<NextNodesIndicesForNode>;
+pub type NextNodesSplitsForConstruction = VectorWrapper<NextNodesSplitsForNode>;
+
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct ConstructionCall {
@@ -23,11 +27,14 @@ pub struct ConstructionCall {
     /// A vector which indexes into the node call vector
     pub next_node_calls_stack: VectorWrapper<u64>,
     pub node_calls: VectorWrapper<NodeCallId>,
+
+    // TODO: move into separate lookup table with id ref???
+    pub next_nodes_indices_in_construction: NextNodesIndicesForConstruction,
+    pub next_nodes_splits: NextNodesSplitsForConstruction,
 }
 
-use crate::GenericId;
 use crate::errors::Errors;
-use crate::node::NodeId;
+use crate::GenericId;
 use crate::{errors::MallocError, serde_ext::VectorWrapper, Contract, NodeCallId};
 
 impl Construction {
@@ -43,7 +50,7 @@ impl Construction {
             let frac = (splits.0.get(i).unwrap() as f64) / (split_sum as f64);
             let transfer_amount_float = frac * amount as f64;
             let transfer_amount = transfer_amount_float.floor() as u128;
-						amounts.push(transfer_amount);
+            amounts.push(transfer_amount);
         }
         amounts
     }
@@ -57,6 +64,8 @@ impl ConstructionCall {
         construction_id: ConstructionId,
         construction_call_id: &ConstructionCallId,
         node_call_ids: VectorWrapper<NodeCallId>,
+        next_nodes_indices: NextNodesIndicesForConstruction,
+        next_nodes_splits: NextNodesSplitsForConstruction,
     ) -> Result<ConstructionCall, MallocError> {
         // Ensure the construction call id is not already registered
         assert!(
@@ -86,6 +95,8 @@ impl ConstructionCall {
             construction_id,
             node_calls: node_call_ids,
             next_node_calls_stack: node_call_stack,
+            next_nodes_indices_in_construction: next_nodes_indices,
+            next_nodes_splits,
         })
     }
 }
