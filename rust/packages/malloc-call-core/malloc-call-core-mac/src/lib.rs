@@ -56,9 +56,9 @@ pub fn malloc_call_ft(input: TokenStream) -> TokenStream {
             }
 
             #[private]
-            fn subtract_ft_balance(&mut self, account_id: AccountId, token_id: AccountId) {
+            fn resolve_internal_ft_transfer_call(&mut self, account_id: AccountId, token_id: AccountId, amount: near_sdk::json_types::U128) {
                 self.balances
-                    .subtract_contract_bal_from_user(&account_id, token_id);
+                    .resolve_internal_ft_transfer_call(&account_id, token_id, amount);
             }
         }
     };

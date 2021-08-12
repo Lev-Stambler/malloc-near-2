@@ -7,11 +7,11 @@ use near_sdk::json_types::ValidAccountId;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::serde_json::json;
 use near_sdk::{collections::LookupMap, json_types::U128, AccountId, Balance};
-use near_sdk::{env, serde_json, Gas, PromiseResult};
+use near_sdk::{env, log, serde_json, Gas, PromiseResult};
 
 // TODO: make lower??
 const GAS_BUFFER: Gas = 2_000_000_000_000;
-const GAS_FOR_INTERNAL_SUBTRACT: Gas = 5_000_000_000_000;
+const GAS_FOR_INTERNAL_RESOLVE: Gas = 5_000_000_000_000;
 const GAS_FOR_ON_TRANSFER_NEP141: Gas = 5_000_000_000_000;
 const GAS_FOR_FT_RESOLVE_TRANSFER_NEP141: Gas = 5_000_000_000_000;
 const GAS_FOR_FT_TRANSFER_CALL_NEP141: Gas = GAS_FOR_FT_RESOLVE_TRANSFER_NEP141
@@ -20,9 +20,9 @@ const GAS_FOR_FT_TRANSFER_CALL_NEP141: Gas = GAS_FOR_FT_RESOLVE_TRANSFER_NEP141
     + GAS_BUFFER;
 
 pub const GAS_FOR_FT_TRANSFER_CALL: Gas =
-    GAS_FOR_FT_TRANSFER_CALL_NEP141 + GAS_FOR_INTERNAL_SUBTRACT + GAS_BUFFER;
+    GAS_FOR_FT_TRANSFER_CALL_NEP141 + GAS_FOR_INTERNAL_RESOLVE + GAS_BUFFER;
 
-const SUBTRACT_FT_BALANCE_NAME: &str = "subtract_ft_balance";
+const RESOLVE_FT_NAME: &str = "resolve_internal_ft_transfer_call";
 const FT_TRANSFER_CALL_METHOD_NAME: &str = "ft_transfer_call";
 
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -36,7 +36,12 @@ pub trait FungibleTokenHandlers {
     fn ft_on_transfer(&mut self, sender_id: String, amount: String, msg: String) -> String;
     fn get_ft_balance(&self, account_id: AccountId, token_id: AccountId) -> U128;
     /// A private function
-    fn subtract_ft_balance(&mut self, account_id: AccountId, token_id: AccountId);
+    fn resolve_internal_ft_transfer_call(
+        &mut self,
+        account_id: AccountId,
+        token_id: AccountId,
+        amount: U128,
+    );
 }
 
 #[derive(Serialize, Deserialize)]
@@ -64,10 +69,15 @@ impl FungibleTokenBalances {
         current_amount
     }
 
-    pub fn ft_on_transfer(&mut self, sender_id: String, amount: String, msg: String) -> String {
+    pub fn ft_on_transfer(
+        &mut self,
+        ft_transfer_sender_id: String,
+        amount: String,
+        msg: String,
+    ) -> String {
         let opts: OnTransferOpts = if (&msg).len() == 0 {
             OnTransferOpts {
-                sender_id: sender_id.clone().into(),
+                sender_id: ft_transfer_sender_id.clone().into(),
             }
         } else {
             serde_json::from_str(&msg)
@@ -77,11 +87,30 @@ impl FungibleTokenBalances {
         let current_amount = self.get_ft_balance(&opts.sender_id, &token_id);
         let amount = amount.parse::<u128>().unwrap();
         self.account_to_contract_balances.insert(
-            &Self::get_balances_key(&sender_id, &token_id),
+            &Self::get_balances_key(&opts.sender_id, &token_id),
             &(amount + current_amount),
         );
 
         "0".to_string()
+    }
+
+    pub fn internal_ft_transfer_call_custom_message(
+        &mut self,
+        token_id: &AccountId,
+        recipient: AccountId,
+        amount: String,
+        sender: AccountId,
+        prior_promise: Option<u64>,
+        custom_message: String,
+    ) -> u64 {
+        self._internal_ft_transfer_call(
+            token_id,
+            recipient,
+            amount,
+            sender,
+            prior_promise,
+            Some(custom_message),
+        )
     }
 
     pub fn internal_ft_transfer_call(
@@ -92,7 +121,38 @@ impl FungibleTokenBalances {
         sender: AccountId,
         prior_promise: Option<u64>,
     ) -> u64 {
-        let data = Self::get_transfer_call_data(recipient, amount, sender.clone());
+        self._internal_ft_transfer_call(token_id, recipient, amount, sender, prior_promise, None)
+    }
+
+    /// Do an internal transfer and subtract the internal balance for {@param sender}
+    ///
+    /// If there is a custom message, use that for the ft transfer. If not, use the default On Transfer Message
+    fn _internal_ft_transfer_call(
+        &mut self,
+        token_id: &AccountId,
+        recipient: AccountId,
+        amount: String,
+        sender: AccountId,
+        prior_promise: Option<u64>,
+        custom_message: Option<String>,
+    ) -> u64 {
+        let data =
+            Self::get_transfer_call_data(recipient, amount.clone(), sender.clone(), custom_message);
+
+        let current_balance = self.get_ft_balance(&sender, &token_id);
+
+        let amount_parsed = amount
+            .parse()
+            .unwrap_or_else(|e| panic!("Failed to parse result with {}", e));
+
+        if current_balance < amount_parsed {
+            panic!("The callee did not deposit sufficient funds");
+        }
+
+        self.account_to_contract_balances.insert(
+            &Self::get_balances_key(&sender, &token_id),
+            &(current_balance - amount_parsed),
+        );
 
         let ft_transfer_prom = match prior_promise {
             None => {
@@ -115,20 +175,38 @@ impl FungibleTokenBalances {
                 GAS_FOR_FT_TRANSFER_CALL_NEP141,
             ),
         };
-        let subtract_args = json!({"account_id": &sender, "token_id": &token_id});
+        let internal_resolve_args =
+            json!({"account_id": &sender, "token_id": &token_id, "amount": amount});
         env::promise_then(
             ft_transfer_prom,
             env::current_account_id(),
-            SUBTRACT_FT_BALANCE_NAME.as_bytes(),
-            subtract_args.to_string().as_bytes(),
+            RESOLVE_FT_NAME.as_bytes(),
+            internal_resolve_args.to_string().as_bytes(),
             0,
-            GAS_FOR_INTERNAL_SUBTRACT,
+            GAS_FOR_INTERNAL_RESOLVE,
         )
     }
 
-    pub fn subtract_contract_bal_from_user(&mut self, account_id: &AccountId, token_id: AccountId) {
-        let amount = match near_sdk::utils::promise_result_as_success() {
-            None => panic!("Failed to get the transfer results"),
+    pub fn resolve_internal_ft_transfer_call(
+        &mut self,
+        account_id: &AccountId,
+        token_id: AccountId,
+        amount: U128,
+    ) {
+        let amount: u128 = amount.into();
+        if amount == 0 {
+            return;
+        }
+
+        let current_balance = self.get_ft_balance(account_id, &token_id);
+        match near_sdk::utils::promise_result_as_success() {
+            None => {
+                log!("The FT transfer call failed, redepositing funds");
+                self.account_to_contract_balances.insert(
+                    &Self::get_balances_key(&account_id, &token_id),
+                    &(current_balance + amount),
+                );
+            }
             Some(data) => {
                 // TODO: err handling?
                 let amount_used_str: String = serde_json::from_slice(data.as_slice())
@@ -136,26 +214,18 @@ impl FungibleTokenBalances {
                         panic!("Failed to deserialize ft_transfer_call result {}", e)
                     });
                 let amount_used = amount_used_str
-                    .parse()
+                    .parse::<u128>()
                     .unwrap_or_else(|e| panic!("Failed to parse result with {}", e));
-                amount_used
+                let amount_unused = amount - amount_used;
+                log!("Amount unused {}", amount_unused);
+                if amount_unused > 0 {
+                    self.account_to_contract_balances.insert(
+                        &Self::get_balances_key(&account_id, &token_id),
+                        &(current_balance + amount_unused),
+                    );
+                }
             }
         };
-
-        if amount == 0 {
-            return;
-        }
-
-        let current_balance = self.get_ft_balance(account_id, &token_id);
-
-        if current_balance < amount {
-            panic!("The callee did not deposit sufficient funds");
-        }
-
-        self.account_to_contract_balances.insert(
-            &Self::get_balances_key(&account_id, &token_id),
-            &(current_balance - amount),
-        );
     }
 
     /********** Helper functions **************/
@@ -163,13 +233,23 @@ impl FungibleTokenBalances {
         format!("{}-.-{}", account_id, token_id)
     }
 
-    fn get_transfer_call_data(recipient: String, amount: String, sender: String) -> Vec<u8> {
-        let on_transfer_opts = OnTransferOpts { sender_id: sender };
-        // TODO: unwrapping ok?
-        let stringified = serde_json::to_string(&on_transfer_opts).unwrap();
-        json!({ "receiver_id": recipient, "amount": amount, "msg": stringified})
-            .to_string()
-            .into_bytes()
+    fn get_transfer_call_data(
+        recipient: String,
+        amount: String,
+        sender: String,
+        custom_message: Option<String>,
+    ) -> Vec<u8> {
+        if let Some(msg) = custom_message {
+            json!({ "receiver_id": recipient, "amount": amount, "msg": msg})
+                .to_string()
+                .into_bytes()
+        } else {
+            let on_transfer_opts = OnTransferOpts { sender_id: sender };
+            // TODO: unwrapping ok?
+            json!({ "receiver_id": recipient, "amount": amount, "msg": serde_json::to_string(&on_transfer_opts).unwrap() })
+                .to_string()
+                .into_bytes()
+        }
     }
 }
 

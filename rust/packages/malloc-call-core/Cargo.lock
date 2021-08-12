@@ -243,6 +243,7 @@ name = "malloc-call-core-mac"
 version = "0.1.0"
 dependencies = [
  "near-sdk",
+ "proc-macro2",
  "quote",
  "syn",
 ]

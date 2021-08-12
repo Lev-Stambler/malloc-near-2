@@ -122,7 +122,7 @@ describe("malloc-client's ft capabilities", () => {
       ],
       amount.toString(),
       [0, 1, 2],
-      [1, 2],
+      [1, 2, 3],
       [[[1]], [[2]], [[3]], []],
       [[[1]], [[1]], [[1]], []],
       { gas: MAX_GAS, depositTransactionHash }

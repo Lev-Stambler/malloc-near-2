@@ -73,13 +73,9 @@ impl MallocCallWithCallback<PassThroughArgs, ResolverArgs, ()> for Contract {
         });
         let caller: AccountId = caller.into();
         // Send the money back to malloc contract
-        let transfer_prom = self.balances.internal_ft_transfer_call(
-            &token_id,
-            caller,
-            amount,
-            env::predecessor_account_id(),
-            None,
-        );
+        let transfer_prom = self
+            .balances
+            .internal_ft_transfer_call(&token_id, env::predecessor_account_id(), amount, caller, None);
         // TODO: needs to chec that the transfer was successful
         let ret_prom = env::promise_then(
             transfer_prom,

@@ -306,6 +306,9 @@ impl NodeCall {
                 amounts[i as usize],
             );
         }
+        contract
+            .construction_calls
+            .insert(&construction_call_id, &construction_call);
         None
     }
 
@@ -325,6 +328,7 @@ impl NodeCall {
                 next_node_indxs.0.get(i as u64).unwrap(),
             );
             contract.node_calls.insert(&node_call_id, &node_call);
+            log!("Pushing a node_call with index into construction node calls of {}", node_call.node_index_in_construction);
             construction_call
                 .next_node_calls_stack
                 .0

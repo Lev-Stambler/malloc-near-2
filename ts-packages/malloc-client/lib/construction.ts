@@ -98,7 +98,6 @@ export const deleteConstruction = async <
         },
       ],
     },
-    ,
   ];
 
   const txRetsInit = await executeMultipleTx(callerAccount, txs);
@@ -205,6 +204,14 @@ export const runEphemeralConstruction = async (
             gas: MAX_GAS.divn(3).toString(),
             amount: "0", //TODO: storage deposit goes here ya heard
           },
+        ],
+      },
+    ];
+
+    const initTx = [
+      {
+        receiverId: mallocAccountId,
+        functionCalls: [
           {
             methodName: "init_construction",
             args: {
@@ -226,7 +233,7 @@ export const runEphemeralConstruction = async (
       },
     ];
 
-    const txRetsInit = await executeMultipleTx(callerAccount, txs);
+    const txRetsInit = await executeMultipleTx(callerAccount, [...txs, ...initTx]);
 
     // Throws if unsuccessful
     await checkTransactionSuccessful(txRetsInit, callerAccount.accountId);

@@ -24,7 +24,7 @@ export const getMallocCallRefSwapContract = () =>
   readFileSync(
     join(
       __dirname,
-      "../../../rust/packages/malloc-calls/ref-swap-malloc-call/neardev/dev-account"
+      "../../../../rust/packages/malloc-calls/ref-swap-malloc-call/neardev/dev-account"
     )
   ).toString();
 
@@ -34,7 +34,7 @@ describe("ref-swap call", () => {
     masterAccount = await TestingUtils.getDefaultTesterAccountNear();
     const testerAccount = await TestingUtils.newRandAccount(masterAccount);
     wrappedTesterAccount = testerAccount;
-    malloc = await MallocClient.createMallocClient(
+    malloc = new MallocClient.MallocClient(
       wrappedTesterAccount,
       TestingUtils.getMallocContract()
     );
@@ -87,29 +87,27 @@ describe("ref-swap call", () => {
     const txRess = await malloc.runEphemeralConstruction(
       [
         {
-          splits: [1],
-          children: [
-            {
-              MallocCall: {
-                contract_id: MALLOC_CALL_SWAP_CONTRACT_ID,
-                json_args: JSON.stringify({
-                  token_out: NDAI_CONTRACT,
-                  pool_id: wNearToDAIPoolId,
-                  min_amount_out: minDaiRetrun.toString(),
-                  // TODO: this will be removed
-                  register_tokens: [], //[NDAI_CONTRACT, TestingUtils.WRAP_TESTNET_CONTRACT],
-                  recipient: masterAccount.accountId,
-                }),
-                gas: MALLOC_CALL_SIMPLE_GAS.muln(10).toNumber(),
-                attached_amount: "16",
-              },
-            },
-          ],
-          ft_contract_id: TestingUtils.WRAP_TESTNET_CONTRACT,
+          MallocCall: {
+            malloc_call_id: MALLOC_CALL_SWAP_CONTRACT_ID,
+            token_id: TestingUtils.WRAP_TESTNET_CONTRACT,
+            json_args: JSON.stringify({
+              token_out: NDAI_CONTRACT,
+              pool_id: wNearToDAIPoolId,
+              min_amount_out: minDaiRetrun.toString(),
+              // TODO: this will be removed
+              register_tokens: [], //[NDAI_CONTRACT, TestingUtils.WRAP_TESTNET_CONTRACT],
+              recipient: masterAccount.accountId,
+            }),
+            gas: MAX_GAS.divn(2).toNumber(),
+            attached_amount: "16",
+          },
         },
       ],
-      [[[]]],
       amount.toString(),
+      [0],
+      [1],
+      [[[]]],
+      [[[]]],
       { gas: MAX_GAS, depositTransactionHash }
     );
     const ret = await malloc.resolveTransactions(txRess);

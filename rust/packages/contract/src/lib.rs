@@ -19,7 +19,7 @@ use construction::{
     NextNodesIndicesForConstruction, NextNodesSplitsForConstruction,
 };
 use malloc_call_core::ft::{FungibleTokenBalances, FungibleTokenHandlers};
-use malloc_call_core::ReturnItem;
+use malloc_call_core::{MallocCallFT, ReturnItem};
 // To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet, Vector};
@@ -60,7 +60,7 @@ pub struct GenericId {
 }
 
 #[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, MallocCallFT)]
 pub struct Contract {
     constructions: UnorderedMap<ConstructionId, Construction>,
     construction_calls: UnorderedMap<ConstructionCallId, ConstructionCall>,
@@ -147,7 +147,7 @@ impl CoreFunctionality for Contract {
             initial_node_indices,
             initial_amounts,
         )
-        .unwrap_or_else(|e| panic!(e));
+        .unwrap_or_else(|e| panic!("{}", e));
 
         let node_call_ids_prefix = format!("{}-nodes", construction_call_id);
         let node_call_ids =
@@ -219,25 +219,6 @@ impl Contract {
             }
         };
         node_call.handle_node_callback_internal(self, construction_call_id, caller, results)
-    }
-}
-
-/// ************ Fungible Token handlers ***************************
-#[near_bindgen]
-impl FungibleTokenHandlers for Contract {
-    #[payable]
-    fn ft_on_transfer(&mut self, sender_id: String, amount: String, msg: String) -> String {
-        self.balances.ft_on_transfer(sender_id, amount, msg)
-    }
-
-    fn get_ft_balance(&self, account_id: AccountId, token_id: AccountId) -> U128 {
-        U128::from(self.balances.get_ft_balance(&account_id, &token_id))
-    }
-
-    #[private]
-    fn subtract_ft_balance(&mut self, account_id: AccountId, token_id: AccountId) {
-        self.balances
-            .subtract_contract_bal_from_user(&account_id, token_id)
     }
 }
 
