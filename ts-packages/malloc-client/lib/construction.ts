@@ -255,14 +255,10 @@ export const runEphemeralConstruction = async (
         node_call_id as any
       );
 
-      console.log(node_call_index, node_call_id, node_call);
-
       const attachedDeposit = await getNodeAttachedDepositForNode(
         callerAccount,
         nodes[parseInt(node_call.node_index_in_construction.toString())]
       );
-
-      console.log("AAA", attachedDeposit);
 
       // TODO: get || to work !!!!!!!
       const txs: Transaction[] = new Array(
@@ -296,6 +292,7 @@ export const runEphemeralConstruction = async (
         mallocAccountId,
         construction_call_id
       );
+      console.log(constructionCallData);
     }
     return txHashes;
   };

@@ -19,7 +19,7 @@ let masterAccount: Account;
 let wrappedTesterAccount: MallocClient.SpecialAccountWithKeyPair;
 
 describe("malloc-client's ft capabilities", () => {
-  jest.setTimeout(60 * 1000);
+  jest.setTimeout(120 * 1000);
   beforeAll(async () => {
     masterAccount = await TestingUtils.getDefaultTesterAccountNear();
     const testerAccount = await TestingUtils.newRandAccount(masterAccount);
@@ -51,7 +51,7 @@ describe("malloc-client's ft capabilities", () => {
         wrappedTesterAccount.accountId,
         malloc.mallocAccountId,
         MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
-        MALLOC_CALL_PASSTHROUGH
+        MALLOC_CALL_PASSTHROUGH,
       ]
     );
 
@@ -68,6 +68,32 @@ describe("malloc-client's ft capabilities", () => {
 
     const txRess = await malloc.runEphemeralConstruction(
       [
+        {
+          MallocCall: {
+            malloc_call_id: MALLOC_CALL_PASSTHROUGH,
+            token_id: TestingUtils.WRAP_TESTNET_CONTRACT,
+            // check_callback: false,
+            // TODO: no json stringify!!
+            json_args: JSON.stringify({
+              log_message: "hello for jimbo the flimbo",
+            }),
+            gas: MAX_GAS.divn(2).toNumber(),
+            attached_amount: "0",
+          },
+        },
+        {
+          MallocCall: {
+            malloc_call_id: MALLOC_CALL_PASSTHROUGH,
+            token_id: TestingUtils.WRAP_TESTNET_CONTRACT,
+            // check_callback: false,
+            // TODO: no json stringify!!
+            json_args: JSON.stringify({
+              log_message: "hello for bob",
+            }),
+            gas: MAX_GAS.divn(2).toNumber(),
+            attached_amount: "0",
+          },
+        },
         {
           MallocCall: {
             malloc_call_id: MALLOC_CALL_PASSTHROUGH,
@@ -95,10 +121,10 @@ describe("malloc-client's ft capabilities", () => {
         },
       ],
       amount.toString(),
-      [0],
-      [1],
-      [[[1]], []],
-      [[[1]], []],
+      [0, 1, 2],
+      [1, 2],
+      [[[1]], [[2]], [[3]], []],
+      [[[1]], [[1]], [[1]], []],
       { gas: MAX_GAS, depositTransactionHash }
     );
     const ret = await malloc.resolveTransactions(txRess);
