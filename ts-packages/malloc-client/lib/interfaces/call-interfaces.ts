@@ -1,6 +1,6 @@
 /********** Call Interfaces ************/
 
-import { AccountId, ConstructionId } from "./shared";
+import { AccountId, ConstructionId, NodeCallId } from "./shared";
 
 export interface NodeCallStatus {
   Error?: { message: string };
@@ -21,5 +21,5 @@ export interface ConstructionCall {
   caller: AccountId;
   construction_id: ConstructionId;
   next_node_calls_stack: number[];
-  node_calls: NodeCall[];
+  node_calls: NodeCallId[];
 }

@@ -6,22 +6,22 @@ import {
   Node,
   RunEphemeralOpts,
   SpecialAccount,
-  Splitter,
   Transaction,
   MallocCallMetadata,
-  NextSplitterIndices,
   ConstructionId,
   ConstructionCall,
   SpecialAccountWithKeyPair,
   TransactionWithPromiseResultFlag,
   ConstructionCallId,
-  CallEphemeralError,
   TxHashOrVoid,
   RegisterConstructionArgs,
   RegisterNodesArgs,
   Construction,
   ProcessNextNodeCallArgs,
   InitConstructionArgs,
+  NodeCall,
+  NodeCallId,
+  CallEphemeralError,
 } from "./interfaces";
 import {
   executeMultipleTx,
@@ -46,7 +46,7 @@ const getNodeAttachedDepositForNode = async (
 ): Promise<BN> => {
   if (node.MallocCall) {
     const metadata: MallocCallMetadata = await callerAccount.viewFunction(
-      node.MallocCall.contract_id,
+      node.MallocCall.malloc_call_id,
       "metadata"
     );
     return new BN(metadata.minimum_attached_deposit || 1);
@@ -109,6 +109,18 @@ export const deleteConstruction = async <
   return txRetsInit;
 };
 
+export const getNodeCallData = async (
+  callerAccount: SpecialAccount,
+  mallocAccountId: AccountId,
+  nodeCallId: NodeCallId
+): Promise<NodeCall> => {
+  return await callerAccount.viewFunction(
+    mallocAccountId,
+    "get_node_call_unchecked",
+    { id: nodeCallId.toString() }
+  );
+};
+
 export const getConstructionCallData = async (
   callerAccount: SpecialAccount,
   mallocAccountId: AccountId,
@@ -142,6 +154,10 @@ export const runEphemeralConstruction = async (
   mallocAccountId: AccountId,
   nodes: Node[],
   amount: BigNumberish,
+  initial_node_indices: number[],
+  initial_splits: number[],
+  next_nodes_indices: number[][][],
+  next_nodes_splits: number[][][],
   opts?: Partial<RunEphemeralOpts>
 ): Promise<string[]> => {
   const _opts: RunEphemeralOpts = {
@@ -200,30 +216,14 @@ export const runEphemeralConstruction = async (
               amount: amount.toString(),
               initial_node_indices: [0, 1], //TODO:
               initial_splits: [1, 1],
+              next_nodes_indices,
+              next_nodes_splits,
             } as InitConstructionArgs,
             gas: MAX_GAS.divn(3).toString(),
             amount: "0", //TODO: storage deposit goes here ya heard
           },
         ],
       },
-      // {
-      //   receiverId: mallocAccountId,
-      //   functionCalls: [
-      //     {
-      //       methodName: "init_construction",
-      //       args: {
-      //         construction_id: {
-      //           owner: callerAccount.accountId,
-      //           name: constructionName,
-      //         } as ConstructionId,
-      //         construction_call_id,
-      //         amount: amount.toString(),
-      //       },
-      //       gas: _opts.gas.toString(),
-      //       amount: attachedDeposit.toString(),
-      //     },
-      //   ],
-      // },
     ];
 
     const txRetsInit = await executeMultipleTx(callerAccount, txs);
@@ -248,14 +248,22 @@ export const runEphemeralConstruction = async (
           constructionCallData.next_node_calls_stack.length - 1
         ];
 
-      const node_index_in_construction =
-        constructionCallData.node_calls[node_call_index]
-          .node_index_in_construction;
+      const node_call_id = constructionCallData.node_calls[node_call_index];
+      const node_call = await getNodeCallData(
+        callerAccount,
+        mallocAccountId,
+        node_call_id as any
+      );
+
+      console.log(node_call_index, node_call_id, node_call);
 
       const attachedDeposit = await getNodeAttachedDepositForNode(
         callerAccount,
-        nodes[parseInt(node_index_in_construction.toString())]
+        nodes[parseInt(node_call.node_index_in_construction.toString())]
       );
+
+      console.log("AAA", attachedDeposit);
+
       const txs: Transaction[] = new Array(
         constructionCallData.next_node_calls_stack.length
       )
@@ -293,8 +301,8 @@ export const runEphemeralConstruction = async (
 
   try {
     const txsInit = await storeAndStartConstruction();
-    // const txsNextStep = await runNextNodeCalls(); // TODO: add back
-    return [...txsInit]; //, ...txsNextStep];
+    const txsNextStep = await runNextNodeCalls(); // TODO: add back
+    return [...txsInit, ...txsNextStep];
   } catch (e) {
     console.trace(e);
     const call_state = await getConstructionCallData(

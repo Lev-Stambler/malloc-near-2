@@ -8,6 +8,8 @@ export interface InitConstructionArgs {
   amount: string;
   initial_node_indices: number[];
   initial_splits: number[];
+  next_nodes_indices: number[][][];
+  next_nodes_splits: number[][][];
 }
 
 export interface RegisterConstructionArgs {

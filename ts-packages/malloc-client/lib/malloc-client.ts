@@ -65,10 +65,6 @@ interface MallocClientOpts {}
 const mallocClientDefaultOpts: MallocClientOpts = {};
 interface RegisterAccountWithFungibleTokenOpts {}
 
-export interface CallEphemeralError {
-  constructionCallId?: ConstructionCallId;
-  message?: string;
-}
 /**
  * MallocClient is the for interacting with the set of Malloc Contracts via the Malloc SDK
  *
@@ -161,6 +157,10 @@ export class MallocClient<
   public async runEphemeralConstruction(
     nodes: Node[],
     amount: string,
+    initial_node_indices: number[],
+    initial_splits: number[],
+    next_nodes_indices: number[][][],
+    next_nodes_splits: number[][][],
     opts?: Partial<RunEphemeralOpts>
   ): Promise<string[]> {
     // Wait for the deposit transactions to go through
@@ -181,6 +181,10 @@ export class MallocClient<
       this.mallocAccountId,
       nodes,
       amount,
+      initial_node_indices,
+      initial_splits,
+      next_nodes_indices,
+      next_nodes_splits,
       opts
     );
     // return txRets;
