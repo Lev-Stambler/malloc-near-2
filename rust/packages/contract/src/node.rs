@@ -1,23 +1,27 @@
 use core::panic;
+use std::convert::TryFrom;
 use std::str::FromStr;
 
 use malloc_call_core::ft::MALLOC_CALL_CORE_GAS_FOR_FT_TRANSFER_CALL;
 use malloc_call_core::ReturnItem;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::json_types::U128;
+use near_sdk::json_types::{ValidAccountId, U128};
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::Gas;
 use near_sdk::{
     bs58::alphabet::Error,
     env, log,
     serde_json::{self, json},
     AccountId, Promise,
 };
+use near_sdk::{utils, Gas};
 
-use crate::errors::MallocError;
+use crate::errors::PanicError;
+use crate::gas::CALLBACK_GAS;
+use crate::malloc_utils::GenericId;
+use crate::nodes::{self, NodeFunctions};
 use crate::{
-    errors::Errors, serde_ext::VectorWrapper, Construction, ConstructionCall, ConstructionCallId,
-    ConstructionId, Contract, GenericId, BASIC_GAS, CALLBACK_GAS,
+    errors::panic_errors, serde_ext::VectorWrapper, Construction, ConstructionCall,
+    ConstructionCallId, ConstructionId, Contract,
 };
 
 pub type NodeId = GenericId;
@@ -40,10 +44,13 @@ pub enum NodeCallStatus {
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
+
+// TODO: expected_number_inputs if we make this a dag
+// https://github.com/Lev-Stambler/malloc-near-2/issues/26
 pub struct NodeCall {
     node_index_in_construction: u64,
     block_index: u64,
-    amount: u128,
+    pub amount: u128,
     /// The length of children_status should always equal the length of the splitter's children
     status: NodeCallStatus,
 }
@@ -53,24 +60,13 @@ pub type NodeCallId = u64;
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub enum Node {
-    FtTransfer {
-        receiver_id: AccountId,
-        token_id: AccountId,
-    },
-    FtTransferCallToMallocCall {
-        malloc_call_id: AccountId,
-        token_id: AccountId,
-    },
-    MallocCall {
-        // TODO: expected_number_inputs
-        check_callback: Option<bool>,
-        skip_ft_transfer: Option<bool>,
-        malloc_call_id: AccountId,
-        token_id: AccountId,
-        json_args: String,
-        gas: Gas,
-        attached_amount: U128,
-    },
+    // TODO: add ft transfer see https://github.com/Lev-Stambler/malloc-near-2/issues/20
+    // FtTransfer {
+    //     receiver_id: AccountId,
+    //     token_id: AccountId,
+    // },
+    FtTransferCallToMallocCall(nodes::ft_calls::FtTransferCallToMallocCall),
+    MallocCall(nodes::malloc_call::MallocCall),
 }
 
 impl Contract {
@@ -107,9 +103,9 @@ impl NodeCall {
         contract: &mut Contract,
         node_indices: Vec<u64>,
         amounts: Vec<u128>,
-    ) -> Result<Vec<NodeCallId>, MallocError> {
+    ) -> Result<Vec<NodeCallId>, PanicError> {
         if node_indices.len() != amounts.len() {
-            return Err(Errors::NUMB_NODES_DNE_NUMB_SPLITS.to_string());
+            return Err(panic_errors::NUMB_NODES_DNE_NUMB_SPLITS.to_string());
         }
 
         let mut node_calls: Vec<NodeCallId> = Vec::with_capacity(node_indices.len());
@@ -134,18 +130,16 @@ impl Contract {
             .next_node_calls_stack
             .0
             .pop()
-            .unwrap_or_else(|| panic!(Errors::CONSTRUCTION_CALL_SPLITTER_STACK_EMPTY));
+            .unwrap_or_else(|| panic!(panic_errors::CONSTRUCTION_CALL_SPLITTER_STACK_EMPTY));
         let node_call_id = construction_call.node_calls.0.get(node_call_index).unwrap();
         let mut node_call = self
             .node_calls
             .get(&node_call_id)
-            .unwrap_or_else(|| panic!(Errors::NODE_CALL_NOT_FOUND));
+            .unwrap_or_else(|| panic!(panic_errors::NODE_CALL_NOT_FOUND));
 
-        //     // You can panic here as it is expected that _run_step is not called on a callback
-        //     // TODO: how can this be enforced?
         let construction = self
             .get_construction(&construction_call.construction_id)
-            .unwrap_or_else(|e| panic!(&e));
+            .unwrap_or_else(|e| panic!("{}", e));
 
         let node_index = node_call.node_index_in_construction;
         let node_id = construction.nodes.0.get(node_index).unwrap();
@@ -155,9 +149,6 @@ impl Contract {
         self.construction_calls
             .insert(&construction_call_id, &&construction_call);
 
-        // TODO: delete me
-        node.get_gas_for_cross_contract(&node_call);
-
         let (prom, node_call) = node
             .handle_node(
                 self,
@@ -166,7 +157,7 @@ impl Contract {
                 node_call_id,
                 &env::predecessor_account_id(),
             )
-            .unwrap_or_else(|e| panic!(&e));
+            .unwrap_or_else(|e| panic!("{}", e));
         self.node_calls.insert(&node_call_id, &node_call);
         prom
     }
@@ -187,214 +178,73 @@ impl Node {
         node_call.status = NodeCallStatus::Executing {
             block_index_start: env::block_index(),
         };
-        match self {
-            Node::FtTransfer {
-                receiver_id,
-                token_id,
-            } => {
-                todo!()
-            }
-            Node::FtTransferCallToMallocCall {
-                malloc_call_id,
-                token_id,
-            } => {
-                let prom = contract.balances.internal_ft_transfer_call(
-                    &token_id,
-                    malloc_call_id.clone(),
-                    U128(node_call.amount),
-                    caller.clone(),
-                    None,
-                );
-                // TODO: you want a seperate callback here
-                let callback = env::promise_batch_then(prom, env::current_account_id());
-                // TODO: refactor this with the callback portion of MallocCall
-                let callback_args = json!({
-                    "construction_call_id": construction_call_id,
-                "node_call_id": node_call_id,
-                "caller": caller});
-                env::promise_batch_action_function_call(
-                    callback,
-                    b"handle_node_ft_transfer_call_malloc_callback",
-                    callback_args.to_string().as_bytes(),
-                    0,
-                    CALLBACK_GAS,
-                );
-                Ok((callback, node_call))
-            }
-            Node::MallocCall {
-                malloc_call_id,
-                token_id,
-                skip_ft_transfer,
-                json_args,
-                attached_amount,
-                check_callback,
-                gas,
-            } => {
-                // TODO: we need a smart way of doing gas for these wcalls...
-                // Maybe each could have metadata or something
-                // TODO: seperate fn
-                let token_contract_id = token_id.clone();
-                let call_data = format!(
-                    "{{\"args\": {}, \"amount\": \"{}\", \"token_id\": \"{}\", \"caller\": \"{}\"}}",
-                    json_args,
-                    node_call.amount.to_string(),
-                    token_contract_id.clone(),
-                    caller
-                );
-
-                log!("Node call amount: {}", node_call.amount);
-
-                // TODO: is this wrong???
-                let call_prom = if node_call.amount > 0 && !skip_ft_transfer.unwrap_or(false) {
-                    // self.balances.subtract_contract_bal_from_user(caller, token_contract_id.clone(), amount);
-                    // TODO: what if the ft_transfer prom fails???
-                    // TODO: the malloc call (next on the line) has to check that the prior promise resolved
-                    let transfer_call_prom = contract.balances.internal_ft_transfer_call(
-                        &token_id,
-                        malloc_call_id.clone(),
-                        U128(node_call.amount),
-                        caller.clone(),
-                        None,
-                    );
-
-                    let call_prom = env::promise_then(
-                        transfer_call_prom,
-                        malloc_call_id.to_string(),
-                        &malloc_call_core::call_method_name(),
-                        call_data.as_bytes(),
-                        (*attached_amount).into(),
-                        *gas,
-                    );
-                    call_prom
-                } else {
-                    let call_prom = env::promise_batch_create(malloc_call_id);
-                    env::promise_batch_action_function_call(
-                        call_prom,
-                        &malloc_call_core::call_method_name(),
-                        call_data.as_bytes(),
-                        (*attached_amount).into(),
-                        *gas,
-                    );
-                    call_prom
-                };
-
-                // If check callback is false, finish the call and return
-                if let Some(check_cb) = check_callback {
-                    if !*check_cb {
-                        return Ok((call_prom, node_call));
-                    }
-                }
-
-                let callback = env::promise_batch_then(call_prom, env::current_account_id());
-                let callback_args = json!({
-                    "construction_call_id": construction_call_id,
-                "node_call_id": node_call_id,
-                "caller": caller});
-                env::promise_batch_action_function_call(
-                    callback,
-                    b"handle_node_malloc_call_callback",
-                    callback_args.to_string().as_bytes(),
-                    0,
-                    CALLBACK_GAS,
-                );
-                Ok((callback, node_call))
-            }
-        }
-    }
-
-    /** Helper functions **/
-    fn get_gas_for_cross_contract(&self, node_call: &NodeCall) -> Gas {
-        let total = match self {
-            Node::MallocCall {
-                gas,
-                check_callback,
-                skip_ft_transfer,
-                ..
-            } => {
-                let callback_gas = if check_callback.unwrap_or(true) {
-                    CALLBACK_GAS
-                } else {
-                    0
-                };
-                let ft_transfer_call_gas =
-                    if skip_ft_transfer.unwrap_or(false) || node_call.amount == 0 {
-                        0
-                    } else {
-                        MALLOC_CALL_CORE_GAS_FOR_FT_TRANSFER_CALL
-                    };
-                callback_gas + gas + ft_transfer_call_gas
-            }
-            Node::FtTransferCallToMallocCall { .. } => MALLOC_CALL_CORE_GAS_FOR_FT_TRANSFER_CALL,
-            Node::FtTransfer { .. } => todo!(),
+        let prom = match self {
+            Node::FtTransferCallToMallocCall(ft_transfer_node) => ft_transfer_node.handle(
+                contract,
+                &node_call,
+                construction_call_id,
+                node_call_id,
+                caller,
+            ),
+            Node::MallocCall(call) => call.handle(
+                contract,
+                &node_call,
+                construction_call_id,
+                node_call_id,
+                caller,
+            ),
         };
-        total
-        // let ft_transfer_gas = if node_call.amount > 0 {
-        //     MALLOC_CALL_CORE_GAS_FOR_FT_TRANSFER_CALL
-        // } else {
-        //     0
-        // };
-        // let total = ft_transfer_gas + node_gas + callback_gas;
-        // log!("Gas used by cross contract calls. Ft_transfer_call: {}, node call: {}, resolve: {}, total: {}", ft_transfer_gas, node_gas, callback_gas, total);
-        // total
+        let prom_ret = prom?;
+        Ok((prom_ret, node_call))
     }
 }
 
 impl NodeCall {
-    // TODO: refactor the two next functions to not share so much damn code
-    pub(crate) fn handle_node_ft_transfer_call_internal(
-        &mut self,
-        contract: &mut Contract,
-        construction_call_id: ConstructionCallId,
-        caller: AccountId,
-        amount: u128,
-    ) -> Option<u64> {
-        let mut construction_call = contract.get_construction_call_unchecked(&construction_call_id);
-        let construction_res = contract.get_construction(&construction_call.construction_id);
-        // TODO: error handling with the malloc call cores
-        let construction = construction_res.unwrap();
-
-        // // TODO: error handling with the malloc call cores
-        // let node_call_res = self.node_calls.get(&node_call_id);
-        // let node_call = node_call_res.unwrap();
-
-        // TODO: error handle with malloc call core
-        let next_nodes_indices = construction_call
-            .next_nodes_indices_in_construction
-            .0
-            .get(self.node_index_in_construction)
-            .unwrap();
-
-        // TODO: error handle with malloc call core
-        let next_nodes_splits = construction_call
-            .next_nodes_splits
-            .0
-            .get(self.node_index_in_construction)
-            .unwrap();
-        if next_nodes_indices.0.len() != next_nodes_splits.0.len() {
-            // TODO: error handling with the malloc call cores
-            panic!("");
-        }
-
-        assert_eq!(
-            next_nodes_indices.0.len(),
-            1,
-            "TODO: err handle, but should be 1"
-        );
-
-        construction_call = self.handle_next_split_set(
-            contract,
-            construction_call,
-            next_nodes_indices.0.get(0).unwrap(),
-            next_nodes_splits.0.get(0).unwrap(),
-            amount,
-        );
-        contract
-            .construction_calls
-            .insert(&construction_call_id, &construction_call);
-        None
+    pub(crate) fn get_callback_args(
+        construction_call_id: &ConstructionCallId,
+        node_call_id: &NodeCallId,
+        caller: &AccountId,
+        token_return_id: Option<&AccountId>,
+    ) -> String {
+        let callback_args = match token_return_id {
+            None => json!({
+                    "construction_call_id": construction_call_id,
+                "node_call_id": node_call_id,
+                "caller": caller }),
+            Some(token_id) => json!({
+                    "construction_call_id": construction_call_id,
+                "node_call_id": node_call_id,
+                "token_return_id": token_id,
+                "caller": caller }),
+        };
+        callback_args.to_string()
     }
 
-    pub(crate) fn handle_node_malloc_call_callback_internal(
+    // TODO: error handling
+    pub(crate) fn get_results_from_returned_bytes(
+        token_id: Option<ValidAccountId>,
+    ) -> Result<Vec<ReturnItem>, String> {
+        let ret_bytes = match utils::promise_result_as_success() {
+            None => panic!("TODO:"),
+            Some(bytes) => bytes,
+        };
+        let as_u128: Result<String, _> = serde_json::from_slice(&ret_bytes);
+        if let Ok(amount_ret) = as_u128 {
+            let token_id = token_id.unwrap();
+            return Ok(vec![ReturnItem {
+                token_id: token_id,
+                amount: amount_ret,
+            }]);
+        };
+
+        let as_return_vec: Result<Vec<ReturnItem>, _> = serde_json::from_slice(&ret_bytes);
+        if let Ok(return_vec) = as_return_vec {
+            return Ok(return_vec);
+        }
+        panic!("EXPECTED ONE OF THESE TO WORK")
+    }
+
+    pub(crate) fn handle_node_callback_internal(
         &mut self,
         contract: &mut Contract,
         construction_call_id: ConstructionCallId,

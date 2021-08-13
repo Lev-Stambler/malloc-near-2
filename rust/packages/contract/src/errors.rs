@@ -1,7 +1,7 @@
-pub type MallocError = String;
+pub type PanicError = String;
 
-pub mod Errors {
-    // Malloc Call Errors
+pub mod panic_errors {
+    // Malloc Call panic_errors
     pub const MALLOC_CALL_FAILED: &str = "The malloc call failed";
 
     // Not found errors
@@ -24,11 +24,11 @@ pub mod Errors {
     // Unauthorized errors
     pub const CALLER_DOES_NOT_OWN_CONSTRUCTION: &str = "The caller does not own the construction";
 
-    // Parsing Errors
+    // Parsing panic_errors
     pub const FAILED_TO_PARSE_NUMBER: &str = "Failed to parse a number from the string";
     pub const FAILED_TO_PARSE_SPLITTER: &str = "Failed to parse the splitter string";
 
-    // Funding Errors
+    // Funding panic_errors
     pub const CALLEE_DID_NOT_DEPOSIT_SUFFICIENT_FUNDS: &str =
         "The callee did not deposit sufficient funds";
 
@@ -38,7 +38,7 @@ pub mod Errors {
     pub const NODE_CALL_ID_ALREADY_USED: &str =
         "The given node call id has already been registered";
 
-    // Malformed Errors: Errors corresponding to splitters and constructions with incorrect shapes and/or inputs
+    // Malformed panic_errors: panic_errors corresponding to splitters and constructions with incorrect shapes and/or inputs
     pub const NUMB_OF_NODES_NOT_EQUAL_TO_NUMB_NAMES: &str =
         "The number of nodes does not equal to the number of names";
     pub const CONSTRUCTION_CALL_SPLITTER_STACK_EMPTY: &str =

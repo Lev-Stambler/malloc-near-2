@@ -257,10 +257,10 @@ export const addBigNumberish = (
 export const checkBalDifferences = (
   oldBal: BigNumberish,
   newBal: BigNumberish,
-  expectedDiff: number,
+  expectedDiff: BigNumberish,
   expect: any
 ) => {
   expect(new BN(newBal).toString()).toBe(
-    new BN(oldBal).addn(expectedDiff).toString()
+    new BN(oldBal).add(new BN(expectedDiff)).toString()
   );
 };

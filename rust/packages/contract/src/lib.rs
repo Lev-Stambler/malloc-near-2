@@ -11,9 +11,6 @@
  *
  */
 
-use std::fmt::{format, Result};
-use std::{string, usize};
-
 use construction::{
     Construction, ConstructionCall, ConstructionCallId, ConstructionId,
     NextNodesIndicesForConstruction, NextNodesSplitsForConstruction,
@@ -33,40 +30,38 @@ use near_sdk::{
 use node::{Node, NodeCall, NodeCallId, NodeId};
 use serde_ext::VectorWrapper;
 
-use crate::errors::Errors;
+use crate::errors::panic_errors;
 
-// mod checker;
 mod construction;
 pub mod errors;
-// mod malloc_utils;
+mod gas;
+mod malloc_utils;
 mod node;
+mod nodes;
 mod serde_ext;
-// mod storage;
 mod test_utils;
 
 setup_alloc!();
-
-// TODO: what these numbers mean
-const BASIC_GAS: Gas = 5_000_000_000_000;
-// This can be brought down probs?
-// This can be brought down probs?
-const CALLBACK_GAS: Gas = 5_000_000_000_000 * 5;
-
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone)]
-#[serde(crate = "near_sdk::serde")]
-pub struct GenericId {
-    pub owner: AccountId,
-    pub name: String,
-}
-
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, MallocCallFT)]
+/// The Contract's state
 pub struct Contract {
+    /// A store for all the constructions. Constructions are meant to be immutable objects
+    // TODO: enforce immutability: https://github.com/Lev-Stambler/malloc-near-2/issues/18
     constructions: UnorderedMap<ConstructionId, Construction>,
+    /// A store of all the construction calls. Construction calls are mutable and ephemeral objects
+    /// They should only live as long as a single call to a construction
     construction_calls: UnorderedMap<ConstructionCallId, ConstructionCall>,
+    /// A store of all the node calls. Node calls are mutable and ephemeral objects
+    /// They should only live as long as a single call to a construction. They get deleted
+    /// When a construction call gets deleted
     node_calls: UnorderedMap<NodeCallId, NodeCall>,
+    /// A store for all the nodes. Nodes are meant to be immutable objects
+    // TODO: enforce immutability: https://github.com/Lev-Stambler/malloc-near-2/issues/18
     nodes: UnorderedMap<NodeId, Node>,
+    /// Balances keeps track of all the users' balances. See malloc-call-core's documentation for more information
     balances: FungibleTokenBalances,
+    /// Keeps track of the next node call id so that node call id's can all be unique and need not be supplied by the caller
     next_node_call_id: NodeCallId,
 }
 
@@ -80,8 +75,6 @@ pub trait CoreFunctionality {
         amount: U128,
         initial_node_indices: Vec<u64>,
         initial_splits: VectorWrapper<u128>,
-        // TODO: disable?
-        caller: Option<ValidAccountId>,
         next_nodes_indices: NextNodesIndicesForConstruction,
         next_nodes_splits: NextNodesSplitsForConstruction,
     );
@@ -92,6 +85,7 @@ pub trait CoreFunctionality {
 #[near_bindgen]
 impl CoreFunctionality for Contract {
     fn delete_construction(&mut self, construction_id: ConstructionId) {
+        todo!();
         // self.delete_construction_internal(construction_id, env::predecessor_account_id())
         //     .unwrap_or_else(|e| panic!(e))
     }
@@ -101,7 +95,7 @@ impl CoreFunctionality for Contract {
             node_names.len(),
             nodes.len(),
             "{}",
-            Errors::NUMB_OF_NODES_NOT_EQUAL_TO_NUMB_NAMES
+            panic_errors::NUMB_OF_NODES_NOT_EQUAL_TO_NUMB_NAMES
         );
 
         let owner = Some(env::predecessor_account_id());
@@ -126,39 +120,23 @@ impl CoreFunctionality for Contract {
         amount: U128,
         initial_node_indices: Vec<u64>,
         initial_splits: VectorWrapper<u128>,
-        caller: Option<ValidAccountId>,
         next_nodes_indices: NextNodesIndicesForConstruction,
         next_nodes_splits: NextNodesSplitsForConstruction,
     ) {
-        let caller = if let Some(caller) = caller {
-            caller.into()
-        } else {
-            env::predecessor_account_id()
-        };
+        let caller = env::predecessor_account_id();
 
         let construction = self
             .get_construction(&construction_id)
             .unwrap_or_else(|e| panic!(e));
 
-        let initial_amounts = Construction::get_split_amounts(amount.into(), initial_splits);
-
-        let init_node_calls = NodeCall::node_calls_from_construction_indices(
-            self,
-            initial_node_indices,
-            initial_amounts,
-        )
-        .unwrap_or_else(|e| panic!("{}", e));
-
-        let node_call_ids_prefix = format!("{}-nodes", construction_call_id);
-        let node_call_ids =
-            VectorWrapper::from_vec(init_node_calls, node_call_ids_prefix.as_bytes());
-
         let construction_call = ConstructionCall::new(
-            &self,
+            self,
             caller,
             construction_id,
             &construction_call_id,
-            node_call_ids,
+            amount.into(),
+            initial_node_indices,
+            initial_splits,
             next_nodes_indices,
             next_nodes_splits,
         )
@@ -168,24 +146,10 @@ impl CoreFunctionality for Contract {
             .insert(&construction_call_id, &construction_call);
     }
 
-    // #[payable]
-    // fn init(
-    //     &mut self,
-    //     construction_call_id: ConstructionCallDataId,
-    //     construction_id: ConstructionId,
-    //     amount: U128,
-    //     caller: Option<ValidAccountId>,
-    // ) {
-    //     // TODO: do we want to let someone else call for you?
-    // }
     #[payable]
     fn process_next_node_call(&mut self, construction_call_id: ConstructionCallId) {
         self._run_step(construction_call_id);
         log!("Gas used: {}", env::used_gas());
-        // let mut construction_call = self.get_construction_call_unchecked(&construction_call_id);
-        // assert_eq!(construction_call.caller, env::predecessor_account_id());
-        // let ret_prom = self._run_step(construction_call_id);
-        // env::promise_return(ret_prom);
     }
 }
 
@@ -198,7 +162,7 @@ impl Contract {
     pub fn get_construction_call_unchecked(&self, id: &ConstructionCallId) -> ConstructionCall {
         self.construction_calls
             .get(&id)
-            .unwrap_or_else(|| panic!(Errors::CONSTRUCTION_NOT_FOUND))
+            .unwrap_or_else(|| panic!(panic_errors::CONSTRUCTION_NOT_FOUND))
     }
 }
 
@@ -213,49 +177,18 @@ impl GasUsage for Contract {
 impl Contract {
     #[private]
     #[payable]
-    pub fn handle_node_ft_transfer_call_malloc_callback(
+    pub fn handle_node_callback(
         &mut self,
         construction_call_id: ConstructionCallId,
         node_call_id: u64,
         caller: AccountId,
-    ) -> Option<u64> {
-        let mut node_call = self.node_calls.get(&node_call_id).unwrap();
-        let amount: U128 = match utils::promise_result_as_success() {
-            None => panic!("TODO: err handle here"),
-            Some(bytes) => {
-                serde_json::from_slice(&bytes).unwrap() // TODO: err handle
-            }
-        };
-        node_call.handle_node_ft_transfer_call_internal(
-            self,
-            construction_call_id,
-            caller,
-            amount.into(),
-        )
-    }
-
-    #[private]
-    #[payable]
-    pub fn handle_node_malloc_call_callback(
-        &mut self,
-        construction_call_id: ConstructionCallId,
-        node_call_id: u64,
-        caller: AccountId,
+        token_return_id: Option<ValidAccountId>,
     ) -> Option<u64> {
         // TODO: err handle!!
         let mut node_call = self.node_calls.get(&node_call_id).unwrap();
-        let results: Vec<ReturnItem> = match utils::promise_result_as_success() {
-            None => panic!("TODO: err handle here"),
-            Some(bytes) => {
-                serde_json::from_slice(&bytes).unwrap() // TODO: err handle
-            }
-        };
-        node_call.handle_node_malloc_call_callback_internal(
-            self,
-            construction_call_id,
-            caller,
-            results,
-        )
+        let results: Vec<ReturnItem> =
+            NodeCall::get_results_from_returned_bytes(token_return_id).unwrap();
+        node_call.handle_node_callback_internal(self, construction_call_id, caller, results)
     }
 }
 
@@ -274,27 +207,13 @@ impl Contract {
     }
 }
 
-impl GenericId {
-    pub fn new(name: String, owner: Option<AccountId>) -> ConstructionId {
-        ConstructionId {
-            name,
-            owner: owner.unwrap_or(env::predecessor_account_id()),
-        }
-    }
-}
-
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     const INIT_ACCOUNT_BAL: u128 = 10_000;
 
-    use core::time;
-    use std::thread;
-
     use super::*;
     use near_sdk::json_types::ValidAccountId;
     use near_sdk::test_utils::{accounts, VMContextBuilder};
-    use near_sdk::testing_env;
-    use near_sdk::MockedBlockchain;
 
     // mock the context for testing, notice "signer_account_id" that was accessed above from env::
     fn get_context(predecessor_account_id: ValidAccountId) -> VMContextBuilder {
@@ -308,28 +227,5 @@ mod tests {
     }
 
     #[test]
-    fn test_simple_transfers_success() {
-        // let mut context = get_context(accounts(0));
-        // testing_env!(context.build());
-        // let splitter = SerializedSplitter {
-        //     children: vec![
-        //         Node::SimpleTransfer {
-        //             recipient: accounts(1).to_string(),
-        //         },
-        //         Node::SimpleTransfer {
-        //             recipient: accounts(2).to_string(),
-        //         },
-        //     ],
-        //     splits: vec![100, 100],
-        //     ft_contract_id: None,
-        // };
-        // let mut contract = Contract::new();
-        // testing_env!(context
-        //     .storage_usage(env::storage_usage())
-        //     .attached_deposit(110) // give a little extra for transfers
-        //     .predecessor_account_id(accounts(0))
-        //     .build());
-        // let init_bal = env::account_balance();
-        // let prom = contract.run_ephemeral(splitter, U128::from(100));
-    }
+    fn test_simple_transfers_success() {}
 }

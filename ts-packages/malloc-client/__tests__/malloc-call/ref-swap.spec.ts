@@ -14,7 +14,12 @@ import { join } from "path";
 
 let malloc: MallocClient.MallocClient<MallocClient.SpecialAccountWithKeyPair>;
 const NDAI_CONTRACT = "ndai.ft-fin.testnet";
-const TOKEN_ACCOUNT_IDS = [TestingUtils.WRAP_TESTNET_CONTRACT, NDAI_CONTRACT];
+const BANANA_CONTRACT = "banana.ft-fin.testnet";
+const TOKEN_ACCOUNT_IDS = [
+  TestingUtils.WRAP_TESTNET_CONTRACT,
+  NDAI_CONTRACT,
+  BANANA_CONTRACT,
+];
 let masterAccount: Account;
 let wrappedTesterAccount: MallocClient.SpecialAccountWithKeyPair;
 const REF_FINANCE_CONTRACT = "ref-finance.testnet";
@@ -43,14 +48,15 @@ describe("ref-swap call", () => {
   it.only("should make calls to a multi level splitter with pass throughs and black whole at then end", async () => {
     const MALLOC_CALL_SWAP_CONTRACT_ID = getMallocCallRefSwapContract();
 
-    const amount = 1000000000;
+    // TODO: have while loop with number of 0s at the end until the pool return > 10
+    const amount = "100000000000000000000";
 
     await TestingUtils.setupWNearAccount(
       TestingUtils.WRAP_TESTNET_CONTRACT,
       wrappedTesterAccount.accountId,
       wrappedTesterAccount,
       true,
-      amount + 20
+      amount
     );
 
     await malloc.registerAccountDeposits(
@@ -65,6 +71,11 @@ describe("ref-swap call", () => {
       MALLOC_CALL_SWAP_CONTRACT_ID,
     ]);
 
+    const oldDaiBal = await TestingUtils.ftBalOf(
+      NDAI_CONTRACT,
+      wrappedTesterAccount.accountId,
+      wrappedTesterAccount
+    );
     const myBal = await TestingUtils.ftBalOf(
       TestingUtils.WRAP_TESTNET_CONTRACT,
       wrappedTesterAccount.accountId,
@@ -77,19 +88,31 @@ describe("ref-swap call", () => {
     );
 
     const wNearToDAIPoolId = 20;
+    const wNearToBananaPoolId = 11;
 
-    const poolReturn = await masterAccount.viewFunction(
+    const bananaPoolReturn = await masterAccount.viewFunction(
+      REF_FINANCE_CONTRACT,
+      "get_return",
+      {
+        pool_id: wNearToBananaPoolId,
+        token_in: TestingUtils.WRAP_TESTNET_CONTRACT,
+        amount_in: new BN(amount).divn(2).toString(),
+        token_out: BANANA_CONTRACT,
+      }
+    );
+    const daiPoolReturn = await masterAccount.viewFunction(
       REF_FINANCE_CONTRACT,
       "get_return",
       {
         pool_id: wNearToDAIPoolId,
         token_in: TestingUtils.WRAP_TESTNET_CONTRACT,
-        amount_in: amount.toString(),
+        amount_in: new BN(amount).divn(2).toString(),
         token_out: NDAI_CONTRACT,
       }
     );
-    console.log("A pool return of", poolReturn);
-    const minDaiRetrun = new BN(poolReturn).muln(90).divn(100);
+    console.log("A pool return of", daiPoolReturn);
+    const minDaiRetrun = new BN(daiPoolReturn).muln(90).divn(100);
+    const minBananaReturn = new BN(bananaPoolReturn).muln(90).divn(100);
 
     const txRess = await malloc.runEphemeralConstruction(
       [
@@ -121,23 +144,53 @@ describe("ref-swap call", () => {
             attached_amount: "16",
           },
         },
+        {
+          MallocCall: {
+            malloc_call_id: MALLOC_CALL_SWAP_CONTRACT_ID,
+            token_id: TestingUtils.WRAP_TESTNET_CONTRACT,
+            check_callback: false,
+            skip_ft_transfer: true,
+            json_args: JSON.stringify({
+              token_out: BANANA_CONTRACT,
+              pool_id: wNearToBananaPoolId,
+              min_amount_out: minBananaReturn.toString(),
+              // TODO: this will be removed
+              register_tokens: [
+                NDAI_CONTRACT,
+                TestingUtils.WRAP_TESTNET_CONTRACT,
+              ],
+              recipient: masterAccount.accountId,
+            }),
+            // 2/3 rds of max gas and have the remaining third for processing the call
+            gas: MAX_GAS.divn(100).muln(80).toNumber(),
+            attached_amount: "16",
+          },
+        },
       ],
       amount.toString(),
       [0],
       [1],
-      [[[1]], [[]]],
-      [[[1]], [[]]],
+      [[[1, 2]], [[]], [[]]],
+      [[[1, 1]], [[]], [[]]],
       { gas: MAX_GAS, depositTransactionHash }
     );
     const ret = await malloc.resolveTransactions(txRess);
     expect(ret.flag).toBe(TransactionWithPromiseResultFlag.SUCCESS);
 
+    const newDaiBal = await TestingUtils.ftBalOf(
+      NDAI_CONTRACT,
+      wrappedTesterAccount.accountId,
+      wrappedTesterAccount
+    );
     const newmyBal = await TestingUtils.ftBalOf(
       TestingUtils.WRAP_TESTNET_CONTRACT,
       wrappedTesterAccount.accountId,
       wrappedTesterAccount
     );
-    TestingUtils.checkBalDifferences(myBal, newmyBal, -1 * amount, expect);
+    TestingUtils.checkBalDifferences(myBal, newmyBal, "-" + amount, expect);
+    expect(
+      new BN(newDaiBal).sub(new BN(oldDaiBal)).gte(new BN(minDaiRetrun))
+    ).toBeTruthy();
   });
 
   afterAll(async () => {
