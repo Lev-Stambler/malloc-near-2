@@ -1,0 +1,51 @@
+.flow--wrapper {
+  border: 1px black solid;
+}
+
+.menu {
+  z-index: 100;
+  display: grid;
+  gap: 1em;
+  grid-template-columns: repeat(2, 1fr);
+  width: 100%;
+  justify-content: center;
+  padding-top: 1em;
+  justify-items: center;
+}
+
+.menu .menu--item {
+  padding: 1em;
+  border: black solid 1px;
+}
+
+.node {
+  padding: 1rem;
+  border: black solid 1px;
+  border-radius: 1rem;
+}
+
+.node.malloc-call {
+  background: rgb(236, 172, 172);
+}
+
+form .submit--cta {
+  grid-column: 1 / span 4;
+}
+
+form label {
+  font-size: 0.5em;
+}
+
+.menu--form {
+  display: grid;
+  gap: 0.5em;
+  justify-items: center;
+  grid-template-columns: repeat(2, auto);
+}
+
+.submit--cta {
+  width: min-content;
+  border-radius: 1rem;
+  background: rgb(72, 72, 255);
+  color: white;
+}

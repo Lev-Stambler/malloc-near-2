@@ -133,7 +133,7 @@ export const signAndSendKP = async (
   });
 
   const sleepMS = 100;
-  const txHashProms = [];
+  const txHashProms: Promise<string>[] = [];
   for (let i = 0; i < lazyTxCalls.length; i++) {
     await new Promise<void>((res, rej) => {
       setTimeout(() => {
@@ -213,10 +213,10 @@ export const resolveTransactionsWithPromise = async (
     result: ExecutionStatus | ExecutionStatusBasic
   ): TransactionWithPromiseResult => {
     const isResultSuccess =
-      result["SuccessValue"] === "" ||
-      result["SuccessValue"] ||
-      result["SuccessReceiptId"] === "" ||
-      result["SuccessReceiptId"];
+      (result as ExecutionStatus)["SuccessValue"] === "" ||
+      (result as ExecutionStatus)["SuccessValue"] ||
+      (result as ExecutionStatus)["SuccessReceiptId"] === "" ||
+      (result as ExecutionStatus)["SuccessReceiptId"];
 
     if (isResultSuccess) {
       return {
@@ -227,7 +227,9 @@ export const resolveTransactionsWithPromise = async (
     return {
       // TODO: add some reason or something for this!!
       flag: TransactionWithPromiseResultFlag.FAILURE,
-      message: JSON.stringify(result["Failure"]?.error_message) ?? undefined,
+      message:
+        JSON.stringify((result as ExecutionStatus)["Failure"]?.error_message) ??
+        undefined,
     };
   };
 

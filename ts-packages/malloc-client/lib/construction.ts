@@ -4,7 +4,6 @@ import {
   AccountId,
   BigNumberish,
   Node,
-  RunEphemeralOpts,
   SpecialAccount,
   Transaction,
   MallocCallMetadata,
@@ -23,6 +22,7 @@ import {
   NodeCallId,
   CallEphemeralError,
 } from "./interfaces";
+import { getNodeAttachedDepositForNode } from "./node";
 import {
   executeMultipleTx,
   MAX_GAS,
@@ -30,29 +30,14 @@ import {
   resolveTransactionsReducedWithPromises,
 } from "./tx";
 
+interface RunEphemeralOpts {
+  gas: BigNumberish;
+  depositTransactionHash?: string | null;
+}
+
 const defaultRunEphemeralOpts: RunEphemeralOpts = {
   gas: MAX_GAS,
   depositTransactionHash: null,
-};
-
-/**
- * @param  {SpecialAccount} callerAccount
- * @param  {Node} node
- * @returns Promise
- */
-const getNodeAttachedDepositForNode = async (
-  callerAccount: SpecialAccount,
-  node: Node
-): Promise<BN> => {
-  if (node.MallocCall) {
-    const metadata: MallocCallMetadata = await callerAccount.viewFunction(
-      node.MallocCall.malloc_call_id,
-      "metadata"
-    );
-    return new BN(metadata.minimum_attached_deposit || 1);
-  } else if (node.FtTransferCallToMallocCall) {
-    return new BN(1);
-  }
 };
 
 const getAttachedDeposit = async (

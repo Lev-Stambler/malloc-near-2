@@ -11,7 +11,7 @@ export const doStorageDeposit = async (
 ): Promise<Transaction | null> => {
   // TODO: from where??
   const NEW_ACCOUNT_STORAGE_COST_bn = new BN(
-    utils.format.parseNearAmount("0.00125")
+    utils.format.parseNearAmount("0.00125") || "0"
   ).add(new BN(extraAmount || 0));
   const NEW_ACCOUNT_STORAGE_COST = NEW_ACCOUNT_STORAGE_COST_bn.toString();
   const storageBal = await caller.viewFunction(
@@ -51,10 +51,12 @@ const registerFtTxsForSingleAccount = async (
       doStorageDeposit(caller, ftAccount, accountId, extraAmount)
     )
   );
-  const txs = txOptions.filter((tx) => tx !== null);
-  const contractsToRegister = ftAccountIds
+  const txs: Transaction[] = txOptions.filter(
+    (tx) => tx !== null
+  ) as Transaction[];
+  const contractsToRegister: string[] = ftAccountIds
     .map((token, i) => (txOptions[i] ? token : null))
-    .filter((token) => token !== null);
+    .filter((token) => token !== null) as string[];
   return { txs, contractsToRegister };
 };
 

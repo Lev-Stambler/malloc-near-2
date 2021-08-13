@@ -5,7 +5,10 @@
     "jsx": "react-jsx",
     "types": [
       "./src/types.d.ts"
-    ] /* Type declaration files to be included in compilation. */
+    ] /* Type declaration files to be included in compilation. */,
+    "paths": {
+      "@malloc/sdk": ["../malloc-client/lib/malloc-client.ts"]
+    }
   },
-  "include": ["./src"]
+  "include": ["./src", "../malloc-client/lib"]
 }

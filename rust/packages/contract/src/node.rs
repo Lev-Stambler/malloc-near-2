@@ -333,6 +333,11 @@ mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
+
+    #[test]
+    fn test_getting_result_from_bytes_error() {
+    }
+
     #[test]
     fn test_getting_result_from_bytes() {
         let amount = "10".to_string();
@@ -348,10 +353,19 @@ mod tests {
         )
         .unwrap();
 
+        let from_ret_items = NodeCall::get_results_from_returned_bytes(
+            ret_items_json.to_string().into_bytes(),
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(from_ret_items.len(), 1);
         assert_eq!(from_amount.len(), 1);
+
         assert!(return_item_eq(
             &from_amount[0],
             &ReturnItem { amount, token_id }
         ));
+        assert!(return_item_eq(&from_amount[0], &from_ret_items[0]));
     }
 }

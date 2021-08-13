@@ -7,6 +7,7 @@ import {
   WalletConnection,
 } from "near-api-js";
 import {
+  MallocClient,
   SpecialAccountConnectedWallet,
   SpecialAccountType,
   wrapAccount,
@@ -50,6 +51,12 @@ export async function initContract() {
       viewMethods: [],
     }
   )) as any as MallocContract;
+
+  // TODO: env var
+  window.mallocClient = new MallocClient(
+    window.account,
+    "dev-1628729326940-20289955091332"
+  );
 }
 
 export function logout() {

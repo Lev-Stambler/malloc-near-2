@@ -20,6 +20,7 @@ import {
   TxHashOrVoid,
   ConstructionCall,
   BigNumberish,
+  MallocCallMetadata,
 } from "./interfaces";
 import {
   deleteConstruction,
@@ -33,6 +34,7 @@ import {
 } from "./tx";
 import { getTokenBalance } from "./ft-token";
 import { registerDepositsTxs } from "./storage-deposit";
+import { getMallocCallMetadata } from "./node";
 
 export * from "./interfaces";
 
@@ -121,7 +123,17 @@ export class MallocClient<
         },
       ],
     });
-    return (await executeMultipleTx(this.account, txs))[0];
+    const ret = await executeMultipleTx(this.account, txs);
+    //@ts-ignore
+    if (!ret || !ret?.length) return;
+
+    return (ret as string[])[0] as TxHashOrVoid<AccountType>;
+  }
+
+  public getMallocCallMetadata(
+    mallocCallId: AccountId
+  ): Promise<MallocCallMetadata> {
+    return getMallocCallMetadata(this.account, mallocCallId);
   }
 
   public getTokenBalance(
