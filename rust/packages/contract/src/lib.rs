@@ -19,13 +19,11 @@ use malloc_call_core::ft::{FungibleTokenBalances, FungibleTokenHandlers};
 use malloc_call_core::{GasUsage, MallocCallFT, ReturnItem};
 // To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet, Vector};
-use near_sdk::env::{log, predecessor_account_id, random_seed};
+use near_sdk::collections::UnorderedMap;
 use near_sdk::json_types::{ValidAccountId, U128, U64};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
     env, log, near_bindgen, serde, serde_json, setup_alloc, utils, AccountId, Gas, PanicOnDefault,
-    Promise,
 };
 use node::{Node, NodeCall, NodeCallId, NodeId};
 use serde_ext::VectorWrapper;
@@ -186,8 +184,12 @@ impl Contract {
     ) -> Option<u64> {
         // TODO: err handle!!
         let mut node_call = self.node_calls.get(&node_call_id).unwrap();
+        let ret_bytes = match utils::promise_result_as_success() {
+            None => panic!("TODO:"),
+            Some(bytes) => bytes,
+        };
         let results: Vec<ReturnItem> =
-            NodeCall::get_results_from_returned_bytes(token_return_id).unwrap();
+            NodeCall::get_results_from_returned_bytes(ret_bytes, token_return_id).unwrap();
         node_call.handle_node_callback_internal(self, construction_call_id, caller, results)
     }
 }

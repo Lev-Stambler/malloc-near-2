@@ -222,12 +222,9 @@ impl NodeCall {
 
     // TODO: error handling
     pub(crate) fn get_results_from_returned_bytes(
+        ret_bytes: Vec<u8>,
         token_id: Option<ValidAccountId>,
     ) -> Result<Vec<ReturnItem>, String> {
-        let ret_bytes = match utils::promise_result_as_success() {
-            None => panic!("TODO:"),
-            Some(bytes) => bytes,
-        };
         let as_u128: Result<String, _> = serde_json::from_slice(&ret_bytes);
         if let Ok(amount_ret) = as_u128 {
             let token_id = token_id.unwrap();
@@ -326,5 +323,35 @@ impl NodeCall {
             construction_call.node_calls.0.push(&node_call_id);
         }
         construction_call
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::test_utils::tests::return_item_eq;
+
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
+    use super::*;
+
+    #[test]
+    fn test_getting_result_from_bytes() {
+        let amount = "10".to_string();
+        let token_id = ValidAccountId::try_from("wrap.testnet").unwrap();
+        let amount_json = json!(amount.clone());
+        let ret_items_json = json!(vec![ReturnItem {
+            token_id: token_id.clone(),
+            amount: amount.clone()
+        },]);
+        let from_amount = NodeCall::get_results_from_returned_bytes(
+            amount_json.to_string().into_bytes(),
+            Some(token_id.clone()),
+        )
+        .unwrap();
+
+        assert_eq!(from_amount.len(), 1);
+        assert!(return_item_eq(
+            &from_amount[0],
+            &ReturnItem { amount, token_id }
+        ));
     }
 }
