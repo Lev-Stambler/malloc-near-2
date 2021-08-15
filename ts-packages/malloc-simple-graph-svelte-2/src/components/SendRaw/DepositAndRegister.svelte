@@ -15,7 +15,7 @@
   import { nearStore } from "src/stores/near-store";
 
   let amount: string = null;
-  let token_id: string = "ndai.ft-fin.testnet";
+  let token_id: string = "wrap.testnet";
   let accountToRegister: string = "[]";
 
   const registerDepositForm = formVal(

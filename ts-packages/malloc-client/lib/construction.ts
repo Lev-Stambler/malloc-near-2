@@ -87,7 +87,9 @@ export const deleteConstruction = async <
     },
   ];
 
-  const txRetsInit = await executeMultipleTx(callerAccount, txs);
+  const txRetsInit = await executeMultipleTx(callerAccount, txs, {
+    callingMallocAndNoDeposit: true,
+  });
 
   //@ts-ignore
   if (txRetsInit instanceof Array) return txRetsInit[0];
@@ -179,16 +181,21 @@ export const runEphemeralConstruction = async (
               node_names: nodeNames,
               nodes: nodes,
             } as RegisterNodesArgs,
-            gas: MAX_GAS.divn(3).toString(),
+            gas: MAX_GAS.toString(),
             amount: "0", // TODO: storage
           },
+        ],
+      },
+      {
+        receiverId: mallocAccountId,
+        functionCalls: [
           {
             methodName: "register_construction",
             args: {
               construction_name: constructionName,
               construction,
             } as RegisterConstructionArgs,
-            gas: MAX_GAS.divn(3).toString(),
+            gas: MAX_GAS.toString(),
             amount: "0", //TODO: storage deposit goes here ya heard
           },
         ],
@@ -220,10 +227,11 @@ export const runEphemeralConstruction = async (
       },
     ];
 
-    const txRetsInit = await executeMultipleTx(callerAccount, [
-      ...txs,
-      ...initTx,
-    ]);
+    const txRetsInit = await executeMultipleTx(
+      callerAccount,
+      [...txs, ...initTx],
+      { callingMallocAndNoDeposit: true }
+    );
 
     // Throws if unsuccessful
     await checkTransactionSuccessful(txRetsInit || [], callerAccount.accountId);
@@ -278,7 +286,9 @@ export const runEphemeralConstruction = async (
           };
         });
 
-      const txRets = await executeMultipleTx(callerAccount, txs);
+      const txRets = await executeMultipleTx(callerAccount, txs, {
+        callingMallocAndNoDeposit: true,
+      });
 
       // Throws if unsuccessful
       await checkTransactionSuccessful(txRets || [], callerAccount.accountId);
@@ -296,6 +306,10 @@ export const runEphemeralConstruction = async (
 
   try {
     const txsInit = await storeAndStartConstruction();
+    await resolveTransactionsReducedWithPromises(
+      txsInit,
+      callerAccount.accountId
+    );
     const txsNextStep = await runNextNodeCalls();
     return [...txsInit, ...txsNextStep];
   } catch (e) {

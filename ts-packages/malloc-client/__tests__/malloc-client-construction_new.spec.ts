@@ -30,7 +30,7 @@ describe("malloc-client's ft capabilities", () => {
     );
   });
 
-  it.only("should test multi layered calls with a passthrough", async () => {
+  it("should test multi layered calls with a passthrough", async () => {
     const MALLOC_CALL_BLACKWHOLE_CONTRACT_ID =
       TestingUtils.getMallocCallBlackwholeContract();
     const MALLOC_CALL_PASSTHROUGH =
@@ -141,7 +141,7 @@ describe("malloc-client's ft capabilities", () => {
     TestingUtils.checkBalDifferences(myBal, newmyBal, -1 * amount, expect);
   });
 
-  it("should make a couple black whole calls and make sure that the most basic splitter succeeds", async () => {
+  it.only("should make a couple black whole calls and make sure that the most basic splitter succeeds", async () => {
     const MALLOC_CALL_BLACKWHOLE_CONTRACT_ID =
       TestingUtils.getMallocCallBlackwholeContract();
 
@@ -165,6 +165,7 @@ describe("malloc-client's ft capabilities", () => {
         executeTransactions: true,
       }
     );
+
 
     const myBal = await TestingUtils.ftBalOf(
       TestingUtils.WRAP_TESTNET_CONTRACT,

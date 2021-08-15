@@ -42,6 +42,7 @@ import { getMallocCallMetadata } from "./node";
 
 export * from "./interfaces";
 
+
 export const wrapAccountConnectedWallet = (
   near: Near
 ): SpecialAccountConnectedWallet => {
@@ -97,7 +98,7 @@ export class MallocClient<
   private readonly account: AccountType;
   public readonly mallocAccountId: AccountId;
   private readonly opts: MallocClientOpts;
-  private readonly contract: Contract;
+  // private readonly contract: Contract;
 
   constructor(
     account: AccountType,
@@ -109,15 +110,15 @@ export class MallocClient<
     this.opts = opts
       ? { ...mallocClientDefaultOpts, ...opts }
       : mallocClientDefaultOpts;
-    this.contract = new Contract(account, mallocAccountId, {
-      viewMethods: [],
-      changeMethods: [
-        "register_nodes",
-        "register_construction",
-        "init_construction",
-        "process_next_node_call",
-      ],
-    });
+    // this.contract = new Contract(account, mallocAccountId, {
+    //   viewMethods: [],
+    //   changeMethods: [
+    //     "register_nodes",
+    //     "register_construction",
+    //     "init_construction",
+    //     "process_next_node_call",
+    //   ],
+    // });
   }
 
   public async resolveTransactions(
@@ -220,14 +221,14 @@ export class MallocClient<
 
     console.log("AAAAA")
     //@ts-ignore
-    await this.contract.register_nodes(
-      {
-        node_names: ["a", "a", "a"],
-        nodes: nodes,
-      },
-      MAX_GAS
-    );
-    // await this.account.functionCall({
+    // await this.contract.register_nodes(
+    //   {
+    //     node_names: ["a", "a", "a"],
+    //     nodes: nodes,
+    //   },
+    //   MAX_GAS
+    // );
+    // const ret = await this.account.functionCall({
     //   contractId: this.mallocAccountId,
     //   methodName: "register_nodes",
     //   args: {
@@ -236,7 +237,8 @@ export class MallocClient<
     //   },
     //   gas: MAX_GAS,
     // })
-    return []
+    // console.log(ret)
+    // return []
 
     // if (this.account.type !== SpecialAccountType.KeyPair)
     //   throw "Malloc client currently only supports keypair connected wallets";

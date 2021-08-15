@@ -9,8 +9,8 @@ import {
   Near,
   providers,
   utils,
-} from "near-api-js";
-import { KeyPairEd25519, PublicKey } from "near-api-js/lib/utils";
+} from "../../malloc-client/lib/near-rexport";
+import { KeyPairEd25519, PublicKey } from "../../malloc-client/lib/near-rexport";
 import { join } from "path";
 import {
   AccountId,
@@ -21,7 +21,7 @@ import {
 } from "../../malloc-client/lib/interfaces";
 import {
   MallocClient,
-  wrapAccount,
+  wrapAccountKeyPair,
 } from "../../malloc-client/lib/malloc-client";
 import tester from "./tester.json";
 
@@ -79,9 +79,8 @@ export const getDefaultTesterAccountNear =
       privateKey: tester.private_key,
       accountId: tester.account_id,
     });
-    return wrapAccount(
+    return wrapAccountKeyPair(
       await near.account(tester.account_id),
-      SpecialAccountType.KeyPair,
       new KeyPairEd25519(tester.private_key.split(":")[1])
     ) as SpecialAccountWithKeyPair;
   };
@@ -176,7 +175,8 @@ export const setupWNearAccount = async (
       await caller.functionCall({
         contractId: contractAddr,
         methodName: "near_deposit",
-        args: {},
+        args: {
+        },
         gas: MAX_GAS,
         attachedDeposit: new BN(amountInitDeposit).sub(new BN(wNearbal)),
       });
@@ -205,9 +205,8 @@ export const newRandAccount = async (
   const account = await near.account(newAccountId);
   console.log("Created account", newAccountId);
   generatedAccounts.push(account);
-  return wrapAccount(
+  return wrapAccountKeyPair(
     account,
-    SpecialAccountType.KeyPair,
     kp
   ) as SpecialAccountWithKeyPair;
 };

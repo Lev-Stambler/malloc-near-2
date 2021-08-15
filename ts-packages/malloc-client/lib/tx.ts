@@ -5,6 +5,7 @@ import * as nearAPI from "near-api-js";
 import {
   Action,
   createTransaction as nearCreateTransaction,
+  signTransaction,
   Transaction as NearTransaction,
 } from "near-api-js/lib/transaction";
 import { KeyPair, PublicKey } from "near-api-js/lib/utils";
@@ -23,6 +24,8 @@ import {
 import {
   Account,
   ConnectedWalletAccount,
+  Connection,
+  Contract,
   utils,
   WalletConnection,
 } from "near-api-js";
@@ -32,6 +35,7 @@ import {
   ExecutionStatusBasic,
 } from "near-api-js/lib/providers/provider";
 import { MallocErrors } from "./errors";
+import { SignAndSendTransactionOptions } from "near-api-js/lib/account";
 
 export const MAX_GAS_STR = "300000000000000";
 export const MAX_GAS = new BN(MAX_GAS_STR);
@@ -73,12 +77,12 @@ export const createTransactionWalletAccount = async (
   actions: Action[],
   nonceOffset = 1
 ): Promise<nearAPI.transactions.Transaction> => {
-  console.log(account)
+  console.log(account);
   const localKey = await account.connection.signer.getPublicKey(
     account.accountId,
     account.connection.networkId
   );
-  console.log(account)
+  console.log(account);
   let accessKey = await (
     account as ConnectedWalletAccount
   ).accessKeyForTransaction(receiverId, actions, localKey);
@@ -156,14 +160,67 @@ const signAndSendTxsWalletConnect = async (
   account: SpecialAccountConnectedWallet,
   callbackUrl?: string
 ): Promise<void> => {
-  // console.log(txsDropName, txsDropName[0]);
-  // console.log(txs.map(tx => serialize(SCHEMA, tx)))
-  // const txsVers = txs.map((tx) => new NearTransaction({ ...tx }));
-  console.log("Serial", serialize(SCHEMA, txs[0]));
   account.walletConnection.requestSignTransactions({
-    transactions: txs,//txsVers,
+    transactions: txs,
     callbackUrl,
   });
+};
+
+// TODO: is there a better way of doing this?
+/**
+ * signAndSendTxsWalletConnectNoAttachedDeposit - send transactions without an attached amount
+ * This is useful for sending transactions without a popup
+ */
+// TODO: this is really slow and should be parallelized somehow, maybe either reaching out to near team or having malloc add a key pair
+const signAndSendTxFunctionCallsWalletConnectNoDeposit = async (
+  txs: NearTransaction[],
+  account: SpecialAccountConnectedWallet
+): Promise<string[]> => {
+  // class TmpAccount extends Account {
+  //   constructor(connection: Connection, accountId: string) {
+  //     super(connection, accountId);
+  //   }
+  //   public signAndSendTransactionWrap(opts: SignAndSendTransactionOptions) {
+  //     return super.signAndSendTransaction(opts);
+  //   }
+  // }
+  // const tmpAccount = new TmpAccount(account.connection, account.accountId);
+
+  // account.functionCall({
+
+  // })
+  const signAndSendActionsInTx = async (
+    tx: NearTransaction
+  ): Promise<string[]> => {
+    // const contract = new Contract(account, tx.receiverId, {
+    //   viewMethods: [],
+    //   changeMethods: tx.actions.reduce(
+    //     (prev, action) => [...prev, action?.functionCall.methodName || ""],
+    //     [] as string[]
+    //   ),
+    // });
+    return await Promise.all(
+      tx.actions.map(async (action) => {
+        if (!action.functionCall) {
+          throw "Only function calls are allowed when signing and sending a tx to malloc";
+        }
+        const ret = await account.functionCall({
+          contractId: tx.receiverId,
+          methodName: action.functionCall.methodName,
+          args: action.functionCall.args,
+          gas: action.functionCall.gas,
+        });
+        return ret.transaction.hash;
+      })
+    );
+  };
+  // const txProms = txs.map(signAndSendActionsInTx);
+  // const txHashes: string[][] = await Promise.all(txProms);
+  let txHashes = [] as string[]
+  for (let i = 0; i < txs.length; i++) {
+    txHashes.push(...(await signAndSendActionsInTx(txs[i])))
+  }
+  return txHashes;
 };
 
 // TODO: have signerAccount be some idiomatic thingy where ConnectedWalletAccount is wrapped in interface
@@ -181,6 +238,8 @@ export const executeMultipleTx = async <
   const signAndSendTxsMethod =
     signerAccount.type === SpecialAccountType.KeyPair
       ? signAndSendKP
+      : opts?.callingMallocAndNoDeposit
+      ? signAndSendTxFunctionCallsWalletConnectNoDeposit
       : signAndSendTxsWalletConnect;
   const nearTransactions = await Promise.all(
     transactions.map((t, i) => {

@@ -22,6 +22,7 @@ export const exampleCall = {
           register_tokens: ["wrap.testnet", "ndai.ft-fin.testnet"],
           recipient: "levtester.testnet",
         }),
+        gas: MAX_GAS.divn(100).muln(80).toNumber(),
         // 2/3 rds of max gas and have the remaining third for processing the call
         attached_amount: "0",
       },
@@ -37,7 +38,7 @@ export const exampleCall = {
           pool_id: 11,
           min_amount_out: "0",
           // TODO: this will be removed
-          register_tokens: ["ndai.ft-fin.testnet", "wrap.testnetj"],
+          register_tokens: ["ndai.ft-fin.testnet", "wrap.testnet"],
           recipient: "levtester.testnet",
         }),
         // 2/3 rds of max gas and have the remaining third for processing the call

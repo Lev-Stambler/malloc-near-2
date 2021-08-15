@@ -19,7 +19,7 @@
   export let depositHash: string;
 
   let amount: string = exampleCall.amount;
-  let token_id: string = "ndai.ft-fin.testnet";
+  let token_id: string = "wrap.testnet";
   let initial_node_indices: string = JSON.stringify(exampleCall.initial_node_indices);
   let initial_splits: string = JSON.stringify(exampleCall.initial_node_splits);
   let next_nodes_indices: string = JSON.stringify(exampleCall.next_node_indices);

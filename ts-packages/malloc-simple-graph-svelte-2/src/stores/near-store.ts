@@ -4,6 +4,7 @@ import {
   Near,
   WalletConnection,
 } from "@malloc/sdk/dist/near-rexport";
+// TODO: change back to package form
 import { SpecialAccountType, MallocClient, wrapAccountConnectedWallet } from "@malloc/sdk";
 import { writable } from "svelte/store";
 import type {

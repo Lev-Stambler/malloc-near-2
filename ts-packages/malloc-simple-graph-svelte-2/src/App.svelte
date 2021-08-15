@@ -1,7 +1,7 @@
 <script lang="ts">
-  import {
-    connect, keyStores, 
-  } from "@malloc/sdk/dist/near-rexport";
+  import { connect, keyStores } from "@malloc/sdk/dist/near-rexport";
+  import { MAX_GAS } from "@malloc/sdk/dist/tx";
+  import BN from "bn.js";
   import Login from "./components/Login.svelte";
   import { initNearStore, nearStore } from "./stores/near-store";
   import getConfig from "./utils/config";
@@ -27,6 +27,16 @@
     $nearStore.walletConnection.signOut();
     window.location.reload();
   }
+
+  function getWNear() {
+    $nearStore.account.functionCall({
+      contractId: "wrap.testnet",
+      methodName: "near_deposit",
+      args: {},
+      gas: MAX_GAS,
+      attachedDeposit: new BN("1000000000000"),
+    });
+  }
 </script>
 
 <main>
@@ -34,8 +44,9 @@
     loading...
   {:then value}
     {#if $nearStore?.walletConnection.isSignedIn()}
-    <!-- TODO: navbar -->
+      <!-- TODO: navbar -->
       <button class="log-out" on:click={logout}>Logout</button>
+      <button on:click={getWNear}>Get 1,000,000,000,000 WNear</button>
       <SendRaw />
       Logged In
     {:else}

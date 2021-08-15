@@ -56,6 +56,7 @@ export interface ExecuteMultipleTxOpts<
   T extends SpecialAccountConnectedWallet | SpecialAccountWithKeyPair
 > {
   callbackUrl?: T extends SpecialAccountConnectedWallet ? string : never;
+  callingMallocAndNoDeposit?: boolean;
 }
 
 /********** ID interfaces *************/

@@ -105,7 +105,6 @@ impl CoreFunctionality for Contract {
         }
     }
 
-    #[payable]
     fn register_construction(&mut self, construction_name: String, construction: Construction) {
         self.constructions
             .insert(&ConstructionId::new(construction_name, None), &construction);
@@ -144,7 +143,6 @@ impl CoreFunctionality for Contract {
             .insert(&construction_call_id, &construction_call);
     }
 
-    #[payable]
     fn process_next_node_call(&mut self, construction_call_id: ConstructionCallId) {
         self._run_step(construction_call_id);
         log!("Gas used: {}", env::used_gas());
@@ -174,7 +172,6 @@ impl GasUsage for Contract {
 #[near_bindgen]
 impl Contract {
     #[private]
-    #[payable]
     pub fn handle_node_callback(
         &mut self,
         construction_call_id: ConstructionCallId,
