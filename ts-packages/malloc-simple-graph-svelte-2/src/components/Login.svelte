@@ -2,7 +2,7 @@
   import { nearStore } from "src/stores/near-store";
 
   function login() {
-    $nearStore?.walletConnection.requestSignIn($nearStore.config.contractName);
+    $nearStore?.walletConnection.requestSignIn($nearStore.config.contractName, "Malloc Contract");
   }
 </script>
 

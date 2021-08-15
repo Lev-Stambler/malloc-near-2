@@ -158,10 +158,10 @@ const signAndSendTxsWalletConnect = async (
 ): Promise<void> => {
   // console.log(txsDropName, txsDropName[0]);
   // console.log(txs.map(tx => serialize(SCHEMA, tx)))
-  const txsVers = txs.map((tx) => new NearTransaction({ ...tx }));
+  // const txsVers = txs.map((tx) => new NearTransaction({ ...tx }));
   console.log("Serial", serialize(SCHEMA, txs[0]));
   account.walletConnection.requestSignTransactions({
-    transactions: txsVers,
+    transactions: txs,//txsVers,
     callbackUrl,
   });
 };

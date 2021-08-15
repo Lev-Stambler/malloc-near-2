@@ -227,6 +227,15 @@ export class MallocClient<
       },
       MAX_GAS
     );
+    // await this.account.functionCall({
+    //   contractId: this.mallocAccountId,
+    //   methodName: "register_nodes",
+    //   args: {
+    //     node_names: ["a", "a", "a"],
+    //     nodes: nodes,
+    //   },
+    //   gas: MAX_GAS,
+    // })
     return []
 
     // if (this.account.type !== SpecialAccountType.KeyPair)

@@ -13,7 +13,6 @@
 
   import { form as formVal, bindClass } from "svelte-forms";
   import { nearStore } from "src/stores/near-store";
-  import { SCHEMA } from "near-api-js/lib/transaction";
   import DepositAndRegister from "src/components/SendRaw/DepositAndRegister.svelte";
   import { parseQuery } from "src/utils/browser";
   import RunEphemeral from "src/components/SendRaw/RunEphemeral.svelte";
@@ -28,7 +27,6 @@
     try {
       const client: MallocClient<SpecialAccountConnectedWallet> =
         $nearStore.mallocClient;
-      console.log(SCHEMA);
       await client.deposit(amount, token_id);
     } catch (e) {
       alert("an error occured in trying to submit: " + JSON.stringify(e || {}));

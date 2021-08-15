@@ -920,6 +920,7 @@
     borsh "^0.4.0"
     js-sha256 "^0.9.0"
     near "^0.2.2"
+    near-api-js "~0.42.0"
     regenerator-runtime "~0.13.5"
 
 "@material/animation@^11.0.0":
@@ -5424,7 +5425,7 @@ nanomatch@^1.2.9:
     snapdragon "^0.8.1"
     to-regex "^3.0.1"
 
-near-api-js@^0.42.0:
+near-api-js@~0.42.0:
   version "0.42.0"
   resolved "https://registry.yarnpkg.com/near-api-js/-/near-api-js-0.42.0.tgz#1f773791e930a349be65b866752bbae67df4388d"
   integrity sha512-YtDR0sXHL2CclXZdscqUIjoc4Vp/o09CSY1lQ6mygSNbWp5ghLAR1kNBQnALGGQhYC6NLBCzJQJZMb2IQr2WzA==

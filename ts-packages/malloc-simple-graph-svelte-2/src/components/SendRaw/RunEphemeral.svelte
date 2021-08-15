@@ -13,7 +13,6 @@
 
   import { form as formVal, bindClass } from "svelte-forms";
   import { nearStore } from "src/stores/near-store";
-  import { SCHEMA } from "near-api-js/lib/transaction";
   import { MAX_GAS } from "@malloc/sdk/dist/tx";
   import { exampleCall } from "./exampleCall";
 

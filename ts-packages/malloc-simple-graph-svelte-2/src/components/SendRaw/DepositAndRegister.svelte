@@ -13,7 +13,6 @@
 
   import { form as formVal, bindClass } from "svelte-forms";
   import { nearStore } from "src/stores/near-store";
-  import { SCHEMA } from "near-api-js/lib/transaction";
 
   let amount: string = null;
   let token_id: string = "ndai.ft-fin.testnet";
@@ -48,7 +47,7 @@
       );
       console.log(registerTxs);
       await client.deposit(amount, token_id, registerTxs, {
-        callbackUrl: '/'
+        callbackUrl: window.location.href,
       });
     } catch (e) {
       alert("an error occured in trying to submit: " + JSON.stringify(e || {}));
@@ -83,7 +82,9 @@
           label="array of accounts to register"
         />
       </div>
-      <button disabled={!$registerDepositForm.valid}>Register and deposit</button>
+      <button disabled={!$registerDepositForm.valid}
+        >Register and deposit</button
+      >
     </div>
   </form>
 </div>

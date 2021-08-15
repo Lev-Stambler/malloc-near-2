@@ -1,10 +1,7 @@
 <script lang="ts">
   import {
-    connect,
-    ConnectedWalletAccount,
-    keyStores,
-    WalletConnection,
-  } from "near-api-js";
+    connect, keyStores, 
+  } from "@malloc/sdk/dist/near-rexport";
   import Login from "./components/Login.svelte";
   import { initNearStore, nearStore } from "./stores/near-store";
   import getConfig from "./utils/config";
