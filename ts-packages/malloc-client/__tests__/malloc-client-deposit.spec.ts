@@ -16,9 +16,8 @@ describe("malloc-client's ft capabilities", () => {
   jest.setTimeout(30 * 1000);
   beforeAll(async () => {
     const account = await TestingUtils.getDefaultTesterAccountNear();
-    wrappedAccount = MallocClient.wrapAccount(
+    wrappedAccount = MallocClient.wrapAccountKeyPair(
       account,
-      SpecialAccountType.KeyPair,
       TestingUtils.getDefaultTesterKeypair()
     ) as MallocClient.SpecialAccountWithKeyPair;
     malloc = new MallocClient.MallocClient(

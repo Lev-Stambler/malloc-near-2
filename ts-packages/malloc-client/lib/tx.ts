@@ -5,6 +5,7 @@ import * as nearAPI from "near-api-js";
 import {
   Action,
   createTransaction as nearCreateTransaction,
+  Transaction as NearTransaction,
 } from "near-api-js/lib/transaction";
 import { KeyPair, PublicKey } from "near-api-js/lib/utils";
 import { functionCall, SCHEMA } from "near-api-js/lib/transaction";
@@ -71,10 +72,12 @@ export const createTransactionWalletAccount = async (
   actions: Action[],
   nonceOffset = 1
 ): Promise<nearAPI.transactions.Transaction> => {
+  console.log(account)
   const localKey = await account.connection.signer.getPublicKey(
     account.accountId,
     account.connection.networkId
   );
+  console.log(account)
   let accessKey = await (
     account as ConnectedWalletAccount
   ).accessKeyForTransaction(receiverId, actions, localKey);
@@ -148,15 +151,16 @@ export const signAndSendKP = async (
 
 // TODO: how can we have the tx hashes here... maybe something w/ callback url??
 const signAndSendTxsWalletConnect = async (
-  txs: nearAPI.transactions.Transaction[],
+  txs: NearTransaction[],
   account: SpecialAccountConnectedWallet,
   callbackUrl?: string
 ): Promise<void> => {
   // console.log(txsDropName, txsDropName[0]);
   // console.log(txs.map(tx => serialize(SCHEMA, tx)))
+  const txsVers = txs.map((tx) => new NearTransaction({ ...tx }));
   console.log("Serial", serialize(SCHEMA, txs[0]));
   account.walletConnection.requestSignTransactions({
-    transactions: txs,
+    transactions: txsVers,
     callbackUrl,
   });
 };

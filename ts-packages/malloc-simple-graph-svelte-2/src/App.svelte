@@ -8,6 +8,8 @@
   import Login from "./components/Login.svelte";
   import { initNearStore, nearStore } from "./stores/near-store";
   import getConfig from "./utils/config";
+  import SendRaw from "./views/SendRaw.svelte";
+
   export let name: string;
   const nearConfig = getConfig("development");
 
@@ -35,7 +37,9 @@
     loading...
   {:then value}
     {#if $nearStore?.walletConnection.isSignedIn()}
+    <!-- TODO: navbar -->
       <button class="log-out" on:click={logout}>Logout</button>
+      <SendRaw />
       Logged In
     {:else}
       <Login />

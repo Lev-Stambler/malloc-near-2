@@ -4,7 +4,7 @@ import {
   Near,
   WalletConnection,
 } from "near-api-js";
-import { wrapAccount, SpecialAccountType, MallocClient } from "@malloc/sdk";
+import { SpecialAccountType, MallocClient, wrapAccountConnectedWallet } from "../../../malloc-client/lib/malloc-client";
 import { writable } from "svelte/store";
 import type {
   SpecialAccount,
@@ -16,7 +16,7 @@ interface NearStore {
   walletConnection: WalletConnection;
   config: ReturnType<typeof getConfig>;
   account?: SpecialAccount;
-  mallocClient?: MallocClient;
+  mallocClient?: MallocClient<SpecialAccountConnectedWallet>;
 }
 
 export const nearStore = writable<null | NearStore>(null);
@@ -24,11 +24,9 @@ export const nearStore = writable<null | NearStore>(null);
 export const initNearStore = (near: Near) => {
   // TODO: env
   const config = getConfig("development");
-  const walletConnection = new WalletConnection(near, "Malloc");
 
-  const account = wrapAccount<ConnectedWalletAccount>(
-    walletConnection.account(),
-    SpecialAccountType.WebConnected
+  const account = wrapAccountConnectedWallet(
+    near
   ) as SpecialAccountConnectedWallet;
 
   // Initializing our contract APIs by contract name and configuration
@@ -45,7 +43,7 @@ export const initNearStore = (near: Near) => {
   const mallocClient = new MallocClient(account, config.contractName);
 
   nearStore.set({
-    walletConnection,
+    walletConnection: account.walletConnection,
     config,
     mallocClient,
     account,

@@ -1,7 +1,7 @@
 import { utils } from "near-api-js";
 import * as TestingUtils from "../../testing-utils/lib/testing-utils";
 import { SpecialAccount, SpecialAccountType } from "../lib/interfaces";
-import { wrapAccount } from "../lib/malloc-client";
+import { wrapAccountKeyPair } from "../lib/malloc-client";
 import { executeMultipleTx } from "../lib/tx";
 
 const TOKEN_ACCOUNT_IDS = [TestingUtils.WRAP_TESTNET_CONTRACT];
@@ -12,9 +12,8 @@ describe("test transaction utils", () => {
 
   beforeAll(async () => {
     const account = await TestingUtils.getDefaultTesterAccountNear();
-    wrappedAccount = wrapAccount(
+    wrappedAccount = wrapAccountKeyPair(
       account,
-      SpecialAccountType.KeyPair,
       TestingUtils.getDefaultTesterKeypair()
     );
   });

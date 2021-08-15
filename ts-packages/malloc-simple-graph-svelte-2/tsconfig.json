@@ -1,5 +1,5 @@
 {
-  "include": ["src/**/*", "webpack.config.ts"],
+  "include": ["src/**/*", "webpack.config.ts", "../malloc-client/lib/**/*"],
   "exclude": ["node_modules/*", "__sapper__/*", "public/*", "**/*.spec.ts"],
   "compilerOptions": {
     "declaration": false,
@@ -10,7 +10,6 @@
     "skipDefaultLibCheck": true,
     "resolveJsonModule": true,
 
-    "rootDir": "./",
     "moduleResolution": "node",
     "target": "es2017",
     "importsNotUsedAsValues": "remove",
@@ -30,5 +29,4 @@
     ],
     "typeRoots": ["./src/types", "./node_modules/@types"]
   }
-
 }

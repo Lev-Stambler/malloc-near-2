@@ -3,6 +3,8 @@ import {
   ConnectedWalletAccount,
   Contract,
   KeyPair,
+  Near,
+  WalletConnection,
 } from "near-api-js";
 import { MallocErrors } from "./errors";
 import {
@@ -38,32 +40,30 @@ import { getMallocCallMetadata } from "./node";
 
 export * from "./interfaces";
 
-export const wrapAccount = <T extends Account | ConnectedWalletAccount>(
-  account: T,
-  type: SpecialAccountType,
-  keypair?: KeyPair
-): T extends ConnectedWalletAccount
-  ? SpecialAccountConnectedWallet
-  : SpecialAccountWithKeyPair => {
-  switch (type) {
-    case SpecialAccountType.KeyPair:
-      if (!keypair)
-        throw "A keypair is expected for wrapping a wallet with type Key Pair";
-      const newAccountKP = new Account(account.connection, account.accountId);
-      (newAccountKP as any).type = SpecialAccountType.KeyPair;
-      (newAccountKP as any).keypair = keypair;
-      // @ts-ignore
-      return newAccountKP as SpecialAccountWithKeyPair;
-    case SpecialAccountType.WebConnected:
-      const newAccountWeb = new ConnectedWalletAccount(
-        (account as ConnectedWalletAccount).walletConnection,
-        account.connection,
-        account.accountId
-      );
-      (newAccountWeb as any).type = SpecialAccountType.WebConnected;
-      // @ts-ignore
-      return newAccountWeb as SpecialAccountConnectedWallet;
-  }
+export const wrapAccountConnectedWallet = (
+  near: Near
+): SpecialAccountConnectedWallet => {
+  const walletConnection = new WalletConnection(near, null);
+  // TODO: safe to ignore?
+  const account = new ConnectedWalletAccount(
+    walletConnection,
+    walletConnection.account().connection,
+    walletConnection.account().accountId
+  );
+  (account as any).type = SpecialAccountType.WebConnected;
+  //@ts-ignore
+  return account;
+};
+
+export const wrapAccountKeyPair = (
+  account: Account,
+  keypair: KeyPair
+): SpecialAccountWithKeyPair => {
+  const newAccountKP = new Account(account.connection, account.accountId);
+  (newAccountKP as any).type = SpecialAccountType.KeyPair;
+  (newAccountKP as any).keypair = keypair;
+  // @ts-ignore
+  return newAccountKP as SpecialAccountWithKeyPair;
 };
 
 interface RunEphemeralOpts {

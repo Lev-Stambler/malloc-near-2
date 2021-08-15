@@ -17,7 +17,7 @@ export default function App() {
   if (!window.walletConnection.isSignedIn()) {
     return (
       <main>
-        <h1>Welcome to NEAR!</h1>
+        <h1></h1>
         <p>
           To make use of the NEAR blockchain, you need to sign in. The button
           below will sign you in using NEAR Wallet.
