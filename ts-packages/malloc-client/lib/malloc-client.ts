@@ -38,23 +38,31 @@ import { getMallocCallMetadata } from "./node";
 
 export * from "./interfaces";
 
-export const wrapAccount = <T>(
+export const wrapAccount = <T extends Account | ConnectedWalletAccount>(
   account: T,
   type: SpecialAccountType,
   keypair?: KeyPair
-): SpecialAccount => {
+): T extends ConnectedWalletAccount
+  ? SpecialAccountConnectedWallet
+  : SpecialAccountWithKeyPair => {
   switch (type) {
     case SpecialAccountType.KeyPair:
       if (!keypair)
         throw "A keypair is expected for wrapping a wallet with type Key Pair";
-      (account as any).type = SpecialAccountType.KeyPair;
-      (account as any).keypair = keypair;
+      const newAccountKP = new Account(account.connection, account.accountId);
+      (newAccountKP as any).type = SpecialAccountType.KeyPair;
+      (newAccountKP as any).keypair = keypair;
       // @ts-ignore
-      return account as SpecialAccountWithKeyPair;
+      return newAccountKP as SpecialAccountWithKeyPair;
     case SpecialAccountType.WebConnected:
-      (account as any).type = SpecialAccountType.WebConnected;
+      const newAccountWeb = new ConnectedWalletAccount(
+        (account as ConnectedWalletAccount).walletConnection,
+        account.connection,
+        account.accountId
+      );
+      (newAccountWeb as any).type = SpecialAccountType.WebConnected;
       // @ts-ignore
-      return account as SpecialAccountConnectedWallet;
+      return newAccountWeb as SpecialAccountConnectedWallet;
   }
 };
 
@@ -108,7 +116,7 @@ export class MallocClient<
     amount: string,
     tokenAccountId: string
   ): Promise<TxHashOrVoid<AccountType>> {
-    const txs = [];
+    const txs: Transaction[] = [];
     txs.push({
       receiverId: tokenAccountId,
       functionCalls: [

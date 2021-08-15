@@ -6,7 +6,7 @@
     "build": "npm run build:web",
     "build:web": "parcel build src/index.html --public-url ./",
     "deploy:pages": "gh-pages -d dist/",
-    "start": "echo The app is starting! It will automatically open in your browser when ready && env-cmd -f ../../rust/packages/contract/neardev/dev-account.env parcel src/index.html --open"
+    "start": "echo The app is starting! It will automatically open in your browser when ready && env-cmd -f ../../rust/packages/contract/neardev/dev-account.env parcel src/index.html --open",
   },
   "devDependencies": {
     "@babel/core": "~7.14.0",
@@ -38,7 +38,8 @@
     "bn.js": "^5.2.0",
     "formik": "^2.2.9",
     "http-errors": "^1.8.0",
-    "near-api-js": "~0.41.0",
+    "near-api-js": "~0.42.0",
+    "@malloc/sdk": "file:../malloc-client",
     "react": "~17.0.1",
     "react-dom": "~17.0.1",
     "react-flow-renderer": "^9.6.6",

@@ -5,6 +5,7 @@ import "./global.css";
 
 import getConfig, { env, Env } from "./config";
 import Flow from "./views/FlowChart";
+import { TextBoxGoView } from "./views/TextBoxGo";
 
 export default function App() {
   // after submitting the form, we want to show Notification
@@ -67,6 +68,7 @@ export default function App() {
       <main>
         <div style={{ height: "100vh", width: "100vw" }}>
           {/* <Flow></Flow> */}
+          <TextBoxGoView />
         </div>
         {/* <h1>Welcome {window.accountId}!</h1> */}
         {/* <form

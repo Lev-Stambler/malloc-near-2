@@ -1,11 +1,11 @@
 {
-  "name": "malloc-client",
+  "name": "@malloc/sdk",
   "version": "0.0.0",
   "description": "> TODO: description",
   "author": "Lev Stambler <levstamb@gmail.com>",
   "homepage": "https://github.com/Lev-Stambler/malloc-near-2#readme",
   "license": "ISC",
-  "main": "lib/malloc-client.js",
+  "main": "dist/malloc-client.js",
   "directories": {
     "lib": "lib",
     "test": "__tests__"
@@ -27,7 +27,7 @@
     "borsh": "^0.4.0",
     "js-sha256": "^0.9.0",
     "near": "^0.2.2",
-    "near-api-js": "^0.42.0",
+    "near-api-js": "~0.42.0",
     "regenerator-runtime": "~0.13.5"
   },
   "resolutions": {
@@ -39,7 +39,6 @@
     "@babel/core": "~7.14.0",
     "@babel/preset-env": "~7.14.0",
     "@babel/preset-typescript": "^7.14.5",
-    "@baf-wallet/near": "^0.0.22",
     "@types/jest": "^26.0.23",
     "@types/node": "^15.12.5",
     "@types/react": "^17.0.11",

@@ -11,7 +11,7 @@ import {
   SpecialAccountConnectedWallet,
   SpecialAccountType,
   wrapAccount,
-} from "../../malloc-client/lib/malloc-client";
+} from "@malloc/sdk";
 import getConfig, { env, Env } from "./config";
 import { MallocContract } from "./types";
 

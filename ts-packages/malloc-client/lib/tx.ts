@@ -1,5 +1,5 @@
 import BN from "bn.js";
-import { baseDecode } from "borsh";
+import { baseDecode, serialize } from "borsh";
 import { sha256 } from "js-sha256";
 import * as nearAPI from "near-api-js";
 import {
@@ -7,14 +7,14 @@ import {
   createTransaction as nearCreateTransaction,
 } from "near-api-js/lib/transaction";
 import { KeyPair, PublicKey } from "near-api-js/lib/utils";
-import { functionCall } from "near-api-js/lib/transaction";
+import { functionCall, SCHEMA } from "near-api-js/lib/transaction";
 import {
   AccountId,
+  Transaction,
   SpecialAccount,
   SpecialAccountConnectedWallet,
   SpecialAccountType,
   SpecialAccountWithKeyPair,
-  Transaction,
   TransactionWithPromiseResult,
   TransactionWithPromiseResultFlag,
 } from "./interfaces";
@@ -92,7 +92,7 @@ export const createTransactionWalletAccount = async (
   const publicKey = PublicKey.from(accessKey.public_key);
   const nonce = accessKey.access_key.nonce + nonceOffset;
 
-  return nearAPI.transactions.createTransaction(
+  return nearCreateTransaction(
     account.accountId,
     publicKey,
     receiverId,
@@ -149,10 +149,13 @@ export const signAndSendKP = async (
 // TODO: how can we have the tx hashes here... maybe something w/ callback url??
 const signAndSendTxsWalletConnect = async (
   txs: nearAPI.transactions.Transaction[],
-  walletConnect: WalletConnection,
+  account: SpecialAccountConnectedWallet,
   callbackUrl?: string
 ): Promise<void> => {
-  walletConnect.requestSignTransactions({
+  // console.log(txsDropName, txsDropName[0]);
+  // console.log(txs.map(tx => serialize(SCHEMA, tx)))
+  console.log("Serial", serialize(SCHEMA, txs[0]));
+  account.walletConnection.requestSignTransactions({
     transactions: txs,
     callbackUrl,
   });
