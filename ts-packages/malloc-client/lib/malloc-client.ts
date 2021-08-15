@@ -75,7 +75,8 @@ interface MallocClientOpts {}
 
 const mallocClientDefaultOpts: MallocClientOpts = {};
 interface RegisterAccountDepositsOpts {
-  extraAmount: BigNumberish;
+  extraAmount?: BigNumberish;
+  executeTransactions?: boolean;
 }
 
 /**
@@ -114,9 +115,10 @@ export class MallocClient<
   }
   public async deposit(
     amount: string,
-    tokenAccountId: string
+    tokenAccountId: string,
+    registerAccountDepositTransactions?: Transaction[]
   ): Promise<TxHashOrVoid<AccountType>> {
-    const txs: Transaction[] = [];
+    let txs: Transaction[] = [];
     txs.push({
       receiverId: tokenAccountId,
       functionCalls: [
@@ -131,6 +133,9 @@ export class MallocClient<
         },
       ],
     });
+    if (registerAccountDepositTransactions) {
+      txs = [...registerAccountDepositTransactions, ...txs];
+    }
     const ret = await executeMultipleTx(this.account, txs);
     //@ts-ignore
     if (!ret || !ret?.length) return;
@@ -223,14 +228,19 @@ export class MallocClient<
     contracts: AccountId[],
     registerForAccounts: AccountId[],
     opts?: RegisterAccountDepositsOpts
-  ): Promise<AccountId[]> {
+  ): Promise<{ txs: Transaction[]; contractsToRegisterWith: AccountId[] }> {
     const { txs, contractsToRegister } = await registerDepositsTxs(
       contracts,
       registerForAccounts,
       this.account,
       opts?.extraAmount
     );
-    await executeMultipleTx(this.account, txs);
-    return contractsToRegister;
+    if (opts?.executeTransactions) {
+      await executeMultipleTx(this.account, txs);
+    }
+    return {
+      txs,
+      contractsToRegisterWith: contractsToRegister,
+    };
   }
 }

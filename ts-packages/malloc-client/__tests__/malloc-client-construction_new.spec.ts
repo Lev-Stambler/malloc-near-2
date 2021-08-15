@@ -52,7 +52,10 @@ describe("malloc-client's ft capabilities", () => {
         malloc.mallocAccountId,
         MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
         MALLOC_CALL_PASSTHROUGH,
-      ]
+      ],
+      {
+        executeTransactions: true,
+      }
     );
 
     const myBal = await TestingUtils.ftBalOf(
@@ -73,7 +76,7 @@ describe("malloc-client's ft capabilities", () => {
             malloc_call_id: MALLOC_CALL_PASSTHROUGH,
             token_id: TestingUtils.WRAP_TESTNET_CONTRACT,
             // check_callback: false,
-            
+
             json_args: JSON.stringify({
               log_message: "hello for jimbo the flimbo",
             }),
@@ -86,7 +89,7 @@ describe("malloc-client's ft capabilities", () => {
             malloc_call_id: MALLOC_CALL_PASSTHROUGH,
             token_id: TestingUtils.WRAP_TESTNET_CONTRACT,
             // check_callback: false,
-            
+
             json_args: JSON.stringify({
               log_message: "hello for bob",
             }),
@@ -99,7 +102,7 @@ describe("malloc-client's ft capabilities", () => {
             malloc_call_id: MALLOC_CALL_PASSTHROUGH,
             token_id: TestingUtils.WRAP_TESTNET_CONTRACT,
             // check_callback: false,
-            
+
             json_args: JSON.stringify({
               log_message: "hello for alice",
             }),
@@ -157,7 +160,10 @@ describe("malloc-client's ft capabilities", () => {
         wrappedTesterAccount.accountId,
         malloc.mallocAccountId,
         MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
-      ]
+      ],
+      {
+        executeTransactions: true,
+      }
     );
 
     const myBal = await TestingUtils.ftBalOf(
@@ -178,7 +184,7 @@ describe("malloc-client's ft capabilities", () => {
             malloc_call_id: MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
             token_id: TestingUtils.WRAP_TESTNET_CONTRACT,
             // check_callback: false,
-            
+
             json_args: JSON.stringify({
               log_message: "hello for alice",
             }),

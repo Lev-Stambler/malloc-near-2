@@ -14,16 +14,12 @@
   import { form as formVal, bindClass } from "svelte-forms";
   import { nearStore } from "src/stores/near-store";
   import { SCHEMA } from "near-api-js/lib/transaction";
-  import DepositAndRegister from "src/components/DepositAndRegister.svelte";
 
   let amount: string = null;
   let token_id: string = null;
-  let initial_node_indices: string = null;
-  let initial_splits: string = null;
-  let next_nodes_indices: string = null;
-  let next_nodes_splits: string = null;
+  let accountToRegister: string = null;
 
-  const sendRawForm = formVal(
+  const registerDepositForm = formVal(
     () => ({
       amount: { value: amount, validators: ["required"] },
     }),
@@ -32,7 +28,7 @@
   );
 
   afterUpdate(() => {
-    sendRawForm.validate();
+    registerDepositForm.validate();
   });
 
   const submit = async (e: Event) => {
@@ -40,8 +36,18 @@
     try {
       const client: MallocClient<SpecialAccountConnectedWallet> =
         $nearStore.mallocClient;
-      console.log(SCHEMA);
-      await client.deposit(amount, token_id);
+      // TODO: type check or smthng
+      const accountsToRegister: string[] = JSON.parse(accountToRegister);
+      const { txs: registerTxs } = await client.registerAccountDeposits(
+        [token_id,],
+        [
+          $nearStore.config.contractName,
+          $nearStore.account.accountId,
+          ...accountsToRegister,
+        ]
+      );
+			console.log(registerTxs)
+      await client.deposit(amount, token_id, registerTxs);
     } catch (e) {
       alert("an error occured in trying to submit: " + JSON.stringify(e || {}));
       console.error(e);
@@ -54,9 +60,6 @@
     <div>
       <!-- TODO: parsing -->
       <div>
-        <DepositAndRegister />
-      </div>
-      <dv>
         <Textfield
           bind:value={amount}
           type="number"
@@ -64,7 +67,7 @@
         >
           <Icon class="material-icons" slot="leadingIcon">event</Icon>
         </Textfield>
-      </dv>
+      </div>
       <div>
         <Textfield bind:value={token_id} label="Token Account">
           <Icon class="material-icons" slot="leadingIcon">event</Icon>
@@ -72,38 +75,12 @@
       </div>
       <div>
         <Textfield
-          bind:value={initial_node_indices}
-          label="Initial Node Indices (1-D array of indices into the nodes array)"
-        >
-          <Icon class="material-icons" slot="leadingIcon">event</Icon>
-        </Textfield>
+          bind:value={accountToRegister}
+          type="string"
+          label="array of accounts to register"
+        />
       </div>
-      <div>
-        <Textfield
-          bind:value={initial_splits}
-          label="Initial Splits for the the initial node indices"
-        >
-          <Icon class="material-icons" slot="leadingIcon">event</Icon>
-        </Textfield>
-      </div>
-      <div>
-        <Textfield
-          bind:value={next_nodes_indices}
-          label="A 3D array of node indices to follow nodes"
-        >
-          <Icon class="material-icons" slot="leadingIcon">event</Icon>
-        </Textfield>
-      </div>
-      <div>
-        <Textfield
-          bind:value={next_nodes_splits}
-          label="A 3D array of splits to follow nodes"
-        >
-          <Icon class="material-icons" slot="leadingIcon">event</Icon>
-        </Textfield>
-      </div>
-
-      <button disabled={!$sendRawForm.valid}>Login</button>
+      <button disabled={!$registerDepositForm.valid}>Login</button>
     </div>
   </form>
 </div>

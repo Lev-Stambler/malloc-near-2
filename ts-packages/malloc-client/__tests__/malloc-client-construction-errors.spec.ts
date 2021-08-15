@@ -56,7 +56,10 @@ describe("malloc-client's error handling", () => {
         wrappedTesterAccount.accountId,
         malloc.mallocAccountId,
         TestingUtils.getMallocCallPassthroughContract(),
-      ]
+      ],
+      {
+        executeTransactions: true,
+      }
     );
 
     const depositTransactionHash = await malloc.deposit(
@@ -73,7 +76,7 @@ describe("malloc-client's error handling", () => {
               {
                 MallocCall: {
                   contract_id: TestingUtils.getMallocCallPassthroughContract(),
-                  
+
                   json_args: JSON.stringify({
                     log_message: "hello an error for alice level 1",
                   }),
@@ -91,7 +94,7 @@ describe("malloc-client's error handling", () => {
                 MallocCall: {
                   check_callback: false,
                   contract_id: MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
-                  
+
                   json_args: JSON.stringify({
                     log_message: "hello for alice level 1",
                   }),
@@ -144,7 +147,7 @@ describe("malloc-client's error handling", () => {
               {
                 MallocCall: {
                   contract_id: TestingUtils.getMallocCallPassthroughContract(),
-                  
+
                   json_args: JSON.stringify({
                     log_message: "hello an error for alice level 1",
                   }),
@@ -161,7 +164,7 @@ describe("malloc-client's error handling", () => {
               {
                 MallocCall: {
                   contract_id: TestingUtils.getMallocCallErrorContract(),
-                  
+
                   json_args: JSON.stringify({
                     log_message: "hello an error for alice level 2",
                   }),
@@ -179,7 +182,7 @@ describe("malloc-client's error handling", () => {
                 MallocCall: {
                   check_callback: false,
                   contract_id: MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
-                  
+
                   json_args: JSON.stringify({
                     log_message: "hello for alice level 1",
                   }),
@@ -258,7 +261,7 @@ describe("malloc-client's error handling", () => {
               {
                 MallocCall: {
                   contract_id: TestingUtils.getMallocCallBlackwholeContract(),
-                  
+
                   json_args: JSON.stringify({
                     log_message: "hello an error for alice level 1",
                   }),
@@ -269,7 +272,7 @@ describe("malloc-client's error handling", () => {
               {
                 MallocCall: {
                   contract_id: TestingUtils.getMallocCallErrorContract(),
-                  
+
                   json_args: JSON.stringify({
                     log_message: "hello an error for alice level 1",
                   }),

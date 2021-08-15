@@ -4,7 +4,7 @@ import {
   Near,
   WalletConnection,
 } from "near-api-js";
-import { SpecialAccountType, MallocClient, wrapAccountConnectedWallet } from "../../../malloc-client/lib/malloc-client";
+import { SpecialAccountType, MallocClient, wrapAccountConnectedWallet } from "@malloc/sdk";
 import { writable } from "svelte/store";
 import type {
   SpecialAccount,
