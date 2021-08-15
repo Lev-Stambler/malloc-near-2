@@ -18,6 +18,7 @@ import {
   SpecialAccountWithKeyPair,
   TransactionWithPromiseResult,
   TransactionWithPromiseResultFlag,
+  ExecuteMultipleTxOpts,
 } from "./interfaces";
 import {
   Account,
@@ -171,7 +172,7 @@ export const executeMultipleTx = async <
 >(
   signerAccount: T,
   transactions: Transaction[],
-  callbackUrl?: T extends SpecialAccountConnectedWallet ? string : never
+  opts?: ExecuteMultipleTxOpts<T>
 ): Promise<T extends SpecialAccountConnectedWallet ? void : string[]> => {
   const createTransaction =
     signerAccount.type === SpecialAccountType.KeyPair
@@ -201,7 +202,7 @@ export const executeMultipleTx = async <
   return (await signAndSendTxsMethod(
     nearTransactions,
     signerAccount as any,
-    callbackUrl
+    opts?.callbackUrl || ""
   )) as T extends SpecialAccountConnectedWallet ? void : string[];
 };
 

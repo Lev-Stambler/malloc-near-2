@@ -52,6 +52,12 @@ export type TxHashOrVoid<SpecialAccountTypeGeneric> =
     ? void
     : string;
 
+export interface ExecuteMultipleTxOpts<
+  T extends SpecialAccountConnectedWallet | SpecialAccountWithKeyPair
+> {
+  callbackUrl?: T extends SpecialAccountConnectedWallet ? string : never;
+}
+
 /********** ID interfaces *************/
 export type ConstructionCallId = string;
 export type NodeCallId = number | string;

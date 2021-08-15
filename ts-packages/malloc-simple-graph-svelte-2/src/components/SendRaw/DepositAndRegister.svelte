@@ -16,8 +16,8 @@
   import { SCHEMA } from "near-api-js/lib/transaction";
 
   let amount: string = null;
-  let token_id: string = null;
-  let accountToRegister: string = null;
+  let token_id: string = "ndai.ft-fin.testnet";
+  let accountToRegister: string = "[]";
 
   const registerDepositForm = formVal(
     () => ({
@@ -39,15 +39,17 @@
       // TODO: type check or smthng
       const accountsToRegister: string[] = JSON.parse(accountToRegister);
       const { txs: registerTxs } = await client.registerAccountDeposits(
-        [token_id,],
+        [token_id],
         [
           $nearStore.config.contractName,
           $nearStore.account.accountId,
           ...accountsToRegister,
         ]
       );
-			console.log(registerTxs)
-      await client.deposit(amount, token_id, registerTxs);
+      console.log(registerTxs);
+      await client.deposit(amount, token_id, registerTxs, {
+        callbackUrl: '/'
+      });
     } catch (e) {
       alert("an error occured in trying to submit: " + JSON.stringify(e || {}));
       console.error(e);
@@ -63,7 +65,8 @@
         <Textfield
           bind:value={amount}
           type="number"
-          label="Amount in the the full currency"
+          label="Amount in the the currency"
+          input$step="any"
         >
           <Icon class="material-icons" slot="leadingIcon">event</Icon>
         </Textfield>
@@ -80,7 +83,7 @@
           label="array of accounts to register"
         />
       </div>
-      <button disabled={!$registerDepositForm.valid}>Login</button>
+      <button disabled={!$registerDepositForm.valid}>Register and deposit</button>
     </div>
   </form>
 </div>

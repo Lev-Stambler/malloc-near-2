@@ -23,6 +23,7 @@ import {
   ConstructionCall,
   BigNumberish,
   MallocCallMetadata,
+  ExecuteMultipleTxOpts,
 } from "./interfaces";
 import {
   deleteConstruction,
@@ -31,6 +32,7 @@ import {
 } from "./construction";
 import {
   executeMultipleTx,
+  MAX_GAS,
   resolveTransactionsReducedWithPromises,
   resolveTransactionsWithPromise,
 } from "./tx";
@@ -43,18 +45,20 @@ export * from "./interfaces";
 export const wrapAccountConnectedWallet = (
   near: Near
 ): SpecialAccountConnectedWallet => {
-  const walletConnection = new WalletConnection(near, null);
-  // TODO: safe to ignore?
+  const newNear = new Near(near.config)
+  const walletConnection = new WalletConnection(newNear, null);
   const account = new ConnectedWalletAccount(
     walletConnection,
     walletConnection.account().connection,
     walletConnection.account().accountId
   );
+
   (account as any).type = SpecialAccountType.WebConnected;
   //@ts-ignore
   return account;
 };
 
+// TODO: may need same new thingy as above
 export const wrapAccountKeyPair = (
   account: Account,
   keypair: KeyPair
@@ -74,6 +78,7 @@ interface RunEphemeralOpts {
 interface MallocClientOpts {}
 
 const mallocClientDefaultOpts: MallocClientOpts = {};
+
 interface RegisterAccountDepositsOpts {
   extraAmount?: BigNumberish;
   executeTransactions?: boolean;
@@ -92,6 +97,7 @@ export class MallocClient<
   private readonly account: AccountType;
   public readonly mallocAccountId: AccountId;
   private readonly opts: MallocClientOpts;
+  private readonly contract: Contract;
 
   constructor(
     account: AccountType,
@@ -103,6 +109,15 @@ export class MallocClient<
     this.opts = opts
       ? { ...mallocClientDefaultOpts, ...opts }
       : mallocClientDefaultOpts;
+    this.contract = new Contract(account, mallocAccountId, {
+      viewMethods: [],
+      changeMethods: [
+        "register_nodes",
+        "register_construction",
+        "init_construction",
+        "process_next_node_call",
+      ],
+    });
   }
 
   public async resolveTransactions(
@@ -116,7 +131,8 @@ export class MallocClient<
   public async deposit(
     amount: string,
     tokenAccountId: string,
-    registerAccountDepositTransactions?: Transaction[]
+    registerAccountDepositTransactions?: Transaction[],
+    opts?: ExecuteMultipleTxOpts<AccountType>
   ): Promise<TxHashOrVoid<AccountType>> {
     let txs: Transaction[] = [];
     txs.push({
@@ -136,7 +152,7 @@ export class MallocClient<
     if (registerAccountDepositTransactions) {
       txs = [...registerAccountDepositTransactions, ...txs];
     }
-    const ret = await executeMultipleTx(this.account, txs);
+    const ret = await executeMultipleTx(this.account, txs, opts);
     //@ts-ignore
     if (!ret || !ret?.length) return;
 
@@ -202,8 +218,19 @@ export class MallocClient<
       }
     }
 
-    if (this.account.type !== SpecialAccountType.KeyPair)
-      throw "Malloc client currently only supports keypair connected wallets";
+    console.log("AAAAA")
+    //@ts-ignore
+    await this.contract.register_nodes(
+      {
+        node_names: ["a", "a", "a"],
+        nodes: nodes,
+      },
+      MAX_GAS
+    );
+    return []
+
+    // if (this.account.type !== SpecialAccountType.KeyPair)
+    //   throw "Malloc client currently only supports keypair connected wallets";
     return await runEphemeralConstruction(
       this.account as SpecialAccountWithKeyPair,
       this.mallocAccountId,

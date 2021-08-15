@@ -14,27 +14,15 @@
   import { form as formVal, bindClass } from "svelte-forms";
   import { nearStore } from "src/stores/near-store";
   import { SCHEMA } from "near-api-js/lib/transaction";
-  import DepositAndRegister from "src/components/DepositAndRegister.svelte";
+  import DepositAndRegister from "src/components/SendRaw/DepositAndRegister.svelte";
+  import { parseQuery } from "src/utils/browser";
+  import RunEphemeral from "src/components/SendRaw/RunEphemeral.svelte";
+
+  let step: "deposit" | "runEphemeral" = "deposit";
+  let depositHash: string = null;
 
   let amount: string = null;
   let token_id: string = null;
-  let initial_node_indices: string = null;
-  let initial_splits: string = null;
-  let next_nodes_indices: string = null;
-  let next_nodes_splits: string = null;
-
-  const sendRawForm = formVal(
-    () => ({
-      amount: { value: amount, validators: ["required"] },
-    }),
-
-    { validateOnChange: false }
-  );
-
-  afterUpdate(() => {
-    sendRawForm.validate();
-  });
-
   const submit = async (e: Event) => {
     e.preventDefault();
     try {
@@ -47,72 +35,37 @@
       console.error(e);
     }
   };
+
+  async function init() {
+    const url = window.location.search;
+    if (!url) return;
+    const parsed = parseQuery(url);
+    if (!parsed.transactionHashes) return;
+    const txHashes = parsed.transactionHashes.split(",");
+    depositHash = txHashes[txHashes.length - 1];
+    step = "runEphemeral";
+  }
 </script>
 
-<div class="wrapper">
-  <form on:submit={submit}>
-    <div>
-      <!-- TODO: parsing -->
-      <div>
-        <DepositAndRegister />
-      </div>
-      <dv>
-        <Textfield
-          bind:value={amount}
-          type="number"
-          label="Amount in the the full currency"
-        >
-          <Icon class="material-icons" slot="leadingIcon">event</Icon>
-        </Textfield>
-      </dv>
-      <div>
-        <Textfield bind:value={token_id} label="Token Account">
-          <Icon class="material-icons" slot="leadingIcon">event</Icon>
-        </Textfield>
-      </div>
-      <div>
-        <Textfield
-          bind:value={initial_node_indices}
-          label="Initial Node Indices (1-D array of indices into the nodes array)"
-        >
-          <Icon class="material-icons" slot="leadingIcon">event</Icon>
-        </Textfield>
-      </div>
-      <div>
-        <Textfield
-          bind:value={initial_splits}
-          label="Initial Splits for the the initial node indices"
-        >
-          <Icon class="material-icons" slot="leadingIcon">event</Icon>
-        </Textfield>
-      </div>
-      <div>
-        <Textfield
-          bind:value={next_nodes_indices}
-          label="A 3D array of node indices to follow nodes"
-        >
-          <Icon class="material-icons" slot="leadingIcon">event</Icon>
-        </Textfield>
-      </div>
-      <div>
-        <Textfield
-          bind:value={next_nodes_splits}
-          label="A 3D array of splits to follow nodes"
-        >
-          <Icon class="material-icons" slot="leadingIcon">event</Icon>
-        </Textfield>
-      </div>
+{#await init()}
+  Loading...
+{:then value}
+  <div class="wrapper">
+    {#if step === "deposit"}
+      <DepositAndRegister />
+    {:else}
+      <RunEphemeral {depositHash} />
+    {/if}
+  </div>
 
-      <button disabled={!$sendRawForm.valid}>Login</button>
-    </div>
-  </form>
-</div>
-
-<style>
-  .wrapper {
-    padding: 1rem;
-  }
-  form {
-    justify-content: left;
-  }
-</style>
+  <style>
+    .wrapper {
+      padding: 1rem;
+    }
+    form {
+      justify-content: left;
+    }
+  </style>
+{:catch error}
+  Failed to load with {JSON.stringify(error)}
+{/await}

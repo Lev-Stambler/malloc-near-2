@@ -52,7 +52,7 @@ describe("malloc-client's ft capabilities", () => {
         malloc.mallocAccountId,
         MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
         MALLOC_CALL_PASSTHROUGH_CONTRACT_ID,
-      ]
+      ],
     );
 
     const myBal = await TestingUtils.ftBalOf(

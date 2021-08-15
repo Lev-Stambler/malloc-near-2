@@ -136,7 +136,7 @@ const checkTransactionSuccessful = async (
  * {@link CallEphemeralError | CallEphemeralError interface}
  */
 export const runEphemeralConstruction = async (
-  callerAccount: SpecialAccountWithKeyPair,
+  callerAccount: SpecialAccount,
   mallocAccountId: AccountId,
   nodes: Node[],
   amount: BigNumberish,
@@ -226,9 +226,9 @@ export const runEphemeralConstruction = async (
     ]);
 
     // Throws if unsuccessful
-    await checkTransactionSuccessful(txRetsInit, callerAccount.accountId);
+    await checkTransactionSuccessful(txRetsInit || [], callerAccount.accountId);
 
-    return txRetsInit;
+    return txRetsInit || [];
   };
 
   const runNextNodeCalls = async (): Promise<string[]> => {
@@ -272,7 +272,7 @@ export const runEphemeralConstruction = async (
                   construction_call_id,
                 } as ProcessNextNodeCallArgs,
                 gas: _opts.gas.toString(),
-                amount: attachedDeposit.toString(),
+                amount: "0", //TODO: consider adding back //attachedDeposit.toString(),
               },
             ],
           };
@@ -281,8 +281,8 @@ export const runEphemeralConstruction = async (
       const txRets = await executeMultipleTx(callerAccount, txs);
 
       // Throws if unsuccessful
-      await checkTransactionSuccessful(txRets, callerAccount.accountId);
-      txHashes.push(...txRets);
+      await checkTransactionSuccessful(txRets || [], callerAccount.accountId);
+      txHashes.push(...(txRets || []));
 
       constructionCallData = await getConstructionCallData(
         callerAccount,
@@ -296,7 +296,7 @@ export const runEphemeralConstruction = async (
 
   try {
     const txsInit = await storeAndStartConstruction();
-    const txsNextStep = await runNextNodeCalls(); // TODO: add back
+    const txsNextStep = await runNextNodeCalls();
     return [...txsInit, ...txsNextStep];
   } catch (e) {
     console.trace(e);
