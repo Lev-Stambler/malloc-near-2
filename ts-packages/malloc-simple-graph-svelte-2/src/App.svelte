@@ -34,7 +34,7 @@
       methodName: "near_deposit",
       args: {},
       gas: MAX_GAS,
-      attachedDeposit: new BN("1000000000000"),
+      attachedDeposit: new BN("1000000000000000000000"),
     });
   }
 </script>
@@ -46,7 +46,7 @@
     {#if $nearStore?.walletConnection.isSignedIn()}
       <!-- TODO: navbar -->
       <button class="log-out" on:click={logout}>Logout</button>
-      <button on:click={getWNear}>Get 1,000,000,000,000 WNear</button>
+      <button on:click={getWNear}>Get 100000000000000000000 WNear (10 recommended for swap)</button>
       <SendRaw />
       Logged In
     {:else}

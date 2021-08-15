@@ -36,7 +36,7 @@ export const exampleCall = {
         json_args: JSON.stringify({
           token_out: "banana.ft-fin.testnet",
           pool_id: 11,
-          min_amount_out: "0",
+          min_amount_out: "1",
           // TODO: this will be removed
           register_tokens: ["ndai.ft-fin.testnet", "wrap.testnet"],
           recipient: "levtester.testnet",
@@ -47,7 +47,7 @@ export const exampleCall = {
       },
     },
   ],
-  amount: "200",
+  amount: "100000000000000000000",
   initial_node_indices: [0],
   initial_node_splits: [1],
   next_node_indices: [[[1, 2]], [[]], [[]]],

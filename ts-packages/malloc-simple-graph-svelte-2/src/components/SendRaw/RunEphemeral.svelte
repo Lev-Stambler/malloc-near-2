@@ -18,11 +18,17 @@
 
   export let depositHash: string;
 
+  let loading = false;
+
   let amount: string = exampleCall.amount;
   let token_id: string = "wrap.testnet";
-  let initial_node_indices: string = JSON.stringify(exampleCall.initial_node_indices);
+  let initial_node_indices: string = JSON.stringify(
+    exampleCall.initial_node_indices
+  );
   let initial_splits: string = JSON.stringify(exampleCall.initial_node_splits);
-  let next_nodes_indices: string = JSON.stringify(exampleCall.next_node_indices);
+  let next_nodes_indices: string = JSON.stringify(
+    exampleCall.next_node_indices
+  );
   let next_nodes_splits: string = JSON.stringify(exampleCall.next_node_splits);
   let nodes: string = JSON.stringify(exampleCall.nodes);
 
@@ -43,6 +49,7 @@
     try {
       const client: MallocClient<SpecialAccountConnectedWallet> =
         $nearStore.mallocClient;
+      loading = true;
       let ret = await client.runEphemeralConstruction(
         JSON.parse(nodes),
         amount,
@@ -59,9 +66,13 @@
       alert("an error occured in trying to submit: " + JSON.stringify(e || {}));
       console.error(e);
     }
+    loading = false;
   };
 </script>
 
+{#if loading}
+  loading...
+{/if}
 <div class="wrapper">
   <div class="example">
     <h2>Example Call Parameters</h2>

@@ -14,9 +14,10 @@
   import { form as formVal, bindClass } from "svelte-forms";
   import { nearStore } from "src/stores/near-store";
 
-  let amount: string = null;
+  let amount: string = "100000000000000000000";
   let token_id: string = "wrap.testnet";
   let accountToRegister: string = "[]";
+  let accountsToRegisterWith: string = "[]";
 
   const registerDepositForm = formVal(
     () => ({
@@ -38,7 +39,7 @@
       // TODO: type check or smthng
       const accountsToRegister: string[] = JSON.parse(accountToRegister);
       const { txs: registerTxs } = await client.registerAccountDeposits(
-        [token_id],
+        [token_id, ...JSON.parse(accountsToRegisterWith)],
         [
           $nearStore.config.contractName,
           $nearStore.account.accountId,
@@ -63,9 +64,7 @@
       <div>
         <Textfield
           bind:value={amount}
-          type="number"
           label="Amount in the the currency"
-          input$step="any"
         >
           <Icon class="material-icons" slot="leadingIcon">event</Icon>
         </Textfield>
@@ -80,6 +79,13 @@
           bind:value={accountToRegister}
           type="string"
           label="array of accounts to register"
+        />
+      </div>
+      <div>
+        <Textfield
+          bind:value={accountsToRegisterWith}
+          type="string"
+          label="array of accounts to register with"
         />
       </div>
       <button disabled={!$registerDepositForm.valid}
