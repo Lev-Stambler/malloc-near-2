@@ -7,40 +7,54 @@ import {
 import {
   ConstructionReturn,
   FtTransferCallToMallocCallNodeReturn,
-  Group,
-  GroupReturn,
   IConstruction,
   IFtTransferCallToMallocCallNode,
-  IGrouping,
   IMallocCallNode,
   MallocCallNodeReturn,
   MallocCallOpts,
-  Parameters,
+  NodeOrConstructionWithSplit,
+  GenericParameters,
+  RunEphemeralInstr,
+  ICompileConstruction,
 } from "./interfaces";
 
 export const MallocCallNode = <T>(
   input: IMallocCallNode
 ): MallocCallNodeReturn => {
-  return async (parameters?: Parameters) => {
-    throw "TODO";
+  return (parameters?: GenericParameters) => {
+    return async () => {
+      throw "TODO";
+    };
   };
 };
 export const FtTransferCallToMallocCallNode = <T>(
   input: IFtTransferCallToMallocCallNode
 ): FtTransferCallToMallocCallNodeReturn => {
-  return async () => {
-    throw "TODO";
-  };
-};
-
-export const Grouping = (input: IGrouping): GroupReturn => {
-  return async (parameters?: Parameters) => {
-    throw "TODO";
+  return () => {
+    return () => {
+      throw "TODO";
+    };
   };
 };
 
 export const Construction = (input: IConstruction): ConstructionReturn => {
-  return async (parameters?: Parameters) => {
-    throw "TODO";
+  return (parameters?: GenericParameters) => {
+    return async () => {
+      throw "TODO";
+    };
   };
 };
+
+export const compileConstruction = async (
+  input: ICompileConstruction
+): Promise<RunEphemeralInstr> => {
+  throw "TODO";
+};
+
+export const runEphemeralConstruction = async (
+  instruction: RunEphemeralInstr,
+  amount: string
+): Promise<void> => {
+  throw "TODO";
+};
+

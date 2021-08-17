@@ -10,29 +10,64 @@ import {
 } from "@malloc/sdk";
 
 // ---------------- Base interfaces
-interface NodeGroupBase {
-  type: "Node" | "Group";
+interface NodeConstructionBase {
+  type: "Node" | "Construction";
   tokenIn: AccountId;
 }
 
-export interface Parameters {
-  [parameter: string]: any;
+export interface NodeOrConstructionWithSplit {
+  element:
+    | ReturnType<MallocCallNodeReturn>
+    | ReturnType<FtTransferCallToMallocCallNodeReturn>
+    | ReturnType<ConstructionReturn>;
+  // If a string is used, assume that a parameter is being used for the fraction
+  fraction: number | string;
 }
 
-export interface NodesWithSplits {
-  nodesOrGroup: MallocCallNodeReturn | FtTransferCallToMallocCallNodeReturn | GroupReturn;
-  splits: number[];
+// -------------- Parameter Interfaces
+
+export interface BindedParameter {
+  type: "BINDED_PARAMETER";
+  name: string;
 }
 
+/**
+ * Parameters passed into both Actions and Constructions
+ *
+ * If a parameter is a string and begins with a $$, then assume that it is a binded
+ */
+export interface GenericParameters {
+  tokenIn?: AccountId;
+  expectedTokensOut?: AccountId[];
+  [args: string]: any | BindedParameter;
+}
+
+/**
+ * Names of parameters which are passed into the Action and Construction builder
+ * functions. The first string is the name of the parameter to the caller while the second is the
+ * name of the parameter for the actual action or construction. So if an action requires a `message`
+ * parameter, it can be aliased to a `myCoolMessage` name which is later filled in by this library and replaced to `message`
+ *
+ * If the parameter name is just a string, then assume that the name for the parameter is the same as the one used for the actual action or construction
+ */
+type ParameterNames = (
+  | [string, "tokenIn" | "expectedTokensOut" | string]
+  | string
+)[];
 
 // ----------------- Malloc Call Node Interfaces
 
+interface MallocCallOverrides {
+  checkCallback?: boolean;
+  gasForCall?: number;
+  attachedAmount?: number;
+}
+
 export interface IMallocCallNode {
   mallocCallContractID: AccountId;
-  tokenIn: AccountId;
-  prefilledParamets?: Parameters;
-  parameters?: string[];
-  expectedTokensOut?: AccountId[];
+  prefilledParamets?: GenericParameters;
+  parameterNames?: ParameterNames;
+  parameters?: GenericParameters;
   opts?: MallocCallOpts;
 }
 
@@ -42,46 +77,38 @@ export interface MallocCallOpts {
 }
 
 export type MallocCallNodeReturn = (
-  parameters?: Parameters
-) => Promise<Node<MallocCall>>;
+  parameters?: GenericParameters
+) => () => Promise<Node<MallocCall>>;
 
 // ----------------- Ft Transfer Call Interface
 export interface IFtTransferCallToMallocCallNode {
   mallocCallContractID: AccountId;
-  tokenIn: AccountId;
+  tokenIn?: AccountId;
 }
 
-export type FtTransferCallToMallocCallNodeReturn = () => Promise<
-  Node<FtTransferCallToMallocCall>
->;
+export type FtTransferCallToMallocCallNodeReturn = (parameters?: {
+  tokenIn?: string;
+}) => () => Promise<Node<FtTransferCallToMallocCall>>;
 
-// -------------------------- Grouping interfaces
-export interface IGrouping {
-  inNode: (MallocCallNodeReturn | FtTransferCallToMallocCallNodeReturn)[];
-  outNodes: {
-    [token_id: string]: NodesWithSplits;
-  };
-  parameterNames?: string[];
-}
-interface MallocCallOverrides {
-  checkCallback?: boolean;
-  gasForCall?: number;
-  attachedAmount?: number;
-}
-
-export interface Group extends NodeGroupBase {
-  type: "Group";
-  nodes: Node<NodeTypes>[];
-  nextNodeIndices: number[][][];
-  nextSplits: number[][][];
-}
-
-export type GroupReturn = (parameters?: Parameters) => Promise<Group>
-
-// ------------------------- Construction Interfaces 
+// ------------------------- Construction Interfaces
 export interface IConstruction {
-	startingPoints: (MallocCallNodeReturn | FtTransferCallToMallocCallNodeReturn | GroupReturn)[],
-	initialSplits: number[]
+  in:
+    | ReturnType<MallocCallNodeReturn>
+    | ReturnType<FtTransferCallToMallocCallNodeReturn>;
+  out: {
+    [token_id: string]: NodeOrConstructionWithSplit[];
+  };
+  parameterNames?: ParameterNames;
 }
 
-export type ConstructionReturn = (parameters?: Parameters) => Promise<Omit<IRunEphemeralConstruction, "amount">>
+export type ConstructionReturn = (
+  parameters?: GenericParameters
+) => () => Promise<Construction>;
+
+// ---- Compile Construction Args
+export interface ICompileConstruction {
+  startingConstructionOrNodes: NodeOrConstructionWithSplit[];
+  parameters?: GenericParameters;
+}
+
+export type RunEphemeralInstr = Omit<IRunEphemeralConstruction, "amount">;
