@@ -7,7 +7,7 @@ use near_sdk::{collections::Vector, env, AccountId};
 pub type ConstructionCallId = String;
 
 /// A Construction is the collection of nodes. It can be used to form the call DAG
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, PartialEq, Debug, Clone)]
 #[serde(crate = "near_sdk::serde")]
 pub struct Construction {
     pub nodes: VectorWrapper<NodeId>,
@@ -18,7 +18,7 @@ pub type ConstructionId = GenericId;
 pub type NextNodesIndicesForConstruction = VectorWrapper<NextNodesIndicesForNode>;
 pub type NextNodesSplitsForConstruction = VectorWrapper<NextNodesSplitsForNode>;
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, PartialEq, Debug)]
 #[serde(crate = "near_sdk::serde")]
 /// ConstructionCalls contain all the dynamic data when calling a construction
 /// They are unique per construction call, so once a user is done calling a construction,
@@ -41,7 +41,7 @@ pub struct ConstructionCall {
 }
 
 use crate::errors::panic_errors;
-use crate::{errors::PanicError, serde_ext::VectorWrapper, Contract, NodeCallId};
+use crate::{errors::PanicError, vector_wrapper::VectorWrapper, Contract, NodeCallId};
 
 impl Construction {
     /// Convert a vector of splits and a given amount to a Vec of amount values.

@@ -20,7 +20,7 @@ use crate::gas::CALLBACK_GAS;
 use crate::malloc_utils::GenericId;
 use crate::nodes::{self, NodeFunctions};
 use crate::{
-    errors::panic_errors, serde_ext::VectorWrapper, Construction, ConstructionCall,
+    errors::panic_errors, vector_wrapper::VectorWrapper, Construction, ConstructionCall,
     ConstructionCallId, ConstructionId, Contract,
 };
 
@@ -57,7 +57,9 @@ pub struct NodeCall {
 
 pub type NodeCallId = u64;
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[derive(
+    BorshDeserialize, BorshSerialize, Serialize, Deserialize, PartialEq, Debug, Clone,
+)]
 #[serde(crate = "near_sdk::serde")]
 pub enum Node {
     // TODO: add ft transfer see https://github.com/Lev-Stambler/malloc-near-2/issues/20
@@ -333,10 +335,8 @@ mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
-
     #[test]
-    fn test_getting_result_from_bytes_error() {
-    }
+    fn test_getting_result_from_bytes_error() {}
 
     #[test]
     fn test_getting_result_from_bytes() {

@@ -13,11 +13,11 @@ use super::NodeFunctions;
 
 const HANDLE_GAS: Gas = 2_000_000_000_000;
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, PartialEq, Debug, Clone)]
 #[serde(crate = "near_sdk::serde")]
 pub struct FtTransferCallToMallocCall {
-    malloc_call_id: AccountId,
-    token_id: AccountId,
+    pub malloc_call_id: AccountId,
+    pub token_id: AccountId,
 }
 
 impl NodeFunctions for FtTransferCallToMallocCall {

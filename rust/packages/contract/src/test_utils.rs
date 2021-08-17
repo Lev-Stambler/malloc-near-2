@@ -2,9 +2,15 @@
 pub mod tests {
     const INIT_ACCOUNT_BAL: u128 = 10_000;
     use malloc_call_core::ReturnItem;
-    use near_sdk::{AccountId, borsh::BorshSerialize, collections::Vector, json_types::ValidAccountId, test_utils::{accounts, VMContextBuilder}};
+    use near_sdk::{
+        borsh::BorshSerialize,
+        collections::Vector,
+        json_types::ValidAccountId,
+        test_utils::{accounts, VMContextBuilder},
+        AccountId,
+    };
 
-    use crate::serde_ext::VectorWrapper;
+    use crate::vector_wrapper::VectorWrapper;
 
     pub(crate) fn return_item_eq(a: &ReturnItem, b: &ReturnItem) -> bool {
         let a_tok_id: AccountId = a.token_id.clone().into();

@@ -26,7 +26,7 @@ use near_sdk::{
     env, log, near_bindgen, serde, serde_json, setup_alloc, utils, AccountId, Gas, PanicOnDefault,
 };
 use node::{Node, NodeCall, NodeCallId, NodeId};
-use serde_ext::VectorWrapper;
+use vector_wrapper::VectorWrapper;
 
 use crate::errors::panic_errors;
 
@@ -36,8 +36,8 @@ mod gas;
 mod malloc_utils;
 mod node;
 mod nodes;
-mod serde_ext;
 mod test_utils;
+mod vector_wrapper;
 
 setup_alloc!();
 #[near_bindgen]
@@ -210,9 +210,14 @@ impl Contract {
 mod tests {
     const INIT_ACCOUNT_BAL: u128 = 10_000;
 
+    use crate::malloc_utils::GenericId;
+    use crate::nodes::ft_calls::FtTransferCallToMallocCall;
+
     use super::*;
     use near_sdk::json_types::ValidAccountId;
     use near_sdk::test_utils::{accounts, VMContextBuilder};
+    use near_sdk::testing_env;
+    use near_sdk::MockedBlockchain;
 
     // mock the context for testing, notice "signer_account_id" that was accessed above from env::
     fn get_context(predecessor_account_id: ValidAccountId) -> VMContextBuilder {
@@ -226,5 +231,155 @@ mod tests {
     }
 
     #[test]
-    fn test_simple_transfers_success() {}
+    fn test_register_construction() {
+        let mut context = get_context(accounts(0));
+        testing_env!(context.build());
+        let mut contract = Contract::new();
+        let node2 = Node::FtTransferCallToMallocCall(FtTransferCallToMallocCall {
+            malloc_call_id: accounts(2).to_string(),
+            token_id: "wrapp.localnet".to_string(),
+        });
+        let node1 = Node::FtTransferCallToMallocCall(FtTransferCallToMallocCall {
+            malloc_call_id: accounts(2).to_string(),
+            token_id: "wrap.localnet".to_string(),
+        });
+        contract.register_nodes(
+            vec!["node1".to_string(), "node2".to_string()],
+            vec![node1.clone(), node2.clone()],
+        );
+        let construction_name = "Jimbe First Son of the Sea".to_string();
+        let construction = Construction {
+            nodes: VectorWrapper::from_vec(
+                vec![
+                    GenericId {
+                        name: "node1".to_string(),
+                        owner: accounts(0).to_string(),
+                    },
+                    GenericId {
+                        name: "node2".to_string(),
+                        owner: accounts(0).to_string(),
+                    },
+                ],
+                "my prefix".as_bytes(),
+            ),
+        };
+        contract.register_construction(construction_name.clone(), construction.clone());
+        let construction_got = contract.get_construction(&GenericId {
+            name: construction_name,
+            owner: accounts(0).to_string(),
+        });
+        assert_eq!(construction_got.unwrap(), construction);
+    }
+
+    #[test]
+    fn test_init_construction() {
+        let mut context = get_context(accounts(0));
+        testing_env!(context.build());
+        let mut contract = Contract::new();
+        let node2 = Node::FtTransferCallToMallocCall(FtTransferCallToMallocCall {
+            malloc_call_id: accounts(2).to_string(),
+            token_id: "wrapp.localnet".to_string(),
+        });
+        let node1 = Node::FtTransferCallToMallocCall(FtTransferCallToMallocCall {
+            malloc_call_id: accounts(2).to_string(),
+            token_id: "wrap.localnet".to_string(),
+        });
+        contract.register_nodes(
+            vec!["node1".to_string(), "node2".to_string()],
+            vec![node1.clone(), node2.clone()],
+        );
+        let construction_name = "Jimbe First Son of the Sea".to_string();
+        let construction = Construction {
+            nodes: VectorWrapper::from_vec(
+                vec![
+                    GenericId {
+                        name: "node1".to_string(),
+                        owner: accounts(0).to_string(),
+                    },
+                    GenericId {
+                        name: "node2".to_string(),
+                        owner: accounts(0).to_string(),
+                    },
+                ],
+                "my prefix".as_bytes(),
+            ),
+        };
+        contract.register_construction(construction_name.clone(), construction.clone());
+
+        let construction_call_id = "mycall".to_string();
+        let construction_id = GenericId {
+            name: construction_name.clone(),
+            owner: accounts(0).into(),
+        };
+        let amount = U128(100);
+        let initial_node_indices = vec![0, 1];
+        let initial_splits: VectorWrapper<u128> = serde_json::from_str("[1, 2]").unwrap();
+        let next_nodes_indices: NextNodesIndicesForConstruction =
+            serde_json::from_str("[[[]], [[]]]").unwrap();
+        let next_nodes_splits: NextNodesSplitsForConstruction =
+            serde_json::from_str("[[[]], [[]]]").unwrap();
+
+        contract.init_construction(
+            construction_call_id.clone(),
+            construction_id.clone(),
+            amount.clone(),
+            initial_node_indices.clone(),
+            initial_splits.clone(),
+            next_nodes_indices.clone(),
+            next_nodes_splits.clone(),
+        );
+
+        let construction_call = ConstructionCall::new(
+            &mut &mut contract,
+            accounts(0).to_string(),
+            construction_id,
+            &"aaaaaaa".to_string(), // Have a new construction call id to avoid re-registering
+            amount.0,
+            initial_node_indices,
+            initial_splits,
+            next_nodes_indices,
+            next_nodes_splits,
+        )
+        .unwrap();
+        let registered = contract.get_construction_call_unchecked(&construction_call_id);
+        assert_ne!(&registered.node_calls, &construction_call.node_calls);
+
+        assert_eq!(&registered.caller, &construction_call.caller);
+        assert_eq!(&registered.construction_id, &construction_call.construction_id);
+        assert_eq!(&registered.next_node_calls_stack, &construction_call.next_node_calls_stack);
+        assert_eq!(&registered.next_nodes_indices_in_construction, &construction_call.next_nodes_indices_in_construction);
+        assert_eq!(&registered.next_nodes_splits, &construction_call.next_nodes_splits);
+    }
+
+    #[test]
+    fn test_register_nodes() {
+        let mut context = get_context(accounts(0));
+        testing_env!(context.build());
+        let mut contract = Contract::new();
+        let node2_prereigster = Node::FtTransferCallToMallocCall(FtTransferCallToMallocCall {
+            malloc_call_id: accounts(2).to_string(),
+            token_id: "wrapp.localnet".to_string(),
+        });
+        let node1_prereigster = Node::FtTransferCallToMallocCall(FtTransferCallToMallocCall {
+            malloc_call_id: accounts(2).to_string(),
+            token_id: "wrap.localnet".to_string(),
+        });
+        contract.register_nodes(
+            vec!["node1".to_string(), "node2".to_string()],
+            vec![node1_prereigster.clone(), node2_prereigster.clone()],
+        );
+        let node1 = contract.nodes.get(&GenericId {
+            owner: accounts(0).to_string(),
+            name: "node1".to_string(),
+        });
+        let node2 = contract.nodes.get(&GenericId {
+            owner: accounts(0).to_string(),
+            name: "node2".to_string(),
+        });
+        assert!(node1.is_some());
+        assert!(node2.is_some());
+
+        assert_eq!(node1.unwrap(), node1_prereigster);
+        assert_eq!(node2.unwrap(), node2_prereigster);
+    }
 }

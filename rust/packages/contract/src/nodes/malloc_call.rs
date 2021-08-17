@@ -12,7 +12,7 @@ use super::NodeFunctions;
 
 const HANDLE_GAS: Gas = 2_000_000_000_000;
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, PartialEq, Debug, Clone)]
 #[serde(crate = "near_sdk::serde")]
 pub struct MallocCall {
     check_callback: Option<bool>,
