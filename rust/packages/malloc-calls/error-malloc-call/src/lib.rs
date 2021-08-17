@@ -1,7 +1,7 @@
 use std::{u64, usize};
 
 // To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
-use malloc_call_core::{MallocCallWithCallback, ReturnItem};
+use malloc_call_core::{gas::MALLOC_CALL_DEFAULT_GAS, MallocCallWithCallback, ReturnItem};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, Vector};
 use near_sdk::env::predecessor_account_id;
@@ -37,11 +37,11 @@ pub struct ResolverArgs {
 pub struct Contract {}
 
 #[near_bindgen]
-impl MallocCallWithCallback<ErrorArgs, ResolverArgs, Promise> for Contract {
+impl MallocCallWithCallback<ErrorArgs, ResolverArgs> for Contract {
     fn metadata(&self) -> malloc_call_core::MallocCallMetadata {
         malloc_call_core::MallocCallMetadata {
-            minimum_gas: None,
-            minimum_attached_deposit: Some(1.into()),
+            gas_required: MALLOC_CALL_DEFAULT_GAS,
+            attachment_required: U128(1),
             name: "Send Fungible Tokens".to_string(),
         }
     }
@@ -51,20 +51,27 @@ impl MallocCallWithCallback<ErrorArgs, ResolverArgs, Promise> for Contract {
     }
 
     #[payable]
-    fn call(&mut self, args: ErrorArgs, amount: String, token_contract: AccountId) -> Promise {
+    fn malloc_call(
+        &mut self,
+        args: ErrorArgs,
+        amount: U128,
+        token_id: ValidAccountId,
+        caller: ValidAccountId,
+    ) {
         log!("Log from the error: {}", args.log_message);
         let ret_args = json!({
             "args": {
-                "token_id": token_contract,
+                "token_id": token_id.to_string(),
                 "amount": "0"
             }
         });
-        Promise::new(env::current_account_id()).function_call(
+        let ret_prom = Promise::new(env::current_account_id()).function_call(
             malloc_call_core::resolver_method_name(),
             ret_args.to_string().into_bytes(),
             0,
             BASIC_RESOLVER_GAS,
-        )
+        );
+        ret_prom.as_return();
     }
 }
 

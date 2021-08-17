@@ -4,6 +4,7 @@ use near_sdk::{Balance, Gas};
 use near_sdk::{json_types::U128, AccountId, Promise};
 pub mod ft;
 pub mod utils;
+pub mod gas;
 
 pub fn call_method_name() -> Vec<u8> {
     "malloc_call".to_string().into_bytes()
@@ -48,7 +49,7 @@ pub trait MallocCallNoCallback<CallArgs> {
     fn metadata(&self) -> MallocCallMetadata;
 }
 
-pub trait MallocCallWithCallback<CallArgs, ResolverArgs, CallReturnType> {
+pub trait MallocCallWithCallback<CallArgs, ResolverArgs> {
     /// The wrapper function which takes in some amount of tokens which are
     /// defined by token_contract
     fn malloc_call(
@@ -57,7 +58,7 @@ pub trait MallocCallWithCallback<CallArgs, ResolverArgs, CallReturnType> {
         amount: U128,
         token_id: ValidAccountId,
         caller: ValidAccountId,
-    ) -> CallReturnType;
+    );
 
     fn metadata(&self) -> MallocCallMetadata;
 
