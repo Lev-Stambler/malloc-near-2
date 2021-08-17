@@ -69,11 +69,11 @@ export const buildAndSimLink = (projectDir: string) => {
   const contractDir = getContractDir(projectDir);
   sh.cd(contractDir);
 
-  // You can call this script with `node compile.js` or `node compile.js
+  // You can call this script with `action compile.js` or `action compile.js
   // --debug`. Let's set a variable to track whether `--debug` was used.
   const debug = process.argv.pop() === "--debug";
 
-  // You can call this script with `node compile.js` or `node compile.js --debug`.
+  // You can call this script with `action compile.js` or `action compile.js --debug`.
   // Let's set a variable to track whether `--debug` was used.
   // Note: see other flags in ./cargo/config. Unfortunately, you cannot set the
   // `--target option` in Cargo.toml.

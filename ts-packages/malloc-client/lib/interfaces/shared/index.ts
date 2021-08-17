@@ -61,14 +61,14 @@ export interface ExecuteMultipleTxOpts<
 
 /********** ID interfaces *************/
 export type ConstructionCallId = string;
-export type NodeCallId = number | string;
+export type ActionCallId = number | string;
 
 interface GenericId {
   owner: AccountId;
   name: string;
 }
 export type ConstructionId = GenericId;
-export type NodeId = GenericId;
+export type ActionId = GenericId;
 
 export interface ViewFunctionOpts {
   methodName: string;

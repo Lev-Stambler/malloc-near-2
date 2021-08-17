@@ -5,20 +5,20 @@ import {
   InitConstructionArgs,
   IRunEphemeralConstruction,
   MallocCall,
-  Node,
-  NodeTypes,
+  Action,
+  ActionTypes,
 } from "@malloc/sdk";
 
 // ---------------- Base interfaces
-interface NodeConstructionBase {
-  type: "Node" | "Construction";
+interface ActionConstructionBase {
+  type: "Action" | "Construction";
   tokenIn: AccountId;
 }
 
-export interface NodeOrConstructionWithSplit {
+export interface ActionOrConstructionWithSplit {
   element:
-    | ReturnType<MallocCallNodeReturn>
-    | ReturnType<FtTransferCallToMallocCallNodeReturn>
+    | ReturnType<MallocCallActionReturn>
+    | ReturnType<FtTransferCallToMallocCallActionReturn>
     | ReturnType<ConstructionReturn>;
   // If a string is used, assume that a parameter is being used for the fraction
   fraction: number | string;
@@ -55,7 +55,7 @@ type ParameterNames = (
   | string
 )[];
 
-// ----------------- Malloc Call Node Interfaces
+// ----------------- Malloc Call Action Interfaces
 
 interface MallocCallOverrides {
   checkCallback?: boolean;
@@ -63,7 +63,7 @@ interface MallocCallOverrides {
   attachedAmount?: number;
 }
 
-export interface IMallocCallNode {
+export interface IMallocCallAction {
   mallocCallContractID: AccountId;
   prefilledParamets?: GenericParameters;
   parameterNames?: ParameterNames;
@@ -76,27 +76,27 @@ export interface MallocCallOpts {
   overrides?: MallocCallOverrides;
 }
 
-export type MallocCallNodeReturn = (
+export type MallocCallActionReturn = (
   parameters?: GenericParameters
-) => () => Promise<Node<MallocCall>>;
+) => () => Promise<Action<MallocCall>>;
 
 // ----------------- Ft Transfer Call Interface
-export interface IFtTransferCallToMallocCallNode {
+export interface IFtTransferCallToMallocCallAction {
   mallocCallContractID: AccountId;
   tokenIn?: AccountId;
 }
 
-export type FtTransferCallToMallocCallNodeReturn = (parameters?: {
+export type FtTransferCallToMallocCallActionReturn = (parameters?: {
   tokenIn?: string;
-}) => () => Promise<Node<FtTransferCallToMallocCall>>;
+}) => () => Promise<Action<FtTransferCallToMallocCall>>;
 
 // ------------------------- Construction Interfaces
 export interface IConstruction {
   in:
-    | ReturnType<MallocCallNodeReturn>
-    | ReturnType<FtTransferCallToMallocCallNodeReturn>;
+    | ReturnType<MallocCallActionReturn>
+    | ReturnType<FtTransferCallToMallocCallActionReturn>;
   out: {
-    [token_id: string]: NodeOrConstructionWithSplit[];
+    [token_id: string]: ActionOrConstructionWithSplit[];
   };
   parameterNames?: ParameterNames;
 }
@@ -107,7 +107,7 @@ export type ConstructionReturn = (
 
 // ---- Compile Construction Args
 export interface ICompileConstruction {
-  startingConstructionOrNodes: NodeOrConstructionWithSplit[];
+  startingConstructionOrActions: ActionOrConstructionWithSplit[];
   parameters?: GenericParameters;
 }
 

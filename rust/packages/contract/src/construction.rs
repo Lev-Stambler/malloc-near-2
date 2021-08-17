@@ -1,22 +1,22 @@
 use crate::malloc_utils::GenericId;
-use crate::node::{NextNodesIndicesForNode, NextNodesSplitsForNode, NodeCall, NodeId};
+use crate::action::{NextActionsIndicesForAction, NextActionsSplitsForAction, ActionCall, ActionId};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{collections::Vector, env, AccountId};
 
 pub type ConstructionCallId = String;
 
-/// A Construction is the collection of nodes. It can be used to form the call DAG
+/// A Construction is the collection of actions. It can be used to form the call DAG
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, PartialEq, Debug, Clone)]
 #[serde(crate = "near_sdk::serde")]
 pub struct Construction {
-    pub nodes: VectorWrapper<NodeId>,
+    pub actions: VectorWrapper<ActionId>,
 }
 
 pub type ConstructionId = GenericId;
 
-pub type NextNodesIndicesForConstruction = VectorWrapper<NextNodesIndicesForNode>;
-pub type NextNodesSplitsForConstruction = VectorWrapper<NextNodesSplitsForNode>;
+pub type NextActionsIndicesForConstruction = VectorWrapper<NextActionsIndicesForAction>;
+pub type NextActionsSplitsForConstruction = VectorWrapper<NextActionsSplitsForAction>;
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, PartialEq, Debug)]
 #[serde(crate = "near_sdk::serde")]
@@ -28,20 +28,20 @@ pub struct ConstructionCall {
     pub construction_id: ConstructionId,
     // TODO: ideally we want to have a queue not a stack (so we have BFS not DFS). But, Vector only supports O(1) stack ops.
     // See https://github.com/Lev-Stambler/malloc-near-2/issues/16
-    /// A vector which indexes into the node call vector
-    /// Indicates which node_calls should be called next
-    pub next_node_calls_stack: VectorWrapper<u64>,
-    /// A vector which contains the node call id's for all the nodes which the
-    /// construction call already interacted with (either pushing it onto the stack, executing it, or handling a node's return
-    pub node_calls: VectorWrapper<NodeCallId>,
+    /// A vector which indexes into the action call vector
+    /// Indicates which action_calls should be called next
+    pub next_action_calls_stack: VectorWrapper<u64>,
+    /// A vector which contains the action call id's for all the actions which the
+    /// construction call already interacted with (either pushing it onto the stack, executing it, or handling a action's return
+    pub action_calls: VectorWrapper<ActionCallId>,
 
     // TODO: move into separate lookup table with id ref: See https://github.com/Lev-Stambler/malloc-near-2/issues/17
-    pub next_nodes_indices_in_construction: NextNodesIndicesForConstruction,
-    pub next_nodes_splits: NextNodesSplitsForConstruction,
+    pub next_actions_indices_in_construction: NextActionsIndicesForConstruction,
+    pub next_actions_splits: NextActionsSplitsForConstruction,
 }
 
 use crate::errors::panic_errors;
-use crate::{errors::PanicError, vector_wrapper::VectorWrapper, Contract, NodeCallId};
+use crate::{errors::PanicError, vector_wrapper::VectorWrapper, Contract, ActionCallId};
 
 impl Construction {
     /// Convert a vector of splits and a given amount to a Vec of amount values.
@@ -66,17 +66,17 @@ impl Construction {
 }
 
 impl ConstructionCall {
-    /// Creates a new construction call and also places all elements from node_call_ids into the new stack
+    /// Creates a new construction call and also places all elements from action_call_ids into the new stack
     pub fn new(
         contract: &mut Contract,
         caller: AccountId,
         construction_id: ConstructionId,
         construction_call_id: &ConstructionCallId,
         amount: u128,
-        initial_node_indices: Vec<u64>,
+        initial_action_indices: Vec<u64>,
         initial_splits: VectorWrapper<u128>,
-        next_nodes_indices: NextNodesIndicesForConstruction,
-        next_nodes_splits: NextNodesSplitsForConstruction,
+        next_actions_indices: NextActionsIndicesForConstruction,
+        next_actions_splits: NextActionsSplitsForConstruction,
     ) -> Result<ConstructionCall, PanicError> {
         // Ensure the construction call id is not already registered
         assert!(
@@ -92,34 +92,34 @@ impl ConstructionCall {
         let _construction = contract.get_construction(&construction_id)?;
 
         // Create the vectors necessary for the construction call
-        let vect_prefix_str_node_stack = format!("constcall-stack-{}", construction_call_id);
-        let vect_prefix_node_call_stack = vect_prefix_str_node_stack.as_bytes();
+        let vect_prefix_str_action_stack = format!("constcall-stack-{}", construction_call_id);
+        let vect_prefix_action_call_stack = vect_prefix_str_action_stack.as_bytes();
 
         let initial_amounts = Construction::get_split_amounts(amount, initial_splits);
-        let init_node_calls = NodeCall::node_calls_from_construction_indices(
+        let init_action_calls = ActionCall::action_calls_from_construction_indices(
             contract,
-            initial_node_indices,
+            initial_action_indices,
             initial_amounts,
         )
         .unwrap_or_else(|e| panic!("{}", e));
 
-        let node_call_ids_prefix = format!("{}-nodes", construction_call_id);
-        let node_call_ids =
-            VectorWrapper::from_vec(init_node_calls, node_call_ids_prefix.as_bytes());
+        let action_call_ids_prefix = format!("{}-actions", construction_call_id);
+        let action_call_ids =
+            VectorWrapper::from_vec(init_action_calls, action_call_ids_prefix.as_bytes());
 
         // Create the call stack and push the initial calls onto it
-        let mut node_call_stack = VectorWrapper(Vector::new(vect_prefix_node_call_stack));
-        for i in 0..node_call_ids.0.len() {
-            node_call_stack.0.push(&i);
+        let mut action_call_stack = VectorWrapper(Vector::new(vect_prefix_action_call_stack));
+        for i in 0..action_call_ids.0.len() {
+            action_call_stack.0.push(&i);
         }
 
         Ok(ConstructionCall {
             caller,
             construction_id,
-            node_calls: node_call_ids,
-            next_node_calls_stack: node_call_stack,
-            next_nodes_indices_in_construction: next_nodes_indices,
-            next_nodes_splits,
+            action_calls: action_call_ids,
+            next_action_calls_stack: action_call_stack,
+            next_actions_indices_in_construction: next_actions_indices,
+            next_actions_splits,
         })
     }
 }

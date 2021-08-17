@@ -56,7 +56,7 @@ it("should send near to Alice and Bob", async () => {
   const bob = await newRandAccount(masterAccount);
   const splitter = {
     splits: [100, 50],
-    nodes: [
+    actions: [
       {
         SimpleTransfer: {
           recipient: alice.accountId,
@@ -129,7 +129,7 @@ it.only("should send wrapped near to Alice and Bob via a Wcall", async () => {
 
   const splitter: SerializedSplitter = {
     splits: [3, 1],
-    nodes: [
+    actions: [
       {
         WCall: {
           contract_id: WCALL_SEND_CONTRACT_ID,
@@ -215,7 +215,7 @@ it("should send wrapped near to Alice and Bob", async () => {
 
   const splitter = {
     splits: [3, 1],
-    nodes: [
+    actions: [
       {
         FTTransfer: {
           recipient: bob.accountId,

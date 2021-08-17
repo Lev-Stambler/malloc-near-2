@@ -6,9 +6,9 @@ use near_sdk::{env, log, AccountId, Gas};
 
 use crate::errors::PanicError;
 use crate::gas::CALLBACK_GAS;
-use crate::node::NodeCall;
+use crate::action::ActionCall;
 
-use super::NodeFunctions;
+use super::ActionFunctions;
 
 const HANDLE_GAS: Gas = 2_000_000_000_000;
 
@@ -24,33 +24,33 @@ pub struct MallocCall {
     attached_amount: near_sdk::json_types::U128,
 }
 
-impl NodeFunctions for MallocCall {
+impl ActionFunctions for MallocCall {
     fn handle(
         &self,
         contract: &mut crate::Contract,
-        node_call: &NodeCall,
+        action_call: &ActionCall,
         construction_call_id: &crate::construction::ConstructionCallId,
-        node_call_id: crate::node::NodeCallId,
+        action_call_id: crate::action::ActionCallId,
         caller: &AccountId,
     ) -> Result<u64, crate::errors::PanicError> {
         let token_contract_id = self.token_id.clone();
         let call_data = format!(
             "{{\"args\": {}, \"amount\": \"{}\", \"token_id\": \"{}\", \"caller\": \"{}\"}}",
             self.json_args,
-            node_call.amount.to_string(),
+            action_call.amount.to_string(),
             token_contract_id.clone(),
             caller
         );
 
-        log!("Node call amount: {}", node_call.amount);
+        log!("Action call amount: {}", action_call.amount);
 
-        let call_prom = if node_call.amount > 0 && !self.skip_ft_transfer.unwrap_or(false) {
+        let call_prom = if action_call.amount > 0 && !self.skip_ft_transfer.unwrap_or(false) {
             // TODO: what if the ft_transfer prom fails???
             // See https://github.com/Lev-Stambler/malloc-near-2/issues/27
             let transfer_call_prom = contract.balances.internal_ft_transfer_call(
                 &self.token_id,
                 self.malloc_call_id.clone(),
-                U128(node_call.amount),
+                U128(action_call.amount),
                 caller.clone(),
                 None,
             );
@@ -85,10 +85,10 @@ impl NodeFunctions for MallocCall {
 
         let callback = env::promise_batch_then(call_prom, env::current_account_id());
         let callback_args =
-            NodeCall::get_callback_args(construction_call_id, &node_call_id, caller, None);
+            ActionCall::get_callback_args(construction_call_id, &action_call_id, caller, None);
         env::promise_batch_action_function_call(
             callback,
-            b"handle_node_callback",
+            b"handle_action_callback",
             callback_args.as_bytes(),
             0,
             CALLBACK_GAS,
@@ -96,14 +96,14 @@ impl NodeFunctions for MallocCall {
         Ok(callback)
     }
 
-    fn get_gas_requirement(&self, node_call: &NodeCall) -> Result<Gas, PanicError> {
+    fn get_gas_requirement(&self, action_call: &ActionCall) -> Result<Gas, PanicError> {
         let callback_gas = if self.check_callback.unwrap_or(true) {
             CALLBACK_GAS
         } else {
             0
         };
         let ft_transfer_call_gas =
-            if self.skip_ft_transfer.unwrap_or(false) || node_call.amount == 0 {
+            if self.skip_ft_transfer.unwrap_or(false) || action_call.amount == 0 {
                 0
             } else {
                 malloc_call_core::ft::MALLOC_CALL_CORE_GAS_FOR_FT_TRANSFER_CALL

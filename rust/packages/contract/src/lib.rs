@@ -13,7 +13,7 @@
 
 use construction::{
     Construction, ConstructionCall, ConstructionCallId, ConstructionId,
-    NextNodesIndicesForConstruction, NextNodesSplitsForConstruction,
+    NextActionsIndicesForConstruction, NextActionsSplitsForConstruction,
 };
 use malloc_call_core::ft::{FungibleTokenBalances, FungibleTokenHandlers};
 use malloc_call_core::{GasUsage, MallocCallFT, ReturnItem};
@@ -25,7 +25,7 @@ use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
     env, log, near_bindgen, serde, serde_json, setup_alloc, utils, AccountId, Gas, PanicOnDefault,
 };
-use node::{Node, NodeCall, NodeCallId, NodeId};
+use action::{Action, ActionCall, ActionCallId, ActionId};
 use vector_wrapper::VectorWrapper;
 
 use crate::errors::panic_errors;
@@ -34,8 +34,8 @@ mod construction;
 pub mod errors;
 mod gas;
 mod malloc_utils;
-mod node;
-mod nodes;
+mod action;
+mod actions;
 mod test_utils;
 mod vector_wrapper;
 
@@ -50,34 +50,34 @@ pub struct Contract {
     /// A store of all the construction calls. Construction calls are mutable and ephemeral objects
     /// They should only live as long as a single call to a construction
     construction_calls: UnorderedMap<ConstructionCallId, ConstructionCall>,
-    /// A store of all the node calls. Node calls are mutable and ephemeral objects
+    /// A store of all the action calls. Action calls are mutable and ephemeral objects
     /// They should only live as long as a single call to a construction. They get deleted
     /// When a construction call gets deleted
-    node_calls: UnorderedMap<NodeCallId, NodeCall>,
-    /// A store for all the nodes. Nodes are meant to be immutable objects
+    action_calls: UnorderedMap<ActionCallId, ActionCall>,
+    /// A store for all the actions. Actions are meant to be immutable objects
     // TODO: enforce immutability: https://github.com/Lev-Stambler/malloc-near-2/issues/18
-    nodes: UnorderedMap<NodeId, Node>,
+    actions: UnorderedMap<ActionId, Action>,
     /// Balances keeps track of all the users' balances. See malloc-call-core's documentation for more information
     balances: FungibleTokenBalances,
-    /// Keeps track of the next node call id so that node call id's can all be unique and need not be supplied by the caller
-    next_node_call_id: NodeCallId,
+    /// Keeps track of the next action call id so that action call id's can all be unique and need not be supplied by the caller
+    next_action_call_id: ActionCallId,
 }
 
 pub trait CoreFunctionality {
-    fn register_nodes(&mut self, node_names: Vec<String>, nodes: Vec<Node>);
+    fn register_actions(&mut self, action_names: Vec<String>, actions: Vec<Action>);
     fn register_construction(&mut self, construction_name: String, construction: Construction);
     fn init_construction(
         &mut self,
         construction_call_id: ConstructionCallId,
         construction_id: ConstructionId,
         amount: U128,
-        initial_node_indices: Vec<u64>,
+        initial_action_indices: Vec<u64>,
         initial_splits: VectorWrapper<u128>,
-        next_nodes_indices: NextNodesIndicesForConstruction,
-        next_nodes_splits: NextNodesSplitsForConstruction,
+        next_actions_indices: NextActionsIndicesForConstruction,
+        next_actions_splits: NextActionsSplitsForConstruction,
     );
     fn delete_construction(&mut self, construction_id: ConstructionId);
-    fn process_next_node_call(&mut self, construction_call_id: ConstructionCallId);
+    fn process_next_action_call(&mut self, construction_call_id: ConstructionCallId);
 }
 
 #[near_bindgen]
@@ -88,19 +88,19 @@ impl CoreFunctionality for Contract {
         //     .unwrap_or_else(|e| panic!(e))
     }
 
-    fn register_nodes(&mut self, node_names: Vec<String>, nodes: Vec<Node>) {
+    fn register_actions(&mut self, action_names: Vec<String>, actions: Vec<Action>) {
         assert_eq!(
-            node_names.len(),
-            nodes.len(),
+            action_names.len(),
+            actions.len(),
             "{}",
             panic_errors::NUMB_OF_NODES_NOT_EQUAL_TO_NUMB_NAMES
         );
 
         let owner = Some(env::predecessor_account_id());
-        for i in 0..node_names.len() {
-            self.nodes.insert(
-                &NodeId::new(node_names[i].clone(), owner.clone()),
-                &nodes[i],
+        for i in 0..action_names.len() {
+            self.actions.insert(
+                &ActionId::new(action_names[i].clone(), owner.clone()),
+                &actions[i],
             );
         }
     }
@@ -115,10 +115,10 @@ impl CoreFunctionality for Contract {
         construction_call_id: ConstructionCallId,
         construction_id: ConstructionId,
         amount: U128,
-        initial_node_indices: Vec<u64>,
+        initial_action_indices: Vec<u64>,
         initial_splits: VectorWrapper<u128>,
-        next_nodes_indices: NextNodesIndicesForConstruction,
-        next_nodes_splits: NextNodesSplitsForConstruction,
+        next_actions_indices: NextActionsIndicesForConstruction,
+        next_actions_splits: NextActionsSplitsForConstruction,
     ) {
         let caller = env::predecessor_account_id();
 
@@ -132,10 +132,10 @@ impl CoreFunctionality for Contract {
             construction_id,
             &construction_call_id,
             amount.into(),
-            initial_node_indices,
+            initial_action_indices,
             initial_splits,
-            next_nodes_indices,
-            next_nodes_splits,
+            next_actions_indices,
+            next_actions_splits,
         )
         .unwrap_or_else(|e| panic!(e));
 
@@ -143,7 +143,7 @@ impl CoreFunctionality for Contract {
             .insert(&construction_call_id, &construction_call);
     }
 
-    fn process_next_node_call(&mut self, construction_call_id: ConstructionCallId) {
+    fn process_next_action_call(&mut self, construction_call_id: ConstructionCallId) {
         self._run_step(construction_call_id);
         log!("Gas used: {}", env::used_gas());
     }
@@ -151,8 +151,8 @@ impl CoreFunctionality for Contract {
 
 #[near_bindgen]
 impl Contract {
-    pub fn get_node_call_unchecked(&self, id: U64) -> NodeCall {
-        self.node_calls.get(&id.into()).unwrap()
+    pub fn get_action_call_unchecked(&self, id: U64) -> ActionCall {
+        self.action_calls.get(&id.into()).unwrap()
     }
 
     pub fn get_construction_call_unchecked(&self, id: &ConstructionCallId) -> ConstructionCall {
@@ -172,22 +172,22 @@ impl GasUsage for Contract {
 #[near_bindgen]
 impl Contract {
     #[private]
-    pub fn handle_node_callback(
+    pub fn handle_action_callback(
         &mut self,
         construction_call_id: ConstructionCallId,
-        node_call_id: u64,
+        action_call_id: u64,
         caller: AccountId,
         token_return_id: Option<ValidAccountId>,
     ) -> Option<u64> {
         // TODO: err handle!!
-        let mut node_call = self.node_calls.get(&node_call_id).unwrap();
+        let mut action_call = self.action_calls.get(&action_call_id).unwrap();
         let ret_bytes = match utils::promise_result_as_success() {
             None => panic!("TODO:"),
             Some(bytes) => bytes,
         };
         let results: Vec<ReturnItem> =
-            NodeCall::get_results_from_returned_bytes(ret_bytes, token_return_id).unwrap();
-        node_call.handle_node_callback_internal(self, construction_call_id, caller, results)
+            ActionCall::get_results_from_returned_bytes(ret_bytes, token_return_id).unwrap();
+        action_call.handle_action_callback_internal(self, construction_call_id, caller, results)
     }
 }
 
@@ -197,9 +197,9 @@ impl Contract {
     pub fn new() -> Self {
         Contract {
             balances: FungibleTokenBalances::new("malloc-ft".as_bytes()),
-            node_calls: UnorderedMap::<NodeCallId, NodeCall>::new("nodecalls".as_bytes()),
-            nodes: UnorderedMap::new("nodes".as_bytes()),
-            next_node_call_id: 0,
+            action_calls: UnorderedMap::<ActionCallId, ActionCall>::new("actioncalls".as_bytes()),
+            actions: UnorderedMap::new("actions".as_bytes()),
+            next_action_call_id: 0,
             constructions: UnorderedMap::new("constructions".as_bytes()),
             construction_calls: UnorderedMap::new("construction-call-stack".as_bytes()),
         }
@@ -211,7 +211,7 @@ mod tests {
     const INIT_ACCOUNT_BAL: u128 = 10_000;
 
     use crate::malloc_utils::GenericId;
-    use crate::nodes::ft_calls::FtTransferCallToMallocCall;
+    use crate::actions::ft_calls::FtTransferCallToMallocCall;
 
     use super::*;
     use near_sdk::json_types::ValidAccountId;
@@ -235,28 +235,28 @@ mod tests {
         let mut context = get_context(accounts(0));
         testing_env!(context.build());
         let mut contract = Contract::new();
-        let node2 = Node::FtTransferCallToMallocCall(FtTransferCallToMallocCall {
+        let action2 = Action::FtTransferCallToMallocCall(FtTransferCallToMallocCall {
             malloc_call_id: accounts(2).to_string(),
             token_id: "wrapp.localnet".to_string(),
         });
-        let node1 = Node::FtTransferCallToMallocCall(FtTransferCallToMallocCall {
+        let action1 = Action::FtTransferCallToMallocCall(FtTransferCallToMallocCall {
             malloc_call_id: accounts(2).to_string(),
             token_id: "wrap.localnet".to_string(),
         });
-        contract.register_nodes(
-            vec!["node1".to_string(), "node2".to_string()],
-            vec![node1.clone(), node2.clone()],
+        contract.register_actions(
+            vec!["action1".to_string(), "action2".to_string()],
+            vec![action1.clone(), action2.clone()],
         );
         let construction_name = "Jimbe First Son of the Sea".to_string();
         let construction = Construction {
-            nodes: VectorWrapper::from_vec(
+            actions: VectorWrapper::from_vec(
                 vec![
                     GenericId {
-                        name: "node1".to_string(),
+                        name: "action1".to_string(),
                         owner: accounts(0).to_string(),
                     },
                     GenericId {
-                        name: "node2".to_string(),
+                        name: "action2".to_string(),
                         owner: accounts(0).to_string(),
                     },
                 ],
@@ -276,28 +276,28 @@ mod tests {
         let mut context = get_context(accounts(0));
         testing_env!(context.build());
         let mut contract = Contract::new();
-        let node2 = Node::FtTransferCallToMallocCall(FtTransferCallToMallocCall {
+        let action2 = Action::FtTransferCallToMallocCall(FtTransferCallToMallocCall {
             malloc_call_id: accounts(2).to_string(),
             token_id: "wrapp.localnet".to_string(),
         });
-        let node1 = Node::FtTransferCallToMallocCall(FtTransferCallToMallocCall {
+        let action1 = Action::FtTransferCallToMallocCall(FtTransferCallToMallocCall {
             malloc_call_id: accounts(2).to_string(),
             token_id: "wrap.localnet".to_string(),
         });
-        contract.register_nodes(
-            vec!["node1".to_string(), "node2".to_string()],
-            vec![node1.clone(), node2.clone()],
+        contract.register_actions(
+            vec!["action1".to_string(), "action2".to_string()],
+            vec![action1.clone(), action2.clone()],
         );
         let construction_name = "Jimbe First Son of the Sea".to_string();
         let construction = Construction {
-            nodes: VectorWrapper::from_vec(
+            actions: VectorWrapper::from_vec(
                 vec![
                     GenericId {
-                        name: "node1".to_string(),
+                        name: "action1".to_string(),
                         owner: accounts(0).to_string(),
                     },
                     GenericId {
-                        name: "node2".to_string(),
+                        name: "action2".to_string(),
                         owner: accounts(0).to_string(),
                     },
                 ],
@@ -312,21 +312,21 @@ mod tests {
             owner: accounts(0).into(),
         };
         let amount = U128(100);
-        let initial_node_indices = vec![0, 1];
+        let initial_action_indices = vec![0, 1];
         let initial_splits: VectorWrapper<u128> = serde_json::from_str("[1, 2]").unwrap();
-        let next_nodes_indices: NextNodesIndicesForConstruction =
+        let next_actions_indices: NextActionsIndicesForConstruction =
             serde_json::from_str("[[[]], [[]]]").unwrap();
-        let next_nodes_splits: NextNodesSplitsForConstruction =
+        let next_actions_splits: NextActionsSplitsForConstruction =
             serde_json::from_str("[[[]], [[]]]").unwrap();
 
         contract.init_construction(
             construction_call_id.clone(),
             construction_id.clone(),
             amount.clone(),
-            initial_node_indices.clone(),
+            initial_action_indices.clone(),
             initial_splits.clone(),
-            next_nodes_indices.clone(),
-            next_nodes_splits.clone(),
+            next_actions_indices.clone(),
+            next_actions_splits.clone(),
         );
 
         let construction_call = ConstructionCall::new(
@@ -335,51 +335,51 @@ mod tests {
             construction_id,
             &"aaaaaaa".to_string(), // Have a new construction call id to avoid re-registering
             amount.0,
-            initial_node_indices,
+            initial_action_indices,
             initial_splits,
-            next_nodes_indices,
-            next_nodes_splits,
+            next_actions_indices,
+            next_actions_splits,
         )
         .unwrap();
         let registered = contract.get_construction_call_unchecked(&construction_call_id);
-        assert_ne!(&registered.node_calls, &construction_call.node_calls);
+        assert_ne!(&registered.action_calls, &construction_call.action_calls);
 
         assert_eq!(&registered.caller, &construction_call.caller);
         assert_eq!(&registered.construction_id, &construction_call.construction_id);
-        assert_eq!(&registered.next_node_calls_stack, &construction_call.next_node_calls_stack);
-        assert_eq!(&registered.next_nodes_indices_in_construction, &construction_call.next_nodes_indices_in_construction);
-        assert_eq!(&registered.next_nodes_splits, &construction_call.next_nodes_splits);
+        assert_eq!(&registered.next_action_calls_stack, &construction_call.next_action_calls_stack);
+        assert_eq!(&registered.next_actions_indices_in_construction, &construction_call.next_actions_indices_in_construction);
+        assert_eq!(&registered.next_actions_splits, &construction_call.next_actions_splits);
     }
 
     #[test]
-    fn test_register_nodes() {
+    fn test_register_actions() {
         let mut context = get_context(accounts(0));
         testing_env!(context.build());
         let mut contract = Contract::new();
-        let node2_prereigster = Node::FtTransferCallToMallocCall(FtTransferCallToMallocCall {
+        let action2_prereigster = Action::FtTransferCallToMallocCall(FtTransferCallToMallocCall {
             malloc_call_id: accounts(2).to_string(),
             token_id: "wrapp.localnet".to_string(),
         });
-        let node1_prereigster = Node::FtTransferCallToMallocCall(FtTransferCallToMallocCall {
+        let action1_prereigster = Action::FtTransferCallToMallocCall(FtTransferCallToMallocCall {
             malloc_call_id: accounts(2).to_string(),
             token_id: "wrap.localnet".to_string(),
         });
-        contract.register_nodes(
-            vec!["node1".to_string(), "node2".to_string()],
-            vec![node1_prereigster.clone(), node2_prereigster.clone()],
+        contract.register_actions(
+            vec!["action1".to_string(), "action2".to_string()],
+            vec![action1_prereigster.clone(), action2_prereigster.clone()],
         );
-        let node1 = contract.nodes.get(&GenericId {
+        let action1 = contract.actions.get(&GenericId {
             owner: accounts(0).to_string(),
-            name: "node1".to_string(),
+            name: "action1".to_string(),
         });
-        let node2 = contract.nodes.get(&GenericId {
+        let action2 = contract.actions.get(&GenericId {
             owner: accounts(0).to_string(),
-            name: "node2".to_string(),
+            name: "action2".to_string(),
         });
-        assert!(node1.is_some());
-        assert!(node2.is_some());
+        assert!(action1.is_some());
+        assert!(action2.is_some());
 
-        assert_eq!(node1.unwrap(), node1_prereigster);
-        assert_eq!(node2.unwrap(), node2_prereigster);
+        assert_eq!(action1.unwrap(), action1_prereigster);
+        assert_eq!(action2.unwrap(), action2_prereigster);
     }
 }

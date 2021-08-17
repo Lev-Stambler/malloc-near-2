@@ -2,34 +2,34 @@ import {
   AccountId,
   FtTransferCallToMallocCall,
   MallocCall,
-  Node,
+  Action,
 } from "@malloc/sdk";
 import {
   ConstructionReturn,
-  FtTransferCallToMallocCallNodeReturn,
+  FtTransferCallToMallocCallActionReturn,
   IConstruction,
-  IFtTransferCallToMallocCallNode,
-  IMallocCallNode,
-  MallocCallNodeReturn,
+  IFtTransferCallToMallocCallAction,
+  IMallocCallAction,
+  MallocCallActionReturn,
   MallocCallOpts,
-  NodeOrConstructionWithSplit,
+  ActionOrConstructionWithSplit,
   GenericParameters,
   RunEphemeralInstr,
   ICompileConstruction,
 } from "./interfaces";
 
-export const MallocCallNode = <T>(
-  input: IMallocCallNode
-): MallocCallNodeReturn => {
+export const MallocCallAction = <T>(
+  input: IMallocCallAction
+): MallocCallActionReturn => {
   return (parameters?: GenericParameters) => {
     return async () => {
       throw "TODO";
     };
   };
 };
-export const FtTransferCallToMallocCallNode = <T>(
-  input: IFtTransferCallToMallocCallNode
-): FtTransferCallToMallocCallNodeReturn => {
+export const FtTransferCallToMallocCallAction = <T>(
+  input: IFtTransferCallToMallocCallAction
+): FtTransferCallToMallocCallActionReturn => {
   return () => {
     return () => {
       throw "TODO";

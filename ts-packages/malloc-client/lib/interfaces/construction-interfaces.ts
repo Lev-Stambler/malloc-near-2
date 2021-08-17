@@ -1,6 +1,6 @@
-import { NodeId } from "./shared";
+import { ActionId } from "./shared";
 
 // TODO:?
 export interface Construction {
-	nodes: NodeId[]
+	actions: ActionId[]
 }

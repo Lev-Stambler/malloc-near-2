@@ -14,10 +14,10 @@ import { KeyPairEd25519, PublicKey } from "near-api-js/lib/utils";
 import { join } from "path";
 
 const generatedAccounts: Account[] = [];
-export const rpcNode = "https://rpc.testnet.near.org";
+export const rpcAction = "https://rpc.testnet.near.org";
 export const MAX_GAS = new BN("300000000000000");
 export const WCALL_SIMPLE_GAS = new BN("15000000000000");
-export const provider = new providers.JsonRpcProvider(rpcNode);
+export const provider = new providers.JsonRpcProvider(rpcAction);
 
 interface CreateConnectionOpts {
   privateKey?: string;
@@ -40,7 +40,7 @@ export const createNear = async (opts: CreateConnectionOpts): Promise<Near> => {
 
   const near = await connect({
     networkId: "testnet",
-    nodeUrl: rpcNode,
+    actionUrl: rpcAction,
     masterAccount: opts.accountId,
     keyPath: `${__dirname}/tester-malloc2.levtester.testnet.json`,
     keyStore: keyStore,

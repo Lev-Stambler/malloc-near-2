@@ -1,7 +1,7 @@
 import { MAX_GAS } from "../../../../malloc-client/lib/tx";
 
 export const exampleCall = {
-  nodes: [
+  actions: [
     {
       FtTransferCallToMallocCall: {
         malloc_call_id: "dev-1628779354953-97648315357960",
@@ -48,8 +48,8 @@ export const exampleCall = {
     },
   ],
   amount: "100000000000000000000",
-  initial_node_indices: [0],
-  initial_node_splits: [1],
-  next_node_indices: [[[1, 2]], [[]], [[]]],
-  next_node_splits: [[[1, 1]], [[]], [[]]],
+  initial_action_indices: [0],
+  initial_action_splits: [1],
+  next_action_indices: [[[1, 2]], [[]], [[]]],
+  next_action_splits: [[[1, 1]], [[]], [[]]],
 };

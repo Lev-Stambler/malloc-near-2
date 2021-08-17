@@ -16,7 +16,7 @@ interface Endpoint {
 }
 
 interface SerializedSplitter {
-  nodes: Endpoint[];
+  actions: Endpoint[];
   splits: BigNumberish[];
   ft_contract_id?: AccountId;
 }

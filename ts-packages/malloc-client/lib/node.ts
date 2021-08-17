@@ -1,28 +1,28 @@
 import BN from "bn.js";
 import {
   SpecialAccount,
-  Node,
+  Action,
   MallocCallMetadata,
   AccountId,
-  NodeTypes,
+  ActionTypes,
 } from "./interfaces";
 
 /**
  * @param  {SpecialAccount} callerAccount
- * @param  {Node} node
+ * @param  {Action} action
  * @returns Promise
  */
-export const getNodeAttachedDepositForNode = async (
+export const getActionAttachedDepositForAction = async (
   callerAccount: SpecialAccount,
-  node: Node<NodeTypes>
+  action: Action<ActionTypes>
 ): Promise<BN> => {
-  if (node.MallocCall) {
+  if (action.MallocCall) {
     const metadata = await getMallocCallMetadata(
       callerAccount,
-      node.MallocCall.malloc_call_id
+      action.MallocCall.malloc_call_id
     );
     return new BN(metadata.minimum_attached_deposit || 1);
-  } else if (node.FtTransferCallToMallocCall) {
+  } else if (action.FtTransferCallToMallocCall) {
     return new BN(1);
   }
   return new BN(0);

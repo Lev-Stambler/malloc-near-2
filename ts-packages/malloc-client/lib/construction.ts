@@ -3,7 +3,7 @@ import { Account } from "near-api-js";
 import {
   AccountId,
   BigNumberish,
-  Node,
+  Action,
   SpecialAccount,
   Transaction,
   MallocCallMetadata,
@@ -14,16 +14,16 @@ import {
   ConstructionCallId,
   TxHashOrVoid,
   RegisterConstructionArgs,
-  RegisterNodesArgs,
+  RegisterActionsArgs,
   Construction,
-  ProcessNextNodeCallArgs,
+  ProcessNextActionCallArgs,
   InitConstructionArgs,
-  NodeCall,
-  NodeCallId,
+  ActionCall,
+  ActionCallId,
   CallEphemeralError,
-  NodeTypes,
+  ActionTypes,
 } from "./interfaces";
-import { getNodeAttachedDepositForNode } from "./node";
+import { getActionAttachedDepositForAction } from "./action";
 import {
   executeMultipleTx,
   MAX_GAS,
@@ -43,10 +43,10 @@ const defaultRunEphemeralOpts: RunEphemeralOpts = {
 
 const getAttachedDeposit = async (
   caller: SpecialAccount,
-  nodes: Node<NodeTypes>[]
+  actions: Action<ActionTypes>[]
 ): Promise<BN> => {
   const deps = await Promise.all(
-    nodes.map((n) => getNodeAttachedDepositForNode(caller, n))
+    actions.map((n) => getActionAttachedDepositForAction(caller, n))
   );
   return deps.reduce((a, b) => a.add(b), new BN(0));
 };
@@ -98,15 +98,15 @@ export const deleteConstruction = async <
   return txRetsInit;
 };
 
-export const getNodeCallData = async (
+export const getActionCallData = async (
   callerAccount: SpecialAccount,
   mallocAccountId: AccountId,
-  nodeCallId: NodeCallId
-): Promise<NodeCall> => {
+  actionCallId: ActionCallId
+): Promise<ActionCall> => {
   return await callerAccount.viewFunction(
     mallocAccountId,
-    "get_node_call_unchecked",
-    { id: nodeCallId.toString() }
+    "get_action_call_unchecked",
+    { id: actionCallId.toString() }
   );
 };
 
@@ -141,12 +141,12 @@ const checkTransactionSuccessful = async (
 export const runEphemeralConstruction = async (
   callerAccount: SpecialAccount,
   mallocAccountId: AccountId,
-  nodes: Node<NodeTypes>[],
+  actions: Action<ActionTypes>[],
   amount: BigNumberish,
-  initial_node_indices: number[],
+  initial_action_indices: number[],
   initial_splits: number[],
-  next_nodes_indices: number[][][],
-  next_nodes_splits: number[][][],
+  next_actions_indices: number[][][],
+  next_actions_splits: number[][][],
   opts?: Partial<RunEphemeralOpts>
 ): Promise<string[]> => {
   const _opts: RunEphemeralOpts = {
@@ -155,9 +155,9 @@ export const runEphemeralConstruction = async (
   };
   const construction_call_id = makeid(16);
   const constructionName = makeid(10);
-  const nodeNames = nodes.map((n) => makeid(12));
+  const actionNames = actions.map((n) => makeid(12));
   const construction: Construction = {
-    nodes: nodeNames.map((name) => {
+    actions: actionNames.map((name) => {
       return {
         name,
         owner: callerAccount.accountId,
@@ -168,20 +168,20 @@ export const runEphemeralConstruction = async (
   // TODO: move this out to a separate function and test registration
   // Use the get malloc call state for testing!
   const storeAndStartConstruction = async (): Promise<string[]> => {
-    // const attachedDeposit = await getNodeAttachedDepositForNode(
+    // const attachedDeposit = await getActionAttachedDepositForAction(
     //   callerAccount,
-    //   nodes[0]
+    //   actions[0]
     // );
     const txs = [
       {
         receiverId: mallocAccountId,
         functionCalls: [
           {
-            methodName: "register_nodes",
+            methodName: "register_actions",
             args: {
-              node_names: nodeNames,
-              nodes: nodes,
-            } as RegisterNodesArgs,
+              action_names: actionNames,
+              actions: actions,
+            } as RegisterActionsArgs,
             gas: MAX_GAS.toString(),
             amount: "0", // TODO: storage
           },
@@ -216,10 +216,10 @@ export const runEphemeralConstruction = async (
                 owner: callerAccount.accountId,
               },
               amount: amount.toString(),
-              initial_node_indices: initial_node_indices,
+              initial_action_indices: initial_action_indices,
               initial_splits: initial_splits,
-              next_nodes_indices,
-              next_nodes_splits,
+              next_actions_indices,
+              next_actions_splits,
             } as InitConstructionArgs,
             gas: MAX_GAS.divn(3).toString(),
             amount: "0", //TODO: storage deposit goes here ya heard
@@ -240,7 +240,7 @@ export const runEphemeralConstruction = async (
     return txRetsInit || [];
   };
 
-  const runNextNodeCalls = async (): Promise<string[]> => {
+  const runNextActionCalls = async (): Promise<string[]> => {
     let constructionCallData = await getConstructionCallData(
       callerAccount,
       mallocAccountId,
@@ -248,27 +248,27 @@ export const runEphemeralConstruction = async (
     );
     let txHashes: string[] = [];
 
-    while (constructionCallData.next_node_calls_stack.length > 0) {
-      const node_call_index =
-        constructionCallData.next_node_calls_stack[
-          constructionCallData.next_node_calls_stack.length - 1
+    while (constructionCallData.next_action_calls_stack.length > 0) {
+      const action_call_index =
+        constructionCallData.next_action_calls_stack[
+          constructionCallData.next_action_calls_stack.length - 1
         ];
 
-      const node_call_id = constructionCallData.node_calls[node_call_index];
-      const node_call = await getNodeCallData(
+      const action_call_id = constructionCallData.action_calls[action_call_index];
+      const action_call = await getActionCallData(
         callerAccount,
         mallocAccountId,
-        node_call_id as any
+        action_call_id as any
       );
 
-      const attachedDeposit = await getNodeAttachedDepositForNode(
+      const attachedDeposit = await getActionAttachedDepositForAction(
         callerAccount,
-        nodes[parseInt(node_call.node_index_in_construction.toString())]
+        actions[parseInt(action_call.action_index_in_construction.toString())]
       );
 
       // TODO: get || to work !!!!!!!
       const txs: Transaction[] = new Array(
-        constructionCallData.next_node_calls_stack.length
+        constructionCallData.next_action_calls_stack.length
       )
         .fill(0)
         .map((_) => {
@@ -276,10 +276,10 @@ export const runEphemeralConstruction = async (
             receiverId: mallocAccountId,
             functionCalls: [
               {
-                methodName: "process_next_node_call",
+                methodName: "process_next_action_call",
                 args: {
                   construction_call_id,
-                } as ProcessNextNodeCallArgs,
+                } as ProcessNextActionCallArgs,
                 gas: _opts.gas.toString(),
                 amount: "0", //TODO: consider adding back //attachedDeposit.toString(),
               },
@@ -311,7 +311,7 @@ export const runEphemeralConstruction = async (
       txsInit,
       callerAccount.accountId
     );
-    const txsNextStep = await runNextNodeCalls();
+    const txsNextStep = await runNextActionCalls();
     return [...txsInit, ...txsNextStep];
   } catch (e) {
     console.trace(e);

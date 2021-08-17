@@ -1,5 +1,5 @@
 [package]
-name = "ref-fi-wcall"
+name = "blackwhole-call"
 version = "0.1.0"
 authors = ["Lev Stambler <lev.stambler@gmail.com>"]
 edition = "2018"

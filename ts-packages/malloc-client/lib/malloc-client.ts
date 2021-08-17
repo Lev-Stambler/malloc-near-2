@@ -10,7 +10,7 @@ import { MallocErrors } from "./errors";
 import {
   AccountId,
   SpecialAccountWithKeyPair,
-  Node,
+  Action,
   SpecialAccountConnectedWallet,
   SpecialAccountType,
   SpecialAccount,
@@ -24,7 +24,7 @@ import {
   BigNumberish,
   MallocCallMetadata,
   ExecuteMultipleTxOpts,
-  NodeTypes,
+  ActionTypes,
 } from "./interfaces";
 import {
   deleteConstruction,
@@ -39,7 +39,7 @@ import {
 } from "./tx";
 import { getTokenBalance } from "./ft-token";
 import { registerDepositsTxs } from "./storage-deposit";
-import { getMallocCallMetadata } from "./node";
+import { getMallocCallMetadata } from "./action";
 
 export * from "./interfaces";
 
@@ -86,12 +86,12 @@ interface RegisterAccountDepositsOpts {
 }
 
 export interface IRunEphemeralConstruction {
-  nodes: Node<NodeTypes>[];
+  actions: Action<ActionTypes>[];
   amount: string;
-  initialNodeIndices: number[];
+  initialActionIndices: number[];
   initialSplits: number[];
-  nextNodesIndices: number[][][];
-  nextNodesSplits: number[][][];
+  nextActionsIndices: number[][][];
+  nextActionsSplits: number[][][];
   opts?: Partial<RunEphemeralOpts>;
 }
 
@@ -123,10 +123,10 @@ export class MallocClient<
     // this.contract = new Contract(account, mallocAccountId, {
     //   viewMethods: [],
     //   changeMethods: [
-    //     "register_nodes",
+    //     "register_actions",
     //     "register_construction",
     //     "init_construction",
-    //     "process_next_node_call",
+    //     "process_next_action_call",
     //   ],
     // });
   }
@@ -209,12 +209,12 @@ export class MallocClient<
   }
 
   public async runEphemeralConstruction({
-    nodes,
+    actions,
     amount,
-    initialNodeIndices: initial_node_indices,
+    initialActionIndices: initial_action_indices,
     initialSplits: initial_splits,
-    nextNodesIndices: next_nodes_indices,
-    nextNodesSplits: next_nodes_splits,
+    nextActionsIndices: next_actions_indices,
+    nextActionsSplits: next_actions_splits,
     opts,
   }: IRunEphemeralConstruction): Promise<string[]> {
     // Wait for the deposit transactions to go through
@@ -230,19 +230,19 @@ export class MallocClient<
 
     console.log("AAAAA");
     //@ts-ignore
-    // await this.contract.register_nodes(
+    // await this.contract.register_actions(
     //   {
-    //     node_names: ["a", "a", "a"],
-    //     nodes: nodes,
+    //     action_names: ["a", "a", "a"],
+    //     actions: actions,
     //   },
     //   MAX_GAS
     // );
     // const ret = await this.account.functionCall({
     //   contractId: this.mallocAccountId,
-    //   methodName: "register_nodes",
+    //   methodName: "register_actions",
     //   args: {
-    //     node_names: ["a", "a", "a"],
-    //     nodes: nodes,
+    //     action_names: ["a", "a", "a"],
+    //     actions: actions,
     //   },
     //   gas: MAX_GAS,
     // })
@@ -254,12 +254,12 @@ export class MallocClient<
     return await runEphemeralConstruction(
       this.account as SpecialAccountWithKeyPair,
       this.mallocAccountId,
-      nodes,
+      actions,
       amount,
-      initial_node_indices,
+      initial_action_indices,
       initial_splits,
-      next_nodes_indices,
-      next_nodes_splits,
+      next_actions_indices,
+      next_actions_splits,
       opts
     );
     // return txRets;

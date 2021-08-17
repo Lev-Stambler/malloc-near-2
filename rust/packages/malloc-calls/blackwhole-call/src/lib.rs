@@ -1,11 +1,10 @@
 use std::{u64, usize};
 
 use malloc_call_core::MallocCallFT;
-use malloc_call_core::{self};
+use malloc_call_core::{self, ft::FungibleTokenHandlers};
 // To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
-use malloc_call_core::ft::FungibleTokenHandlers;
 use malloc_call_core::{
-    utils::new_balances, MallocCallMetadata, MallocCallNoCallback, NewMallocCall, ReturnItem,
+    utils::new_balances, MallocCallMetadata, MallocCallNoCallback, ReturnItem,
 };
 use near_sdk;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
@@ -41,8 +40,8 @@ pub struct Contract {
 impl MallocCallNoCallback<BlackWholeArgs> for Contract {
     fn metadata(&self) -> MallocCallMetadata {
         MallocCallMetadata {
-            minimum_gas: None,
-            minimum_attached_deposit: Some(1.into()),
+            gas_required: 1_000_000_000_000,
+            attachment_required: U128(1),
             name: "Send Fungible Tokens".to_string(),
         }
     }

@@ -1,5 +1,5 @@
 export * from "./shared";
-export * from "./node-interfaces";
+export * from "./action-interfaces";
 export * from "./construction-interfaces";
 export * from "./call-interfaces";
 export * from "./malloc-call-interaces";

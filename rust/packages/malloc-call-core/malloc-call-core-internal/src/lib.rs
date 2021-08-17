@@ -1,6 +1,6 @@
 use near_sdk::json_types::ValidAccountId;
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::Gas;
+use near_sdk::{Balance, Gas};
 use near_sdk::{json_types::U128, AccountId, Promise};
 pub mod ft;
 pub mod utils;
@@ -17,6 +17,8 @@ pub fn resolver_method_name() -> Vec<u8> {
 #[serde(crate = "near_sdk::serde")]
 pub struct MallocCallMetadata {
     pub name: String,
+    pub gas_required: Gas,
+    pub attachment_required: U128,
 }
 
 /// The call should return a Vec of ReturnItems
@@ -30,19 +32,6 @@ pub struct ReturnItem {
 // TODO: implement for calls
 pub trait Revert {
     //    fn revert()
-}
-
-pub trait GasUsage {
-    fn get_gas_usage(&self) -> Gas;
-}
-
-pub trait DepositRequirement {
-    fn get_deposit_requirement(&self) -> U128;
-}
-
-// TODO: delete me
-pub trait NewMallocCall<NewCallArgs> {
-    fn new(malloc_contract_id: ValidAccountId, args: NewCallArgs) -> Self;
 }
 
 pub trait MallocCallNoCallback<CallArgs> {

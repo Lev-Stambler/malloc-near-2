@@ -31,7 +31,7 @@ const sourceMapsInProduction = false;
 /*********************************************************************************************************************/
 
 import TsconfigPathsPlugin from 'tsconfig-paths-webpack-plugin';
-import NodePolyfillPlugin from 'node-polyfill-webpack-plugin';
+import ActionPolyfillPlugin from 'action-polyfill-webpack-plugin';
 import Webpack, { NormalModuleReplacementPlugin } from 'webpack';
 import WebpackDev from 'webpack-dev-server';
 import SveltePreprocess from 'svelte-preprocess';
@@ -68,7 +68,7 @@ const config: Configuration = {
   resolve: {
     alias: {
       // Note: Later in this config file, we'll automatically add paths from `tsconfig.compilerOptions.paths`
-      svelte: path.resolve('./node_modules', 'svelte'),
+      svelte: path.resolve('./action_modules', 'svelte'),
       [path.resolve(__dirname, 'src/environments/environment')]: path.resolve(
         __dirname,
         getEnvPath()
@@ -92,7 +92,7 @@ const config: Configuration = {
       // Rule: Svelte
       {
         test: /\.svelte$/,
-        // exclude: /node_modules/,
+        // exclude: /action_modules/,
         use: {
           loader: 'svelte-loader',
           options: {
@@ -121,7 +121,7 @@ const config: Configuration = {
       // Required to prevent errors from Svelte on Webpack 5+, omit on Webpack 4
       // See: https://github.com/sveltejs/svelte-loader#usage
       {
-        test: /node_modules\/svelte\/.*\.mjs$/,
+        test: /action_modules\/svelte\/.*\.mjs$/,
         resolve: {
           fullySpecified: false,
         },
@@ -166,7 +166,7 @@ const config: Configuration = {
       {
         test: /\.ts$/,
         use: 'ts-loader',
-        exclude: /node_modules/,
+        exclude: /action_modules/,
       },
     ],
   },
@@ -181,7 +181,7 @@ const config: Configuration = {
     new MiniCssExtractPlugin({
       filename: '[name].css',
     }),
-    new NodePolyfillPlugin({}),
+    new ActionPolyfillPlugin({}),
     new Webpack.DefinePlugin({
       'process.env.BASE_URL': JSON.stringify(process.env.BASE_URL),
     }),
@@ -292,10 +292,10 @@ if (useBabel && (isProduction || useBabelInDevelopment)) {
     test: /\.(?:m?js|ts)$/,
     include: [
       path.resolve(__dirname, 'src'),
-      path.resolve('node_modules', 'svelte'),
+      path.resolve('action_modules', 'svelte'),
     ],
     exclude: [
-      /node_modules[/\\](css-loader|core-js|webpack|regenerator-runtime)/,
+      /action_modules[/\\](css-loader|core-js|webpack|regenerator-runtime)/,
     ],
     use: loader,
   });

@@ -51,12 +51,15 @@ pub fn malloc_call_ft(input: TokenStream) -> TokenStream {
                 self.balances.ft_on_transfer(sender_id, amount, msg)
             }
 
-            fn get_ft_balance(&self, account_id: AccountId, token_id: AccountId) -> U128 {
+            fn get_ft_balance(&self, account_id: near_sdk::AccountId, token_id: near_sdk::AccountId) -> near_sdk::json_types::U128 {
                 self.balances.get_ft_balance(&account_id, &token_id).into()
             }
 
-            #[private]
-            fn resolve_internal_ft_transfer_call(&mut self, account_id: AccountId, token_id: AccountId, amount: near_sdk::json_types::U128) -> U128 {
+            fn resolve_internal_ft_transfer_call(&mut self, account_id: near_sdk::AccountId, token_id: near_sdk::AccountId, amount: near_sdk::json_types::U128) -> near_sdk::json_types::U128 {
+                // This check is the same thing as decorating with #[private], but the macro within a macro causes 
+                if near_sdk::env::predecessor_account_id() != near_sdk::env::current_account_id() {
+                    panic!("Resolve internal ft transfer is a private call");
+                }
                 self.balances
                     .resolve_internal_ft_transfer_call(&account_id, token_id, amount)
             }

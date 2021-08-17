@@ -1,8 +1,8 @@
 /********** Call Interfaces ************/
 
-import { AccountId, ConstructionId, NodeCallId } from "./shared";
+import { AccountId, ConstructionId, ActionCallId } from "./shared";
 
-export interface NodeCallStatus {
+export interface ActionCallStatus {
   Error?: { message: string };
   // empty enum
   WaitingCall?: any;
@@ -10,16 +10,16 @@ export interface NodeCallStatus {
   Success?: any;
 }
 
-export interface NodeCall {
-  node_index_in_construction: string,
+export interface ActionCall {
+  action_index_in_construction: string,
   block_index: string,
   amount: string,
-  status: NodeCallStatus
+  status: ActionCallStatus
 }
 
 export interface ConstructionCall {
   caller: AccountId;
   construction_id: ConstructionId;
-  next_node_calls_stack: number[];
-  node_calls: NodeCallId[];
+  next_action_calls_stack: number[];
+  action_calls: ActionCallId[];
 }
