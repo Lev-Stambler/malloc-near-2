@@ -21,6 +21,7 @@ import {
   NodeCall,
   NodeCallId,
   CallEphemeralError,
+  NodeTypes,
 } from "./interfaces";
 import { getNodeAttachedDepositForNode } from "./node";
 import {
@@ -42,7 +43,7 @@ const defaultRunEphemeralOpts: RunEphemeralOpts = {
 
 const getAttachedDeposit = async (
   caller: SpecialAccount,
-  nodes: Node[]
+  nodes: Node<NodeTypes>[]
 ): Promise<BN> => {
   const deps = await Promise.all(
     nodes.map((n) => getNodeAttachedDepositForNode(caller, n))
@@ -140,7 +141,7 @@ const checkTransactionSuccessful = async (
 export const runEphemeralConstruction = async (
   callerAccount: SpecialAccount,
   mallocAccountId: AccountId,
-  nodes: Node[],
+  nodes: Node<NodeTypes>[],
   amount: BigNumberish,
   initial_node_indices: number[],
   initial_splits: number[],

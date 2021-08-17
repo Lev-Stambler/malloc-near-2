@@ -24,6 +24,7 @@ import {
   BigNumberish,
   MallocCallMetadata,
   ExecuteMultipleTxOpts,
+  NodeTypes,
 } from "./interfaces";
 import {
   deleteConstruction,
@@ -42,11 +43,10 @@ import { getMallocCallMetadata } from "./node";
 
 export * from "./interfaces";
 
-
 export const wrapAccountConnectedWallet = (
   near: Near
 ): SpecialAccountConnectedWallet => {
-  const newNear = new Near(near.config)
+  const newNear = new Near(near.config);
   const walletConnection = new WalletConnection(newNear, null);
   const account = new ConnectedWalletAccount(
     walletConnection,
@@ -83,6 +83,16 @@ const mallocClientDefaultOpts: MallocClientOpts = {};
 interface RegisterAccountDepositsOpts {
   extraAmount?: BigNumberish;
   executeTransactions?: boolean;
+}
+
+export interface IRunEphemeralConstruction {
+  nodes: Node<NodeTypes>[];
+  amount: string;
+  initialNodeIndices: number[];
+  initialSplits: number[];
+  nextNodesIndices: number[][][];
+  nextNodesSplits: number[][][];
+  opts?: Partial<RunEphemeralOpts>;
 }
 
 /**
@@ -198,16 +208,15 @@ export class MallocClient<
     );
   }
 
-  // TODO:
-  public async runEphemeralConstruction(
-    nodes: Node[],
-    amount: string,
-    initial_node_indices: number[],
-    initial_splits: number[],
-    next_nodes_indices: number[][][],
-    next_nodes_splits: number[][][],
-    opts?: Partial<RunEphemeralOpts>
-  ): Promise<string[]> {
+  public async runEphemeralConstruction({
+    nodes,
+    amount,
+    initialNodeIndices: initial_node_indices,
+    initialSplits: initial_splits,
+    nextNodesIndices: next_nodes_indices,
+    nextNodesSplits: next_nodes_splits,
+    opts,
+  }: IRunEphemeralConstruction): Promise<string[]> {
     // Wait for the deposit transactions to go through
     if (opts?.depositTransactionHash) {
       const depositResult = await resolveTransactionsWithPromise(
@@ -219,7 +228,7 @@ export class MallocClient<
       }
     }
 
-    console.log("AAAAA")
+    console.log("AAAAA");
     //@ts-ignore
     // await this.contract.register_nodes(
     //   {

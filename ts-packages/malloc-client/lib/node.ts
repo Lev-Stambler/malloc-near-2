@@ -4,6 +4,7 @@ import {
   Node,
   MallocCallMetadata,
   AccountId,
+  NodeTypes,
 } from "./interfaces";
 
 /**
@@ -13,7 +14,7 @@ import {
  */
 export const getNodeAttachedDepositForNode = async (
   callerAccount: SpecialAccount,
-  node: Node
+  node: Node<NodeTypes>
 ): Promise<BN> => {
   if (node.MallocCall) {
     const metadata = await getMallocCallMetadata(

@@ -1,5 +1,5 @@
 import { Construction } from "./construction-interfaces";
-import { Node } from "./node-interfaces";
+import { Node, NodeTypes } from "./node-interfaces";
 import { ConstructionCallId, ConstructionId } from "./shared";
 
 export interface InitConstructionArgs {
@@ -19,7 +19,7 @@ export interface RegisterConstructionArgs {
 
 export interface RegisterNodesArgs {
   node_names: string[];
-  nodes: Node[];
+  nodes: Node<NodeTypes>[];
 }
 
 export interface ProcessNextNodeCallArgs {

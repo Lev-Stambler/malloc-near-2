@@ -10,12 +10,16 @@ export interface MallocCall {
   token_id: AccountId;
 }
 
-export interface Node {
+export interface FtTransferCallToMallocCall {
+  malloc_call_id: string;
+  token_id: string;
+}
+
+export interface Node<T extends NodeTypes> {
   // SimpleTransfer?: { recipient: AccountId };
   // FTTransfer?: { recipient: AccountId };
-  MallocCall?: MallocCall;
-  FtTransferCallToMallocCall?: {
-    malloc_call_id: string;
-    token_id: string;
-  };
+  MallocCall?: T extends MallocCall ? MallocCall : undefined;
+  FtTransferCallToMallocCall?: T extends MallocCall ? undefined : FtTransferCallToMallocCall;
 }
+
+export type NodeTypes = FtTransferCallToMallocCall | MallocCall
