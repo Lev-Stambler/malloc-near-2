@@ -2,12 +2,12 @@ import { AccountId, Action, ActionTypesLibraryFacing } from "@malloc/sdk";
 import {
   ActionOrConstructionWithSplit,
   ActionOrConstructionWithSplitParametersFilled,
-  ActionOutputForConstruction,
-  ActionOutputForConstructionWithParamsFilled,
+  ActionOutputsForConstruction,
+  ActionOutputsForConstructionWithParamsFilled,
   IConstruction,
-} from "./interfaces";
+} from "../interfaces";
 import { getActionInputToken } from "@malloc/sdk/dist/action";
-import { scanlAccum } from "./utils";
+import { scanlAccum } from "../utils";
 
 const INTERNAL_CONSTRUCTION_TYPE = "InternalConstruction";
 
@@ -26,7 +26,7 @@ export class _InternalConstruction {
    */
   public static fromConstructionInOut(
     inAction: Action<ActionTypesLibraryFacing>,
-    out: ActionOutputForConstructionWithParamsFilled | null
+    out: ActionOutputsForConstructionWithParamsFilled | null
   ): _InternalConstruction {
     if (out === null) {
       return new _InternalConstruction([inAction], [[[]]], [[[]]]);
@@ -50,7 +50,7 @@ export class _InternalConstruction {
       outputsByToken.map((o) => o.internalConstruction)
     );
 
-    if (!mergedConstructions === null) {
+    if (mergedConstructions === null) {
       throw "Internal error, expected merged construction to not be null"
     }
 

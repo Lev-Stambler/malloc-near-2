@@ -48,19 +48,6 @@ export interface GenericParameters {
   [args: string]: any | BindedParameter;
 }
 
-/**
- * Names of parameters which are passed into the Action and Construction builder
- * functions. The first string is the name of the parameter to the caller while the second is the
- * name of the parameter for the actual action or construction. So if an action requires a `message`
- * parameter, it can be aliased to a `myCoolMessage` name which is later filled in by this library and replaced to `message`
- *
- * If the parameter name is just a string, then assume that the name for the parameter is the same as the one used for the actual action or construction
- */
-type ParameterNames = (
-  | [string, "tokenIn" | "expectedTokensOut" | string]
-  | string
-)[];
-
 // ----------------- Malloc Call Action Interfaces
 
 interface MallocCallOverrides {
@@ -71,8 +58,7 @@ interface MallocCallOverrides {
 
 export interface IMallocCallAction {
   mallocCallContractID: AccountId;
-  prefilledParamets?: GenericParameters;
-  parameterNames?: ParameterNames;
+  prefilledParameters?: GenericParameters;
   parameters?: GenericParameters;
   opts?: MallocCallOpts;
 }
@@ -84,7 +70,7 @@ export interface MallocCallOpts {
 
 export type MallocCallActionReturn = (
   parameters?: GenericParameters
-) => () => Action<MallocCall>;
+) => (parametersFromParent?: GenericParameters) => Action<MallocCall>;
 
 // ----------------- Ft Transfer Call Interface
 export interface IFtTransferCallToMallocCallAction {
@@ -97,11 +83,11 @@ export type FtTransferCallToMallocCallActionReturn = (parameters?: {
 }) => () => Action<FtTransferCallToMallocCall>;
 
 // ------------------------- Construction Interfaces
-export interface ActionOutputForConstructionWithParamsFilled {
+export interface ActionOutputsForConstructionWithParamsFilled {
   [token_id: string]: ActionOrConstructionWithSplitParametersFilled[];
 }
 
-export interface ActionOutputForConstruction {
+export interface ActionOutputsForConstruction {
   [token_id: string]: ActionOrConstructionWithSplit[];
 }
 
@@ -117,13 +103,12 @@ export interface IConstruction {
   in:
     | ReturnType<MallocCallActionReturn>
     | ReturnType<FtTransferCallToMallocCallActionReturn>;
-  out: null | ActionOutputForConstruction;
-  parameterNames?: ParameterNames;
+  out: null | ActionOutputsForConstruction;
 }
 
 export type ConstructionReturn = (
   parameters?: GenericParameters
-) => () => _InternalConstruction;
+) => (parametersFromParent?: GenericParameters) => _InternalConstruction;
 
 // ---- Compile Construction Args
 export interface ICompileConstruction {

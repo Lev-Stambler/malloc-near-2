@@ -16,18 +16,16 @@ describe("using the basic Action, Group, Construction, and Compile ops to create
     /////////////////////////////////////////////////////
     const coolBlackWhole = MallocCallAction({
       mallocCallContractID: BLACKWHOLE,
-      parameterNames: [["myCoolBlackWholeMessage", "message"]],
     });
     const coolPassThrough = MallocCallAction({
       mallocCallContractID: PASSTHROUGH,
-      parameterNames: [["myCoolPassThroughToken", "tokenIn"]],
     });
     const ftTransfer = FtTransferCallToMallocCallAction({
       mallocCallContractID: "wrap.testnet",
     });
     const constructionPassThroughSimp = Construction({
       in: coolPassThrough({
-        myCoolPassThroughToken: BindParameter("tokenUsed"),
+        myCoolPassThroughToken: BindParameter("tokenIn"),
       }),
       out: {
         "wrap.testnet": [
@@ -43,15 +41,14 @@ describe("using the basic Action, Group, Construction, and Compile ops to create
           },
         ],
       },
-      parameterNames: ["tokenUsed"],
     });
 
     const construction = Construction({
-      in: ftTransfer(),
+      in: ftTransfer({tokenIn: "wrap.testnet"}),
       out: {
         "wrap.testnet": [
           {
-            element: constructionPassThroughSimp({ tokenUsed: "wrap.testnet" }),
+            element: constructionPassThroughSimp({ tokenIn: "wrap.testnet" }),
             fraction: 1,
           },
           {
@@ -62,16 +59,21 @@ describe("using the basic Action, Group, Construction, and Compile ops to create
           },
         ],
       },
-      parameterNames: ["fractionBlackwhole"]
     });
+    console.log(JSON.stringify(construction({fractionBlackwhole: 10})()))
     //////////////////////////////////////////////////
 
-    const instr = await compileConstruction({
-      startingConstructionOrActions: [
-        { element: construction({ fractionBlackwhole: 10 }), fraction: 1 },
-      ],
-    });
-    await runEphemeralConstruction(instr, "10000");
+    // const instr = await compileConstruction({
+    //   startingConstructionOrActions: [
+    //     { element: construction({ fractionBlackwhole: 10 }), fraction: 1 },
+    //   ],
+    // });
+    // await runEphemeralConstruction(instr, "10000");
   });
 
 });
+
+// TODO: finish up instr and running
+// Then think of some way that makes sense to have malloc calls have some sort of typing
+// Rn everything is untyped an ugly, static typing for the GenericParameters would be so,
+// damn, nice... (it could be having GenericType take in a T and then having the function builder take in a generic type

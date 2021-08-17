@@ -1,4 +1,4 @@
-import { _InternalConstruction } from "../lib/construction-internal";
+import { _InternalConstruction } from "../lib/internal/construction-internal";
 
 const ACTION_FT_TRANSFER = {
   FtTransferCallToMallocCall: {
