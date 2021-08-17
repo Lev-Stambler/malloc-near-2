@@ -314,7 +314,7 @@ export const resolveTransactionsReducedWithPromises = async (
     const results = await resolveTransactionsWithPromise(hashes, accountId);
     results.forEach((result) => {
       if (result.flag !== "success")
-        throw MallocErrors.transactionPromiseFailed(result.message);
+        throw MallocErrors.TRANSACTION_PROMISE_FAILED(result.message);
     });
     return {
       flag: TransactionWithPromiseResultFlag.SUCCESS,

@@ -69,8 +69,8 @@ describe("malloc-client's ft capabilities", () => {
       TestingUtils.WRAP_TESTNET_CONTRACT
     );
 
-    const txRess = await malloc.runEphemeralConstruction(
-      [
+    const txRess = await malloc.runEphemeralConstruction({
+      actions: [
         {
           MallocCall: {
             malloc_call_id: MALLOC_CALL_PASSTHROUGH,
@@ -80,8 +80,6 @@ describe("malloc-client's ft capabilities", () => {
             json_args: JSON.stringify({
               log_message: "hello for jimbo the flimbo",
             }),
-            gas: MAX_GAS.divn(2).toNumber(),
-            attached_amount: "0",
           },
         },
         {
@@ -93,8 +91,6 @@ describe("malloc-client's ft capabilities", () => {
             json_args: JSON.stringify({
               log_message: "hello for bob",
             }),
-            gas: MAX_GAS.divn(2).toNumber(),
-            attached_amount: "0",
           },
         },
         {
@@ -106,8 +102,6 @@ describe("malloc-client's ft capabilities", () => {
             json_args: JSON.stringify({
               log_message: "hello for alice",
             }),
-            gas: MAX_GAS.divn(2).toNumber(),
-            attached_amount: "0",
           },
         },
         {
@@ -118,18 +112,16 @@ describe("malloc-client's ft capabilities", () => {
             json_args: JSON.stringify({
               log_message: "hello for bob",
             }),
-            gas: MALLOC_CALL_SIMPLE_GAS.toNumber(),
-            attached_amount: "0",
           },
         },
       ],
-      amount.toString(),
-      [0, 1, 2],
-      [1, 2, 3],
-      [[[1]], [[2]], [[3]], []],
-      [[[1]], [[1]], [[1]], []],
-      { gas: MAX_GAS, depositTransactionHash }
-    );
+      amount: amount.toString(),
+      initialActionIndices: [0, 1, 2],
+      initialSplits: [1, 2, 3],
+      nextActionsIndices: [[[1]], [[2]], [[3]], []],
+      nextActionsSplits: [[[1]], [[1]], [[1]], []],
+      opts: { gas: MAX_GAS, depositTransactionHash },
+    });
     const ret = await malloc.resolveTransactions(txRess);
     expect(ret.flag).toBe(TransactionWithPromiseResultFlag.SUCCESS);
 
@@ -166,7 +158,6 @@ describe("malloc-client's ft capabilities", () => {
       }
     );
 
-
     const myBal = await TestingUtils.ftBalOf(
       TestingUtils.WRAP_TESTNET_CONTRACT,
       wrappedTesterAccount.accountId,
@@ -178,8 +169,8 @@ describe("malloc-client's ft capabilities", () => {
       TestingUtils.WRAP_TESTNET_CONTRACT
     );
 
-    const txRess = await malloc.runEphemeralConstruction(
-      [
+    const txRess = await malloc.runEphemeralConstruction({
+      actions: [
         {
           MallocCall: {
             malloc_call_id: MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
@@ -189,8 +180,6 @@ describe("malloc-client's ft capabilities", () => {
             json_args: JSON.stringify({
               log_message: "hello for alice",
             }),
-            gas: MALLOC_CALL_SIMPLE_GAS.toNumber(),
-            attached_amount: "0",
           },
         },
         {
@@ -201,18 +190,16 @@ describe("malloc-client's ft capabilities", () => {
             json_args: JSON.stringify({
               log_message: "hello for bob",
             }),
-            gas: MALLOC_CALL_SIMPLE_GAS.toNumber(),
-            attached_amount: "0",
           },
         },
       ],
-      amount.toString(),
-      [0, 1],
-      [1, 1],
-      [[], []],
-      [[], []],
-      { gas: MAX_GAS, depositTransactionHash }
-    );
+      amount: amount.toString(),
+      initialActionIndices: [0, 1],
+      initialSplits: [1, 1],
+      nextActionsIndices: [[], []],
+      nextActionsSplits: [[], []],
+      opts: { gas: MAX_GAS, depositTransactionHash },
+    });
     const ret = await malloc.resolveTransactions(txRess);
     expect(ret.flag).toBe(TransactionWithPromiseResultFlag.SUCCESS);
 

@@ -17,7 +17,7 @@ export default function getConfig(env: Env) {
     case "mainnet":
       return {
         networkId: "mainnet",
-        actionUrl: "https://rpc.mainnet.near.org",
+        nodeUrl: "https://rpc.mainnet.near.org",
         contractName: CONTRACT_NAME,
         walletUrl: "https://wallet.near.org",
         helperUrl: "https://helper.mainnet.near.org",
@@ -27,7 +27,7 @@ export default function getConfig(env: Env) {
     case "testnet":
       return {
         networkId: "testnet",
-        actionUrl: "https://rpc.testnet.near.org",
+        nodeUrl: "https://rpc.testnet.near.org",
         contractName: CONTRACT_NAME,
         walletUrl: "https://wallet.testnet.near.org",
         helperUrl: "https://helper.testnet.near.org",
@@ -36,7 +36,7 @@ export default function getConfig(env: Env) {
     case "betanet":
       return {
         networkId: "betanet",
-        actionUrl: "https://rpc.betanet.near.org",
+        nodeUrl: "https://rpc.betanet.near.org",
         contractName: CONTRACT_NAME,
         walletUrl: "https://wallet.betanet.near.org",
         helperUrl: "https://helper.betanet.near.org",
@@ -46,14 +46,14 @@ export default function getConfig(env: Env) {
     case "ci":
       return {
         networkId: "shared-test",
-        actionUrl: "https://rpc.ci-testnet.near.org",
+        nodeUrl: "https://rpc.ci-testnet.near.org",
         contractName: CONTRACT_NAME,
         masterAccount: "test.near",
       };
     case "ci-betanet":
       return {
         networkId: "shared-test-staging",
-        actionUrl: "https://rpc.ci-betanet.near.org",
+        nodeUrl: "https://rpc.ci-betanet.near.org",
         contractName: CONTRACT_NAME,
         masterAccount: "test.near",
       };

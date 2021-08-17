@@ -1,5 +1,5 @@
 import { Construction } from "./construction-interfaces";
-import { Action, ActionTypes } from "./action-interfaces";
+import { Action, ActionTypesContractFacing } from "./action-interfaces";
 import { ConstructionCallId, ConstructionId } from "./shared";
 
 export interface InitConstructionArgs {
@@ -19,7 +19,7 @@ export interface RegisterConstructionArgs {
 
 export interface RegisterActionsArgs {
   action_names: string[];
-  actions: Action<ActionTypes>[];
+  actions: Action<ActionTypesContractFacing>[];
 }
 
 export interface ProcessNextActionCallArgs {

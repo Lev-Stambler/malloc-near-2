@@ -26,11 +26,11 @@ import {
 import tester from "./tester.json";
 
 let generatedAccounts: Account[] = [];
-export const rpcAction = "https://rpc.testnet.near.org";
+export const rpcNode = "https://rpc.testnet.near.org";
 export const MAX_GAS = new BN("300000000000000");
 const NEW_ACCOUNT_STORAGE_COST = utils.format.parseNearAmount("0.00125");
 export const MALLOC_CALL_SIMPLE_GAS = new BN("10000000000000");
-export const provider = new providers.JsonRpcProvider(rpcAction);
+export const provider = new providers.JsonRpcProvider(rpcNode);
 export const WRAP_TESTNET_CONTRACT = "wrap.testnet";
 
 interface CreateConnectionOpts {
@@ -99,7 +99,7 @@ export const createNear = async (opts: CreateConnectionOpts): Promise<Near> => {
 
   const near = await connect({
     networkId: "testnet",
-    actionUrl: rpcAction,
+    nodeUrl: rpcNode,
     masterAccount: opts.accountId,
     keyPath: `${__dirname}/tester-malloc2.levtester.testnet.json`,
     keyStore: keyStore,

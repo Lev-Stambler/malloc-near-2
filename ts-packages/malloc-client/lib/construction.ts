@@ -1,5 +1,6 @@
 import BN from "bn.js";
 import { Account } from "near-api-js";
+import { actionLibraryFacingToContractFacing } from "./action";
 import {
   AccountId,
   BigNumberish,
@@ -21,9 +22,9 @@ import {
   ActionCall,
   ActionCallId,
   CallEphemeralError,
-  ActionTypes,
+  ActionTypesLibraryFacing,
+  ActionTypesContractFacing,
 } from "./interfaces";
-import { getActionAttachedDepositForAction } from "./action";
 import {
   executeMultipleTx,
   MAX_GAS,
@@ -39,16 +40,6 @@ interface RunEphemeralOpts {
 const defaultRunEphemeralOpts: RunEphemeralOpts = {
   gas: MAX_GAS,
   depositTransactionHash: null,
-};
-
-const getAttachedDeposit = async (
-  caller: SpecialAccount,
-  actions: Action<ActionTypes>[]
-): Promise<BN> => {
-  const deps = await Promise.all(
-    actions.map((n) => getActionAttachedDepositForAction(caller, n))
-  );
-  return deps.reduce((a, b) => a.add(b), new BN(0));
 };
 
 const makeid = (length: number) => {
@@ -141,7 +132,7 @@ const checkTransactionSuccessful = async (
 export const runEphemeralConstruction = async (
   callerAccount: SpecialAccount,
   mallocAccountId: AccountId,
-  actions: Action<ActionTypes>[],
+  actions: Action<ActionTypesLibraryFacing>[],
   amount: BigNumberish,
   initial_action_indices: number[],
   initial_splits: number[],
@@ -165,6 +156,13 @@ export const runEphemeralConstruction = async (
     }),
   };
 
+  const actionsContractFacing: Action<ActionTypesContractFacing>[] =
+    await Promise.all(
+      actions.map((action) =>
+        actionLibraryFacingToContractFacing(callerAccount, action)
+      )
+    );
+
   // TODO: move this out to a separate function and test registration
   // Use the get malloc call state for testing!
   const storeAndStartConstruction = async (): Promise<string[]> => {
@@ -180,7 +178,7 @@ export const runEphemeralConstruction = async (
             methodName: "register_actions",
             args: {
               action_names: actionNames,
-              actions: actions,
+              actions: actionsContractFacing,
             } as RegisterActionsArgs,
             gas: MAX_GAS.toString(),
             amount: "0", // TODO: storage
@@ -254,16 +252,12 @@ export const runEphemeralConstruction = async (
           constructionCallData.next_action_calls_stack.length - 1
         ];
 
-      const action_call_id = constructionCallData.action_calls[action_call_index];
+      const action_call_id =
+        constructionCallData.action_calls[action_call_index];
       const action_call = await getActionCallData(
         callerAccount,
         mallocAccountId,
         action_call_id as any
-      );
-
-      const attachedDeposit = await getActionAttachedDepositForAction(
-        callerAccount,
-        actions[parseInt(action_call.action_index_in_construction.toString())]
       );
 
       // TODO: get || to work !!!!!!!

@@ -24,7 +24,7 @@ import {
   BigNumberish,
   MallocCallMetadata,
   ExecuteMultipleTxOpts,
-  ActionTypes,
+  ActionTypesLibraryFacing,
 } from "./interfaces";
 import {
   deleteConstruction,
@@ -86,7 +86,7 @@ interface RegisterAccountDepositsOpts {
 }
 
 export interface IRunEphemeralConstruction {
-  actions: Action<ActionTypes>[];
+  actions: Action<ActionTypesLibraryFacing>[];
   amount: string;
   initialActionIndices: number[];
   initialSplits: number[];
@@ -224,33 +224,11 @@ export class MallocClient<
         this.account.accountId
       );
       if (depositResult[0].flag !== TransactionWithPromiseResultFlag.SUCCESS) {
-        throw MallocErrors.transactionPromiseFailed(depositResult[0].message);
+        throw MallocErrors.TRANSACTION_PROMISE_FAILED(depositResult[0].message);
       }
     }
 
     console.log("AAAAA");
-    //@ts-ignore
-    // await this.contract.register_actions(
-    //   {
-    //     action_names: ["a", "a", "a"],
-    //     actions: actions,
-    //   },
-    //   MAX_GAS
-    // );
-    // const ret = await this.account.functionCall({
-    //   contractId: this.mallocAccountId,
-    //   methodName: "register_actions",
-    //   args: {
-    //     action_names: ["a", "a", "a"],
-    //     actions: actions,
-    //   },
-    //   gas: MAX_GAS,
-    // })
-    // console.log(ret)
-    // return []
-
-    // if (this.account.type !== SpecialAccountType.KeyPair)
-    //   throw "Malloc client currently only supports keypair connected wallets";
     return await runEphemeralConstruction(
       this.account as SpecialAccountWithKeyPair,
       this.mallocAccountId,
