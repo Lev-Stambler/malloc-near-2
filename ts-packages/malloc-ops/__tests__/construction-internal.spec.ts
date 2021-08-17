@@ -53,6 +53,60 @@ describe("Test instruction internal", () => {
   });
 
   it("Should successfully unroll in action and outputs into internal construction for a construction made up of height 2 constructions", () => {
+    const expectedWrappedWrapped = {
+      actions: [
+        ACTION_FT_TRANSFER,
+        ACTION_FT_TRANSFER,
+        ACTION_FT_TRANSFER,
+        ACTION_FT_TRANSFER,
+        ACTION_FT_TRANSFER,
+        ACTION_FT_TRANSFER,
+        ACTION_FT_TRANSFER,
+        ACTION_FT_TRANSFER,
+        ACTION_FT_TRANSFER,
+        ACTION_FT_TRANSFER,
+        ACTION_FT_TRANSFER,
+        ACTION_FT_TRANSFER,
+        ACTION_FT_TRANSFER,
+      ],
+      nextActionsSplits: [
+        [[]],
+        [[]],
+        [[1, 1]],
+        [[]],
+        [[]],
+        [[1, 1]],
+        [[]],
+        [[]],
+        [[1, 1]],
+        [[]],
+        [[]],
+        [[1, 1]],
+        [
+          [1, 1],
+          [1, 1],
+        ],
+      ],
+      nextActionsIndices: [
+        [[]],
+        [[]],
+        [[0, 1]],
+        [[]],
+        [[]],
+        [[3, 4]],
+        [[]],
+        [[]],
+        [[6, 7]],
+        [[]],
+        [[]],
+        [[9, 10]],
+        [
+          [0, 1],
+          [6, 7],
+        ],
+      ],
+    };
+
     const expectedWrapped = {
       actions: [
         ACTION_FT_TRANSFER,
@@ -63,8 +117,16 @@ describe("Test instruction internal", () => {
         ACTION_FT_TRANSFER,
         ACTION_FT_TRANSFER,
       ],
-      nextActionsIndices: [[[]], [[]], [[0, 1]]],
-      nextActionsSplits: [[[]], [[]], [[1, 1]]],
+      nextActionsIndices: [
+        [[]],
+        [[]],
+        [[0, 1]],
+        [[]],
+        [[]],
+        [[3, 4]],
+        [[0, 1]],
+      ],
+      nextActionsSplits: [[[]], [[]], [[1, 1]], [[]], [[]], [[1, 1]], [[1, 1]]],
     };
 
     const c1 = _InternalConstruction.fromConstructionInOut(ACTION_FT_TRANSFER, {
@@ -83,8 +145,22 @@ describe("Test instruction internal", () => {
         ],
       }
     );
-		console.log(JSON.stringify(cWrapped, null, 3))
+
+    const cWrappedWrapped = _InternalConstruction.fromConstructionInOut(
+      ACTION_FT_TRANSFER,
+      {
+        "wrap.testnet": [
+          { element: c1, fraction: 1 },
+          { element: c1, fraction: 1 },
+        ],
+        "wrap2.testnet": [
+          { element: c1, fraction: 1 },
+          { element: c1, fraction: 1 },
+        ],
+      }
+    );
     expect(expectedWrapped).toEqual(internalConstructionToObj(cWrapped));
+    expect(expectedWrappedWrapped).toEqual(internalConstructionToObj(cWrappedWrapped));
   });
 
   it("Should throw if the output token has an empty array", () => {
