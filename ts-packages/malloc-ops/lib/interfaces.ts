@@ -7,14 +7,20 @@ import {
   MallocCall,
   Action,
   ActionTypes,
+  ActionTypesLibraryFacing,
 } from "@malloc/sdk";
+import { _InternalConstruction } from "./construction-internal";
 
-// ---------------- Base interfaces
-interface ActionConstructionBase {
-  type: "Action" | "Construction";
-  tokenIn: AccountId;
+// ---------------- Base interface
+
+export interface ActionOrConstructionWithSplitParametersFilled {
+  element:
+    | ReturnType<ReturnType<MallocCallActionReturn>>
+    | ReturnType<ReturnType<FtTransferCallToMallocCallActionReturn>>
+    | ReturnType<ReturnType<ConstructionReturn>>;
+  // If a string is used, assume that a parameter is being used for the fraction
+  fraction: number;
 }
-
 export interface ActionOrConstructionWithSplit {
   element:
     | ReturnType<MallocCallActionReturn>
@@ -78,7 +84,7 @@ export interface MallocCallOpts {
 
 export type MallocCallActionReturn = (
   parameters?: GenericParameters
-) => () => Promise<Action<MallocCall>>;
+) => () => Action<MallocCall>;
 
 // ----------------- Ft Transfer Call Interface
 export interface IFtTransferCallToMallocCallAction {
@@ -88,22 +94,36 @@ export interface IFtTransferCallToMallocCallAction {
 
 export type FtTransferCallToMallocCallActionReturn = (parameters?: {
   tokenIn?: string;
-}) => () => Promise<Action<FtTransferCallToMallocCall>>;
+}) => () => Action<FtTransferCallToMallocCall>;
 
 // ------------------------- Construction Interfaces
+export interface ActionOutputForConstructionWithParamsFilled {
+  [token_id: string]: ActionOrConstructionWithSplitParametersFilled[];
+}
+
+export interface ActionOutputForConstruction {
+  [token_id: string]: ActionOrConstructionWithSplit[];
+}
+
+/**
+ * Input to the construction builder.
+ *
+ * @param in - The input action into the construction
+ * @param out - If null, then assume that the action is an endpoint and does not have anything
+ * following it. If the output is not null, then it is a map of Token IDs to a list of actions/ constructions
+ * and associated splits. Each token ID should correspond to a returned token from the input Action
+ */
 export interface IConstruction {
   in:
     | ReturnType<MallocCallActionReturn>
     | ReturnType<FtTransferCallToMallocCallActionReturn>;
-  out: {
-    [token_id: string]: ActionOrConstructionWithSplit[];
-  };
+  out: null | ActionOutputForConstruction;
   parameterNames?: ParameterNames;
 }
 
 export type ConstructionReturn = (
   parameters?: GenericParameters
-) => () => Promise<Construction>;
+) => () => _InternalConstruction;
 
 // ---- Compile Construction Args
 export interface ICompileConstruction {

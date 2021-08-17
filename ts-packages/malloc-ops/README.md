@@ -1,11 +1,6 @@
-# `malloc-client`
+# Malloc Ops 
+Malloc Ops is like the assembly language of Malloc 
 
-> TODO: description
-
-## Usage
-
+## Example program
 ```
-const mallocClient = require('malloc-client');
-
-// TODO: DEMONSTRATE API
 ```

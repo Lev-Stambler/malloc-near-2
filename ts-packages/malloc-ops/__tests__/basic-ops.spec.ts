@@ -13,6 +13,7 @@ const PASSTHROUGH = TestingUtils.getMallocCallPassthroughContract();
 
 describe("using the basic Action, Group, Construction, and Compile ops to create a construction", () => {
   it("Should create a two level construction with a ft transfer and then 2 blackwholes", async () => {
+    /////////////////////////////////////////////////////
     const coolBlackWhole = MallocCallAction({
       mallocCallContractID: BLACKWHOLE,
       parameterNames: [["myCoolBlackWholeMessage", "message"]],
@@ -61,7 +62,9 @@ describe("using the basic Action, Group, Construction, and Compile ops to create
           },
         ],
       },
+      parameterNames: ["fractionBlackwhole"]
     });
+    //////////////////////////////////////////////////
 
     const instr = await compileConstruction({
       startingConstructionOrActions: [
@@ -70,4 +73,5 @@ describe("using the basic Action, Group, Construction, and Compile ops to create
     });
     await runEphemeralConstruction(instr, "10000");
   });
+
 });

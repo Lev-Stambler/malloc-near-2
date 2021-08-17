@@ -46,3 +46,14 @@ export const getMallocCallMetadata = async (
   );
   return metadata;
 };
+
+export const getActionInputToken = (
+  action: Action<ActionTypesLibraryFacing>
+): AccountId => {
+  if (action.MallocCall) {
+    return action.MallocCall.token_id;
+  } else if (action.FtTransferCallToMallocCall) {
+    return action.FtTransferCallToMallocCall.token_id;
+  }
+  throw MallocErrors.EXPECTED_ACTION_PROPERTY();
+};

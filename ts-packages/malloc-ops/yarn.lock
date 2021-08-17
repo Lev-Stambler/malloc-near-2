@@ -1268,7 +1268,7 @@
     "@types/yargs" "^16.0.0"
     chalk "^4.0.0"
 
-"@malloc/sdk@../malloc-client/":
+"@malloc/sdk@../malloc-client":
   version "0.0.0"
   dependencies:
     borsh "^0.4.0"

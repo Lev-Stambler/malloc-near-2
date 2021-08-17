@@ -22,7 +22,7 @@ export const MallocCallAction = <T>(
   input: IMallocCallAction
 ): MallocCallActionReturn => {
   return (parameters?: GenericParameters) => {
-    return async () => {
+    return () => {
       throw "TODO";
     };
   };
@@ -39,22 +39,24 @@ export const FtTransferCallToMallocCallAction = <T>(
 
 export const Construction = (input: IConstruction): ConstructionReturn => {
   return (parameters?: GenericParameters) => {
-    return async () => {
+    return () => {
       throw "TODO";
     };
   };
 };
 
-export const compileConstruction = async (
+export const compileConstruction = (
   input: ICompileConstruction
 ): Promise<RunEphemeralInstr> => {
   throw "TODO";
 };
 
-export const runEphemeralConstruction = async (
+export const runEphemeralConstruction = (
   instruction: RunEphemeralInstr,
   amount: string
 ): Promise<void> => {
   throw "TODO";
 };
 
+
+// ---------------- Helper functions

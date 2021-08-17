@@ -24,7 +24,7 @@
     "url": "https://github.com/Lev-Stambler/malloc-near-2/issues"
   },
   "dependencies": {
-    "@malloc/sdk": "../malloc-client/",
+    "@malloc/sdk": "../malloc-client",
     "borsh": "^0.4.0",
     "js-sha256": "^0.9.0",
     "regenerator-runtime": "~0.13.5"

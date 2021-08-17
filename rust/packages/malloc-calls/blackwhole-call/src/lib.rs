@@ -1,7 +1,7 @@
 use std::{u64, usize};
 
 use malloc_call_core::MallocCallFT;
-use malloc_call_core::{self, ft::FungibleTokenHandlers};
+use malloc_call_core::{self, ft::FungibleTokenHandlers, gas::MALLOC_CALL_DEFAULT_GAS};
 // To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
 use malloc_call_core::{
     utils::new_balances, MallocCallMetadata, MallocCallNoCallback, ReturnItem,
@@ -40,7 +40,7 @@ pub struct Contract {
 impl MallocCallNoCallback<BlackWholeArgs> for Contract {
     fn metadata(&self) -> MallocCallMetadata {
         MallocCallMetadata {
-            gas_required: 1_000_000_000_000,
+            gas_required: MALLOC_CALL_DEFAULT_GAS,
             attachment_required: U128(1),
             name: "Send Fungible Tokens".to_string(),
         }
