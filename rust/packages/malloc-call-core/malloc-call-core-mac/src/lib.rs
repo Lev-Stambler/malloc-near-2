@@ -51,17 +51,37 @@ pub fn malloc_call_ft(input: TokenStream) -> TokenStream {
                 self.balances.ft_on_transfer(sender_id, amount, msg)
             }
 
-            fn get_ft_balance(&self, account_id: near_sdk::AccountId, token_id: near_sdk::AccountId) -> near_sdk::json_types::U128 {
-                self.balances.get_ft_balance(&account_id, &token_id).into()
+            fn get_ft_balance(&self, account_id: near_sdk::json_types::ValidAccountId, token_id: near_sdk::json_types::ValidAccountId) -> near_sdk::json_types::U128 {
+                self.balances.get_ft_balance(&account_id.into(), &token_id.into()).into()
             }
 
-            fn resolve_internal_ft_transfer_call(&mut self, account_id: near_sdk::AccountId, token_id: near_sdk::AccountId, amount: near_sdk::json_types::U128) -> near_sdk::json_types::U128 {
-                // This check is the same thing as decorating with #[private], but the macro within a macro causes 
+            fn resolve_internal_ft_transfer_call(&mut self, account_id: near_sdk::json_types::ValidAccountId, token_id: near_sdk::json_types::ValidAccountId, amount: near_sdk::json_types::U128) -> near_sdk::json_types::U128 {
+                // This check is the same thing as decorating with #[private], but the macro within a macro causes
                 if near_sdk::env::predecessor_account_id() != near_sdk::env::current_account_id() {
                     panic!("Resolve internal ft transfer is a private call");
                 }
                 self.balances
-                    .resolve_internal_ft_transfer_call(&account_id, token_id, amount)
+                    .resolve_internal_ft_transfer_call(&account_id.into(), token_id.into(), amount)
+            }
+
+            fn withdraw_to(
+                &mut self,
+                account_id: near_sdk::json_types::ValidAccountId,
+                amount: near_sdk::json_types::U128,
+                token_id: near_sdk::json_types::ValidAccountId,
+                recipient: Option<near_sdk::json_types::ValidAccountId>,
+                msg: Option<String>,
+                transfer_type: malloc_call_core::ft::TransferType) 
+            {
+                self.balances.withdraw_to(
+                    account_id.into(),
+                    amount.0,
+                    token_id.into(),
+                    recipient.map(|v| v.into()),
+                    msg,
+                    transfer_type,
+                    &self.malloc_contract_id
+                );
             }
         }
     };

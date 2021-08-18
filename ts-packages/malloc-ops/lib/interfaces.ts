@@ -50,6 +50,7 @@ export interface GenericParameters {
 
 // ----------------- Malloc Call Action Interfaces
 
+
 interface MallocCallOverrides {
   checkCallback?: boolean;
   gasForCall?: number;
@@ -61,6 +62,7 @@ export interface IMallocCallAction {
   prefilledParameters?: GenericParameters;
   parameters?: GenericParameters;
   opts?: MallocCallOpts;
+  callArgNames: string[];
 }
 
 export interface MallocCallOpts {

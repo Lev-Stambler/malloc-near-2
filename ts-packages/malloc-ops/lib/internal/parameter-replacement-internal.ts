@@ -29,7 +29,7 @@ export const resolveParameters = (
   if (hasBinded(resolveParameters)) {
     throw "Not all binded parameters were resolved";
   }
-  return { ..._parentParams, ...parameters };
+  return { ..._parentParams, ...parameters, ...resolvedParams };
 };
 
 const hasBinded = (parameters: GenericParameters): boolean =>

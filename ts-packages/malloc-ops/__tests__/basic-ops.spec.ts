@@ -16,12 +16,17 @@ describe("using the basic Action, Group, Construction, and Compile ops to create
     /////////////////////////////////////////////////////
     const coolBlackWhole = MallocCallAction({
       mallocCallContractID: BLACKWHOLE,
+      callArgNames: ["msg"],
     });
     const coolPassThrough = MallocCallAction({
       mallocCallContractID: PASSTHROUGH,
+      prefilledParameters: {
+        msg: "HEEE",
+      },
+      callArgNames: ["msg"],
     });
     const ftTransfer = FtTransferCallToMallocCallAction({
-      mallocCallContractID: "wrap.testnet",
+      mallocCallContractID: PASSTHROUGH,
     });
     const constructionPassThroughSimp = Construction({
       in: coolPassThrough({
@@ -35,7 +40,7 @@ describe("using the basic Action, Group, Construction, and Compile ops to create
           },
           {
             element: coolBlackWhole({
-              myCoolBlackWholeMessage: "lev is the mans",
+              msg: BindParameter("fromTheTop"),
             }),
             fraction: 1,
           },
@@ -44,23 +49,31 @@ describe("using the basic Action, Group, Construction, and Compile ops to create
     });
 
     const construction = Construction({
-      in: ftTransfer({tokenIn: "wrap.testnet"}),
+      in: ftTransfer({ tokenIn: "wrap.testnet" }),
       out: {
-        "wrap.testnet": [
+        parameterTokenId: [
           {
             element: constructionPassThroughSimp({ tokenIn: "wrap.testnet" }),
             fraction: 1,
           },
           {
             element: coolBlackWhole({
-              myCoolBlackWholeMessage: "Nishad is the mans",
+              msg: "Nishad is the mans",
             }),
             fraction: "fractionBlackwhole",
           },
         ],
       },
     });
-    console.log(JSON.stringify(construction({fractionBlackwhole: 10})()))
+    console.log(
+      JSON.stringify(
+        construction({
+          fractionBlackwhole: 10,
+          fromTheTop: "Lev is the mans",
+          parameterTokenId: "wrap.testnet",
+        })()
+      )
+    );
     //////////////////////////////////////////////////
 
     // const instr = await compileConstruction({
@@ -70,7 +83,6 @@ describe("using the basic Action, Group, Construction, and Compile ops to create
     // });
     // await runEphemeralConstruction(instr, "10000");
   });
-
 });
 
 // TODO: finish up instr and running

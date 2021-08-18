@@ -16,8 +16,9 @@ use construction::{
     NextActionsIndicesForConstruction, NextActionsSplitsForConstruction,
 };
 use malloc_call_core::ft::{FungibleTokenBalances, FungibleTokenHandlers};
-use malloc_call_core::{GasUsage, MallocCallFT, ReturnItem};
+use malloc_call_core::{MallocCallFT, ReturnItem};
 // To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
+use action::{Action, ActionCall, ActionCallId, ActionId};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::UnorderedMap;
 use near_sdk::json_types::{ValidAccountId, U128, U64};
@@ -25,17 +26,16 @@ use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
     env, log, near_bindgen, serde, serde_json, setup_alloc, utils, AccountId, Gas, PanicOnDefault,
 };
-use action::{Action, ActionCall, ActionCallId, ActionId};
 use vector_wrapper::VectorWrapper;
 
 use crate::errors::panic_errors;
 
+mod action;
+mod actions;
 mod construction;
 pub mod errors;
 mod gas;
 mod malloc_utils;
-mod action;
-mod actions;
 mod test_utils;
 mod vector_wrapper;
 
@@ -61,6 +61,8 @@ pub struct Contract {
     balances: FungibleTokenBalances,
     /// Keeps track of the next action call id so that action call id's can all be unique and need not be supplied by the caller
     next_action_call_id: ActionCallId,
+    /// The current contract's ID. This field is needed for MallocCallFT
+    malloc_contract_id: AccountId,
 }
 
 pub trait CoreFunctionality {
@@ -163,7 +165,7 @@ impl Contract {
 }
 
 #[near_bindgen]
-impl GasUsage for Contract {
+impl Contract {
     fn get_gas_usage(&self) -> Gas {
         75_000_000_000_000
     }
@@ -202,6 +204,7 @@ impl Contract {
             next_action_call_id: 0,
             constructions: UnorderedMap::new("constructions".as_bytes()),
             construction_calls: UnorderedMap::new("construction-call-stack".as_bytes()),
+            malloc_contract_id: env::current_account_id(),
         }
     }
 }
@@ -210,8 +213,10 @@ impl Contract {
 mod tests {
     const INIT_ACCOUNT_BAL: u128 = 10_000;
 
-    use crate::malloc_utils::GenericId;
+    use std::convert::TryFrom;
+
     use crate::actions::ft_calls::FtTransferCallToMallocCall;
+    use crate::malloc_utils::GenericId;
 
     use super::*;
     use near_sdk::json_types::ValidAccountId;
@@ -235,13 +240,16 @@ mod tests {
         let mut context = get_context(accounts(0));
         testing_env!(context.build());
         let mut contract = Contract::new();
+        let token_id1 = ValidAccountId::try_from("wrapp.localnet".to_string()).unwrap();
+        let token_id2 = ValidAccountId::try_from("wrappppp.localnet".to_string()).unwrap();
+
         let action2 = Action::FtTransferCallToMallocCall(FtTransferCallToMallocCall {
-            malloc_call_id: accounts(2).to_string(),
-            token_id: "wrapp.localnet".to_string(),
+            malloc_call_id: accounts(2),
+            token_id: token_id1,
         });
         let action1 = Action::FtTransferCallToMallocCall(FtTransferCallToMallocCall {
-            malloc_call_id: accounts(2).to_string(),
-            token_id: "wrap.localnet".to_string(),
+            malloc_call_id: accounts(2),
+            token_id: token_id2,
         });
         contract.register_actions(
             vec!["action1".to_string(), "action2".to_string()],
@@ -276,13 +284,16 @@ mod tests {
         let mut context = get_context(accounts(0));
         testing_env!(context.build());
         let mut contract = Contract::new();
+        let token_id1 = ValidAccountId::try_from("wrapp.localnet".to_string()).unwrap();
+        let token_id2 = ValidAccountId::try_from("wrappppp.localnet".to_string()).unwrap();
+
         let action2 = Action::FtTransferCallToMallocCall(FtTransferCallToMallocCall {
-            malloc_call_id: accounts(2).to_string(),
-            token_id: "wrapp.localnet".to_string(),
+            malloc_call_id: accounts(2),
+            token_id: token_id1,
         });
         let action1 = Action::FtTransferCallToMallocCall(FtTransferCallToMallocCall {
-            malloc_call_id: accounts(2).to_string(),
-            token_id: "wrap.localnet".to_string(),
+            malloc_call_id: accounts(2),
+            token_id: token_id2,
         });
         contract.register_actions(
             vec!["action1".to_string(), "action2".to_string()],
@@ -345,10 +356,22 @@ mod tests {
         assert_ne!(&registered.action_calls, &construction_call.action_calls);
 
         assert_eq!(&registered.caller, &construction_call.caller);
-        assert_eq!(&registered.construction_id, &construction_call.construction_id);
-        assert_eq!(&registered.next_action_calls_stack, &construction_call.next_action_calls_stack);
-        assert_eq!(&registered.next_actions_indices_in_construction, &construction_call.next_actions_indices_in_construction);
-        assert_eq!(&registered.next_actions_splits, &construction_call.next_actions_splits);
+        assert_eq!(
+            &registered.construction_id,
+            &construction_call.construction_id
+        );
+        assert_eq!(
+            &registered.next_action_calls_stack,
+            &construction_call.next_action_calls_stack
+        );
+        assert_eq!(
+            &registered.next_actions_indices_in_construction,
+            &construction_call.next_actions_indices_in_construction
+        );
+        assert_eq!(
+            &registered.next_actions_splits,
+            &construction_call.next_actions_splits
+        );
     }
 
     #[test]
@@ -356,13 +379,17 @@ mod tests {
         let mut context = get_context(accounts(0));
         testing_env!(context.build());
         let mut contract = Contract::new();
+
+        let token_id1 = ValidAccountId::try_from("wrapp.localnet".to_string()).unwrap();
+        let token_id2 = ValidAccountId::try_from("wrappppp.localnet".to_string()).unwrap();
+
         let action2_prereigster = Action::FtTransferCallToMallocCall(FtTransferCallToMallocCall {
-            malloc_call_id: accounts(2).to_string(),
-            token_id: "wrapp.localnet".to_string(),
+            malloc_call_id: accounts(2),
+            token_id: token_id1,
         });
         let action1_prereigster = Action::FtTransferCallToMallocCall(FtTransferCallToMallocCall {
-            malloc_call_id: accounts(2).to_string(),
-            token_id: "wrap.localnet".to_string(),
+            malloc_call_id: accounts(2),
+            token_id: token_id2,
         });
         contract.register_actions(
             vec!["action1".to_string(), "action2".to_string()],

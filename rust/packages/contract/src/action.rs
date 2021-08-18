@@ -15,10 +15,10 @@ use near_sdk::{
 };
 use near_sdk::{utils, Gas};
 
+use crate::actions::{self, ActionFunctions};
 use crate::errors::PanicError;
 use crate::gas::CALLBACK_GAS;
 use crate::malloc_utils::GenericId;
-use crate::actions::{self, ActionFunctions};
 use crate::{
     errors::panic_errors, vector_wrapper::VectorWrapper, Construction, ConstructionCall,
     ConstructionCallId, ConstructionId, Contract,
@@ -57,9 +57,7 @@ pub struct ActionCall {
 
 pub type ActionCallId = u64;
 
-#[derive(
-    BorshDeserialize, BorshSerialize, Serialize, Deserialize, PartialEq, Debug, Clone,
-)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, PartialEq, Debug, Clone)]
 #[serde(crate = "near_sdk::serde")]
 pub enum Action {
     // TODO: add ft transfer see https://github.com/Lev-Stambler/malloc-near-2/issues/20
@@ -68,6 +66,7 @@ pub enum Action {
     //     token_id: AccountId,
     // },
     FtTransferCallToMallocCall(actions::ft_calls::FtTransferCallToMallocCall),
+    FtWithdrawBackToMalloc(actions::ft_calls::WithdrawFromMallocCall),
     MallocCall(actions::malloc_call::MallocCall),
 }
 
@@ -112,7 +111,8 @@ impl ActionCall {
 
         let mut action_calls: Vec<ActionCallId> = Vec::with_capacity(action_indices.len());
         for i in 0..action_indices.len() {
-            let (action_call, id) = ActionCall::new(contract, amounts[i], action_indices[i].to_owned());
+            let (action_call, id) =
+                ActionCall::new(contract, amounts[i], action_indices[i].to_owned());
             contract.action_calls.insert(&id, &action_call);
 
             action_calls.push(id);
@@ -133,7 +133,11 @@ impl Contract {
             .0
             .pop()
             .unwrap_or_else(|| panic!(panic_errors::CONSTRUCTION_CALL_SPLITTER_STACK_EMPTY));
-        let action_call_id = construction_call.action_calls.0.get(action_call_index).unwrap();
+        let action_call_id = construction_call
+            .action_calls
+            .0
+            .get(action_call_index)
+            .unwrap();
         let mut action_call = self
             .action_calls
             .get(&action_call_id)
@@ -189,6 +193,13 @@ impl Action {
                 caller,
             ),
             Action::MallocCall(call) => call.handle(
+                contract,
+                &action_call,
+                construction_call_id,
+                action_call_id,
+                caller,
+            ),
+            Action::FtWithdrawBackToMalloc(ft_withdraw_action) => ft_withdraw_action.handle(
                 contract,
                 &action_call,
                 construction_call_id,
