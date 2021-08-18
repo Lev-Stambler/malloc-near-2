@@ -1,5 +1,9 @@
 import { Command, flags } from "@oclif/command";
-import { buildAndSimLink, devDeploy } from "../utils";
+import {
+  buildAndSimLink,
+  devDeploy,
+  getMallocContractDevAccount,
+} from "../utils";
 
 export default class Hello extends Command {
   static description = "Deploy a contract and optionally call new";
@@ -16,6 +20,11 @@ export default class Hello extends Command {
     callNew: flags.string({
       char: "n",
       description: "Stringified JSON arguments for the new call",
+    }),
+    includeMallocContractId: flags.boolean({
+      description:
+        "Include the current dev deployed malloc contract ID in the new call",
+      char: "m"
     }),
   };
 
@@ -37,14 +46,19 @@ export default class Hello extends Command {
     }
 
     const newFlag = flags.callNew ?? null;
+    const mallocContractIdArgs = flags.includeMallocContractId
+      ? { malloc_contract_id: getMallocContractDevAccount() }
+      : {};
+
     // this.log(`hello ${name} from ./src/commands/.ts`);
     args.package;
     buildAndSimLink(args.package);
+
     devDeploy(args.package, {
       callNew: newFlag
         ? {
             caller: caller,
-            args: JSON.parse(newFlag),
+            args: { ...JSON.parse(newFlag), ...mallocContractIdArgs },
           }
         : undefined,
     });

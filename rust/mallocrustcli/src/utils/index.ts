@@ -23,6 +23,9 @@ type DevDeployOpts = {
 const getContractDir = (packageDir: string): string =>
   join(__dirname, "../../../packages", packageDir);
 
+const getMallocContractDir = (): string =>
+  join(__dirname, "../../../packages", "contract");
+
 const getPackageName = (contractDir: string) => {
   const match = readFileSync(`${contractDir}/Cargo.toml`)
     .toString()
@@ -37,6 +40,9 @@ const getDevAccount = (contractDir: string) =>
   readFileSync(join(contractDir, "./neardev/dev-account"))
     .toString()
     .replace("\n", "");
+
+export const getMallocContractDevAccount = () =>
+  getDevAccount(getMallocContractDir());
 
 export const devDeploy = (projectDir: string, opts?: DevDeployOpts) => {
   const contractDir = getContractDir(projectDir);
