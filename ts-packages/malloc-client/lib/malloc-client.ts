@@ -25,6 +25,7 @@ import {
   MallocCallMetadata,
   ExecuteMultipleTxOpts,
   ActionTypesLibraryFacing,
+  WithdrawToArgs,
 } from "./interfaces";
 import {
   deleteConstruction,
@@ -37,7 +38,7 @@ import {
   resolveTransactionsReducedWithPromises,
   resolveTransactionsWithPromise,
 } from "./tx";
-import { getTokenBalance } from "./ft-token";
+import { getTokenBalance, TransferTypeTransfer } from "./ft-token";
 import { registerDepositsTxs } from "./storage-deposit";
 import { getMallocCallMetadata } from "./action";
 
@@ -80,6 +81,10 @@ interface MallocClientOpts {}
 
 const mallocClientDefaultOpts: MallocClientOpts = {};
 
+/**
+ * @param extraAmount - The extra amount in Near Lamports to give to each deposit
+ * @param executeTransactions - Whether to execute the transactions or simply just return an array of transactions
+ */
 interface RegisterAccountDepositsOpts {
   extraAmount?: BigNumberish;
   executeTransactions?: boolean;
@@ -120,15 +125,6 @@ export class MallocClient<
     this.opts = opts
       ? { ...mallocClientDefaultOpts, ...opts }
       : mallocClientDefaultOpts;
-    // this.contract = new Contract(account, mallocAccountId, {
-    //   viewMethods: [],
-    //   changeMethods: [
-    //     "register_actions",
-    //     "register_construction",
-    //     "init_construction",
-    //     "process_next_action_call",
-    //   ],
-    // });
   }
 
   public async resolveTransactions(
@@ -139,6 +135,36 @@ export class MallocClient<
       this.account.accountId
     );
   }
+
+  public async withdraw(
+    amount: string,
+    tokenAccountId: string,
+    opts?: ExecuteMultipleTxOpts<AccountType>
+  ): Promise<TxHashOrVoid<AccountType>> {
+    let txs: Transaction[] = [];
+    txs.push({
+      receiverId: this.mallocAccountId,
+      functionCalls: [
+        {
+          methodName: "withdraw_to",
+          amount: "1",
+          args: {
+            account_id: this.account.accountId,
+            amount: amount,
+            token_id: tokenAccountId,
+            recipient: this.account.accountId,
+            transfer_type: TransferTypeTransfer(),
+          } as WithdrawToArgs,
+        },
+      ],
+    });
+    const ret = await executeMultipleTx(this.account, txs, opts);
+    //@ts-ignore
+    if (!ret || !ret?.length) return;
+
+    return (ret as string[])[0] as TxHashOrVoid<AccountType>;
+  }
+
   public async deposit(
     amount: string,
     tokenAccountId: string,
@@ -176,13 +202,20 @@ export class MallocClient<
     return getMallocCallMetadata(this.account, mallocCallId);
   }
 
+  /**
+   * @param accountId - Account Balance to check
+   * @param tokenId
+   * @param mallocCallId - If this is set, then the balance of a malloc call will be
+   * checked rather than the main Malloc Contract
+   */
   public getTokenBalance(
     accountId: AccountId,
-    tokenId: AccountId
+    tokenId: AccountId,
+    mallocCallId?: string
   ): Promise<string> {
     return getTokenBalance(
       this.account,
-      this.mallocAccountId,
+      mallocCallId || this.mallocAccountId,
       accountId,
       tokenId
     );
@@ -208,6 +241,9 @@ export class MallocClient<
     );
   }
 
+  /**
+   * See {@link runEphemeralConstruction}
+   */
   public async runEphemeralConstruction({
     actions,
     amount,
@@ -228,7 +264,6 @@ export class MallocClient<
       }
     }
 
-    console.log("AAAAA");
     return await runEphemeralConstruction(
       this.account as SpecialAccountWithKeyPair,
       this.mallocAccountId,
@@ -246,7 +281,7 @@ export class MallocClient<
   /**
    * @param  {AccountId[]} contracts A list of the token contract account ids
    * @param  {AccountId[]} registerForAccounts The accounts to register for all the token contracts
-   * @param  {RegisterAccountDepositsOpts} opts?
+   * @param  {RegisterAccountDepositsOpts} opts - {@link RegisterAccountDepositsOpts}
    * @returns A list of token account ids which were newly registered
    */
   public async registerAccountDeposits(

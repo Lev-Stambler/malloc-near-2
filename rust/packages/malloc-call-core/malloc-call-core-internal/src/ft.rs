@@ -4,6 +4,7 @@ use std::thread::panicking;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 
 use near_sdk::collections::UnorderedMap;
+use near_sdk::env::attached_deposit;
 use near_sdk::json_types::ValidAccountId;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::serde_json::{json, Value};
@@ -11,7 +12,7 @@ use near_sdk::{collections::LookupMap, json_types::U128, AccountId, Balance};
 use near_sdk::{env, log, serde_json, Gas, Promise, PromiseResult};
 
 // TODO: make lower??
-const GAS_BUFFER: Gas = 2_000_000_000_000;
+const GAS_BUFFER: Gas = 5_000_000_000_000;
 const GAS_FOR_INTERNAL_RESOLVE: Gas = 5_000_000_000_000;
 const GAS_FOR_ON_TRANSFER_NEP141: Gas = 5_000_000_000_000;
 const GAS_FOR_FT_RESOLVE_TRANSFER_NEP141: Gas = 5_000_000_000_000;
@@ -27,8 +28,10 @@ pub const MALLOC_CALL_CORE_GAS_FOR_FT_TRANSFER: Gas =
 
 pub const MALLOC_CALL_CORE_GAS_FOR_WITHDRAW_WITH_FT_TRANSFER_CALL: Gas =
     MALLOC_CALL_CORE_GAS_FOR_FT_TRANSFER_CALL + GAS_BUFFER;
-pub const MALLOC_CaLL_CORE_GAS_FOR_WITHDRAW_WITH_FT_TRANSFER: Gas =
+pub const MALLOC_CALL_CORE_GAS_FOR_WITHDRAW_WITH_FT_TRANSFER: Gas =
     MALLOC_CALL_CORE_GAS_FOR_FT_TRANSFER + GAS_BUFFER;
+
+pub const MALLOC_CALL_CORE_GAS_FOR_WITHDRAW_TO: Gas = MALLOC_CALL_CORE_GAS_FOR_FT_TRANSFER_CALL + GAS_BUFFER;
 
 const RESOLVE_FT_NAME: &str = "resolve_internal_ft_transfer_call";
 const FT_TRANSFER_CALL_METHOD_NAME: &str = "ft_transfer_call";
@@ -109,6 +112,9 @@ impl FungibleTokenBalances {
         Ok(ret.to_string())
     }
 
+    /// Withdraw funds to another account.
+    /// @param recipient - If it is none, then the malloc_contract_id is the recipient
+    /// if it is a value, then there must be 1 yocto Near attached for UX security purposes
     pub fn withdraw_to(
         &mut self,
         account_id: AccountId,
@@ -120,26 +126,28 @@ impl FungibleTokenBalances {
         malloc_contract_id: &AccountId,
     ) {
         let caller = env::predecessor_account_id();
-        if account_id != caller || malloc_contract_id != &caller {
+        if account_id != caller && malloc_contract_id != &caller {
             panic!("Only the malloc contract or the fund's owner can call withdraw");
         }
 
+        // If the recipient is not none, make sure 1 yocto is attached
+        if recipient != None {
+            assert_eq!(
+                env::attached_deposit(),
+                1,
+                "Expected an attached deposit of 1 as recipient is non-empty"
+            );
+        }
+
+        let recipient = recipient.unwrap_or(caller);
+
         let prom = match transfer_type {
-            TransferType::Transfer() => self.internal_ft_transfer(
-                &token_id,
-                recipient.unwrap_or(caller),
-                U128(amount),
-                account_id,
-                msg,
-                None,
-            ),
-            TransferType::TransferCallMalloc() => self.internal_ft_transfer_call(
-                &token_id,
-                recipient.unwrap_or(caller),
-                U128(amount),
-                account_id,
-                None,
-            ),
+            TransferType::Transfer() => {
+                self.internal_ft_transfer(&token_id, recipient, U128(amount), account_id, msg, None)
+            }
+            TransferType::TransferCallMalloc() => {
+                self.internal_ft_transfer_call(&token_id, recipient, U128(amount), account_id, None)
+            }
         };
         env::promise_return(prom);
     }

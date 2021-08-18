@@ -66,7 +66,7 @@ pub enum Action {
     //     token_id: AccountId,
     // },
     FtTransferCallToMallocCall(actions::ft_calls::FtTransferCallToMallocCall),
-    FtWithdrawBackToMalloc(actions::ft_calls::WithdrawFromMallocCall),
+    WithdrawFromMallocCall(actions::ft_calls::WithdrawFromMallocCall),
     MallocCall(actions::malloc_call::MallocCall),
 }
 
@@ -199,7 +199,7 @@ impl Action {
                 action_call_id,
                 caller,
             ),
-            Action::FtWithdrawBackToMalloc(ft_withdraw_action) => ft_withdraw_action.handle(
+            Action::WithdrawFromMallocCall(ft_withdraw_action) => ft_withdraw_action.handle(
                 contract,
                 &action_call,
                 construction_call_id,

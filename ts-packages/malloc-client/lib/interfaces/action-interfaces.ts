@@ -18,6 +18,12 @@ export interface FtTransferCallToMallocCall {
   token_id: string;
 }
 
+export interface WithdrawFromMallocCall {
+  malloc_call_id: string;
+  token_id: string;
+  recipient?: string;
+}
+
 export interface Action<
   T extends ActionTypesLibraryFacing | ActionTypesContractFacing
 > {
@@ -30,11 +36,22 @@ export interface Action<
     : undefined;
   FtTransferCallToMallocCall?: T extends MallocCall
     ? undefined
-    : FtTransferCallToMallocCall;
+    : T extends FtTransferCallToMallocCall
+    ? FtTransferCallToMallocCall
+    : undefined;
+  WithdrawFromMallocCall?: T extends MallocCall
+    ? undefined
+    : T extends WithdrawFromMallocCall
+    ? WithdrawFromMallocCall
+    : undefined;
 }
 
-export type ActionTypesLibraryFacing = FtTransferCallToMallocCall | MallocCall;
+export type ActionTypesLibraryFacing =
+  | FtTransferCallToMallocCall
+  | MallocCall
+  | WithdrawFromMallocCall;
 
 export type ActionTypesContractFacing =
   | FtTransferCallToMallocCall
+  | WithdrawFromMallocCall
   | MallocCallWithGasAndAttached;

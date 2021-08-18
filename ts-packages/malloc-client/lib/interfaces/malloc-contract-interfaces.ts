@@ -1,6 +1,6 @@
 import { Construction } from "./construction-interfaces";
 import { Action, ActionTypesContractFacing } from "./action-interfaces";
-import { ConstructionCallId, ConstructionId } from "./shared";
+import { ConstructionCallId, ConstructionId, TransferType } from "./shared";
 
 export interface InitConstructionArgs {
   construction_call_id: ConstructionCallId;
@@ -24,4 +24,13 @@ export interface RegisterActionsArgs {
 
 export interface ProcessNextActionCallArgs {
   construction_call_id: ConstructionCallId;
+}
+
+export interface WithdrawToArgs {
+  account_id: string,
+  amount: string,
+  token_id: string,
+  recipient?: string,
+  msg?: string,
+  transfer_type: TransferType
 }

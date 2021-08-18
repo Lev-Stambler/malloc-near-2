@@ -84,3 +84,9 @@ export interface FunctionCallOptions extends ViewFunctionOpts {
 export interface MallocError {
   message: string;
 }
+
+/*********** Fungible Token from Malloc Call Core *********/
+export interface TransferType {
+  Transfer?: [];
+  TransferCallMalloc?: [];
+}

@@ -260,7 +260,6 @@ export const runEphemeralConstruction = async (
         action_call_id as any
       );
 
-      // TODO: get || to work !!!!!!!
       const txs: Transaction[] = new Array(
         constructionCallData.next_action_calls_stack.length
       )
@@ -298,6 +297,7 @@ export const runEphemeralConstruction = async (
     }
     return txHashes;
   };
+  // TODO: delete the construction once all is done!!
 
   try {
     const txsInit = await storeAndStartConstruction();

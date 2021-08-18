@@ -64,6 +64,7 @@ pub fn malloc_call_ft(input: TokenStream) -> TokenStream {
                     .resolve_internal_ft_transfer_call(&account_id.into(), token_id.into(), amount)
             }
 
+            #[payable]
             fn withdraw_to(
                 &mut self,
                 account_id: near_sdk::json_types::ValidAccountId,

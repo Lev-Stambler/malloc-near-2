@@ -16,9 +16,7 @@ export const actionLibraryFacingToContractFacing = async (
   callerAccount: SpecialAccount,
   action: Action<ActionTypesLibraryFacing>
 ): Promise<Action<ActionTypesContractFacing>> => {
-  if (action.FtTransferCallToMallocCall) {
-    return action;
-  } else if (action.MallocCall) {
+  if (action.MallocCall) {
     const metadata = await getMallocCallMetadata(
       callerAccount,
       action.MallocCall.malloc_call_id
@@ -30,10 +28,8 @@ export const actionLibraryFacingToContractFacing = async (
         attached_amount: new BN(metadata.attachment_required).toString(),
       },
     };
-    throw MallocErrors.EXPECTED_ACTION_PROPERTY();
   }
-
-  throw MallocErrors.EXPECTED_ACTION_PROPERTY();
+  return action
 };
 
 export const getMallocCallMetadata = async (
@@ -52,6 +48,8 @@ export const getActionInputToken = (
 ): AccountId => {
   if (action.MallocCall) {
     return action.MallocCall.token_id;
+  } else if (action.WithdrawFromMallocCall) {
+    return action.WithdrawFromMallocCall.token_id;
   } else if (action.FtTransferCallToMallocCall) {
     return action.FtTransferCallToMallocCall.token_id;
   }

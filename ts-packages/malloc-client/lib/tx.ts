@@ -216,9 +216,9 @@ const signAndSendTxFunctionCallsWalletConnectNoDeposit = async (
   };
   // const txProms = txs.map(signAndSendActionsInTx);
   // const txHashes: string[][] = await Promise.all(txProms);
-  let txHashes = [] as string[]
+  let txHashes = [] as string[];
   for (let i = 0; i < txs.length; i++) {
-    txHashes.push(...(await signAndSendActionsInTx(txs[i])))
+    txHashes.push(...(await signAndSendActionsInTx(txs[i])));
   }
   return txHashes;
 };
@@ -295,8 +295,10 @@ export const resolveTransactionsWithPromise = async (
       // TODO: add some reason or something for this!!
       flag: TransactionWithPromiseResultFlag.FAILURE,
       message:
-        JSON.stringify((result as ExecutionStatus)["Failure"]?.error_message) ??
-        undefined,
+        JSON.stringify(
+          (result as ExecutionStatus)["Failure"]?.error_message ||
+            (result as any).Failure?.ActionError
+        ) ?? undefined,
     };
   };
 

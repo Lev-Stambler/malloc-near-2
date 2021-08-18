@@ -1,6 +1,7 @@
 use malloc_call_core::ft::{
     FungibleTokenBalances, TransferType, MALLOC_CALL_CORE_GAS_FOR_FT_TRANSFER_CALL,
     MALLOC_CALL_CORE_GAS_FOR_WITHDRAW_WITH_FT_TRANSFER_CALL,
+    MALLOC_CALL_CORE_GAS_FOR_WITHDRAW_TO
 };
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::{ValidAccountId, U128};
@@ -10,7 +11,7 @@ use near_sdk::{env, log, AccountId, Gas};
 
 use crate::action::ActionCall;
 use crate::errors::PanicError;
-use crate::gas::CALLBACK_GAS;
+use crate::gas::{CALLBACK_GAS, CROSS_CONTRACT_BASE_GAS};
 
 use super::ActionFunctions;
 
@@ -27,7 +28,7 @@ pub struct FtTransferCallToMallocCall {
 #[serde(crate = "near_sdk::serde")]
 pub struct WithdrawFromMallocCall {
     pub malloc_call_id: ValidAccountId,
-    pub token_id: AccountId,
+    pub token_id: ValidAccountId,
     pub recipient: Option<ValidAccountId>,
 }
 
@@ -73,7 +74,7 @@ impl ActionFunctions for WithdrawFromMallocCall {
             "withdraw_to".as_bytes(),
             args.as_bytes(),
             1,
-            MALLOC_CALL_CORE_GAS_FOR_WITHDRAW_WITH_FT_TRANSFER_CALL,
+            MALLOC_CALL_CORE_GAS_FOR_WITHDRAW_TO + CROSS_CONTRACT_BASE_GAS,
         );
 
         let callback = env::promise_batch_then(prom, env::current_account_id());
@@ -95,7 +96,7 @@ impl ActionFunctions for WithdrawFromMallocCall {
     }
 
     fn get_gas_requirement(&self, action_call: &ActionCall) -> Result<Gas, PanicError> {
-        Ok(MALLOC_CALL_CORE_GAS_FOR_WITHDRAW_WITH_FT_TRANSFER_CALL + HANDLE_GAS + CALLBACK_GAS)
+        Ok(MALLOC_CALL_CORE_GAS_FOR_WITHDRAW_TO + HANDLE_GAS + CALLBACK_GAS + CROSS_CONTRACT_BASE_GAS)
     }
 }
 
