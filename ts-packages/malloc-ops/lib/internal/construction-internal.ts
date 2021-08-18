@@ -9,16 +9,29 @@ import {
 import { getActionInputToken } from "@malloc/sdk/dist/action";
 import { scanlAccum } from "../utils";
 
-const INTERNAL_CONSTRUCTION_TYPE = "InternalConstruction";
+export const INTERNAL_CONSTRUCTION_TYPE = "InternalConstruction";
 
 export class _InternalConstruction {
-  protected readonly type = INTERNAL_CONSTRUCTION_TYPE;
+  public readonly type = INTERNAL_CONSTRUCTION_TYPE;
 
+  /**
+   * @param initialIndices - indices into actions for what the initial action indices are
+   */
   protected constructor(
     public readonly actions: Action<ActionTypesLibraryFacing>[],
     public readonly nextActionsIndices: number[][][],
-    public readonly nextActionsSplits: number[][][]
+    public readonly nextActionsSplits: number[][][],
+    public readonly initialIndices: number[]
   ) {}
+
+  /**
+   * Create an _InternalConstruction from an action without any outputs
+   */
+  public static fromActionEndpoint(
+    action: Action<ActionTypesLibraryFacing>
+  ): _InternalConstruction {
+    return new _InternalConstruction([action], [[[]]], [[[]]], [0]);
+  }
 
   /**
    * Takes in an object with the {@param in} being the input action to the construction
@@ -29,11 +42,11 @@ export class _InternalConstruction {
     out: ActionOutputsForConstructionWithParamsFilled | null
   ): _InternalConstruction {
     if (out === null) {
-      return new _InternalConstruction([inAction], [[[]]], [[[]]]);
+      return _InternalConstruction.fromActionEndpoint(inAction);
     }
 
     if (Object.keys(out).length === 0) {
-      return new _InternalConstruction([inAction], [[[]]], [[[]]]);
+      return _InternalConstruction.fromActionEndpoint(inAction);
     }
 
     const outputsByToken = Object.keys(out).map((tokenId) => {
@@ -51,7 +64,7 @@ export class _InternalConstruction {
     );
 
     if (mergedConstructions === null) {
-      throw "Internal error, expected merged construction to not be null"
+      throw "Internal error, expected merged construction to not be null";
     }
 
     const nextSplits: number[][] = outputsByToken.map((o) => o.splits);
@@ -77,7 +90,7 @@ export class _InternalConstruction {
   }
 
   // Returns null if constructions' length is 0
-  protected static mergeMulti(
+  public static mergeMulti(
     constructions: (_InternalConstruction | null)[]
   ): _InternalConstruction | null {
     const first = constructions.shift();
@@ -106,10 +119,19 @@ export class _InternalConstruction {
       this.nextActionsIndices,
       other.nextActionsIndices
     );
+
+    const otherInitialIndicesOffset = other.initialIndices.map(
+      (i) => i + this.actions.length
+    );
+    const mergedInitialIndices: number[] = [
+      ...this.initialIndices,
+      ...otherInitialIndicesOffset,
+    ];
     return new _InternalConstruction(
       mergedActions,
       mergedIndices,
-      mergedSplits
+      mergedSplits,
+      mergedInitialIndices
     );
   }
 
@@ -121,7 +143,8 @@ export class _InternalConstruction {
     return new _InternalConstruction(
       [...this.actions, action],
       [...this.nextActionsIndices, nextActionIndices],
-      [...this.nextActionsSplits, nextActionSplits]
+      [...this.nextActionsSplits, nextActionSplits],
+      [this.nextActionsIndices.length]
     );
   }
 

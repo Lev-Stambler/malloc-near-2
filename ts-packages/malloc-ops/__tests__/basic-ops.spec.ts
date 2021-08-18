@@ -76,12 +76,12 @@ describe("using the basic Action, Group, Construction, and Compile ops to create
     );
     //////////////////////////////////////////////////
 
-    // const instr = await compileConstruction({
-    //   startingConstructionOrActions: [
-    //     { element: construction({ fractionBlackwhole: 10 }), fraction: 1 },
-    //   ],
-    // });
-    // await runEphemeralConstruction(instr, "10000");
+    const instr = await compileConstruction({
+      startingConstructionOrActions: [
+        { element: construction({ fractionBlackwhole: 10 }), fraction: 1 },
+      ],
+    });
+    await runEphemeralConstruction(instr, "10000");
   });
 });
 

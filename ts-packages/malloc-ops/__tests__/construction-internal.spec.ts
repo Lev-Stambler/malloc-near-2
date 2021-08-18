@@ -12,6 +12,7 @@ const internalConstructionToObj = (i: _InternalConstruction) => {
     actions: i.actions,
     nextActionsIndices: i.nextActionsIndices,
     nextActionsSplits: i.nextActionsSplits,
+    initialIndices: i.initialIndices,
   };
 };
 
@@ -21,6 +22,7 @@ describe("Test instruction internal", () => {
       actions: [ACTION_FT_TRANSFER],
       nextActionsIndices: [[[]]],
       nextActionsSplits: [[[]]],
+      initialIndices: [0],
     };
     const internalConst1 = _InternalConstruction.fromConstructionInOut(
       ACTION_FT_TRANSFER,
@@ -41,6 +43,7 @@ describe("Test instruction internal", () => {
       actions: [ACTION_FT_TRANSFER, ACTION_FT_TRANSFER, ACTION_FT_TRANSFER],
       nextActionsIndices: [[[]], [[]], [[0, 1]]],
       nextActionsSplits: [[[]], [[]], [[1, 1]]],
+      initialIndices: [2],
     };
 
     const c1 = _InternalConstruction.fromConstructionInOut(ACTION_FT_TRANSFER, {
@@ -105,6 +108,7 @@ describe("Test instruction internal", () => {
           [6, 7],
         ],
       ],
+      initialIndices: [12],
     };
 
     const expectedWrapped = {
@@ -127,6 +131,7 @@ describe("Test instruction internal", () => {
         [[0, 1]],
       ],
       nextActionsSplits: [[[]], [[]], [[1, 1]], [[]], [[]], [[1, 1]], [[1, 1]]],
+      initialIndices: [6],
     };
 
     const c1 = _InternalConstruction.fromConstructionInOut(ACTION_FT_TRANSFER, {
@@ -160,7 +165,57 @@ describe("Test instruction internal", () => {
       }
     );
     expect(expectedWrapped).toEqual(internalConstructionToObj(cWrapped));
-    expect(expectedWrappedWrapped).toEqual(internalConstructionToObj(cWrappedWrapped));
+    expect(expectedWrappedWrapped).toEqual(
+      internalConstructionToObj(cWrappedWrapped)
+    );
+  });
+
+  it("Should merge internal constructions and have a list of elements more than 1 of initial indices", () => {
+    const expected1 = {
+      actions: [
+        ACTION_FT_TRANSFER,
+        ACTION_FT_TRANSFER,
+        ACTION_FT_TRANSFER,
+        ACTION_FT_TRANSFER,
+        ACTION_FT_TRANSFER,
+        ACTION_FT_TRANSFER,
+        ACTION_FT_TRANSFER,
+        ACTION_FT_TRANSFER,
+        ACTION_FT_TRANSFER,
+      ],
+      nextActionsIndices: [
+        [[]],
+        [[]],
+        [[0, 1]],
+        [[]],
+        [[]],
+        [[3, 4]],
+        [[]],
+        [[]],
+        [[6, 7]],
+      ],
+      nextActionsSplits: [
+        [[]],
+        [[]],
+        [[1, 1]],
+        [[]],
+        [[]],
+        [[1, 1]],
+        [[]],
+        [[]],
+        [[1, 1]],
+      ],
+      initialIndices: [2, 5, 8],
+    };
+
+    const c1 = _InternalConstruction.fromConstructionInOut(ACTION_FT_TRANSFER, {
+      "wrap.testnet": [
+        { element: ACTION_FT_TRANSFER, fraction: 1 },
+        { element: ACTION_FT_TRANSFER, fraction: 1 },
+      ],
+    });
+    const merged = _InternalConstruction.mergeMulti([c1, c1, c1]);
+    expect(expected1).toEqual(internalConstructionToObj(merged));
   });
 
   it("Should throw if the output token has an empty array", () => {

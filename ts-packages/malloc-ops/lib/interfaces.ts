@@ -3,13 +3,15 @@ import {
   Construction,
   FtTransferCallToMallocCall,
   InitConstructionArgs,
-  IRunEphemeralConstruction,
   MallocCall,
   Action,
-  ActionTypes,
+  WithdrawFromMallocCall,
   ActionTypesLibraryFacing,
+  MallocClient,
+  SpecialAccountType,
+  SpecialAccount,
 } from "@malloc/sdk";
-import { _InternalConstruction } from "./construction-internal";
+import { _InternalConstruction } from "./internal/construction-internal";
 
 // ---------------- Base interface
 
@@ -17,6 +19,7 @@ export interface ActionOrConstructionWithSplitParametersFilled {
   element:
     | ReturnType<ReturnType<MallocCallActionReturn>>
     | ReturnType<ReturnType<FtTransferCallToMallocCallActionReturn>>
+    | ReturnType<ReturnType<WithdrawFromMallocCallReturn>>
     | ReturnType<ReturnType<ConstructionReturn>>;
   // If a string is used, assume that a parameter is being used for the fraction
   fraction: number;
@@ -25,6 +28,7 @@ export interface ActionOrConstructionWithSplit {
   element:
     | ReturnType<MallocCallActionReturn>
     | ReturnType<FtTransferCallToMallocCallActionReturn>
+    | ReturnType<ReturnType<WithdrawFromMallocCallReturn>>
     | ReturnType<ConstructionReturn>;
   // If a string is used, assume that a parameter is being used for the fraction
   fraction: number | string;
@@ -49,7 +53,6 @@ export interface GenericParameters {
 }
 
 // ----------------- Malloc Call Action Interfaces
-
 
 interface MallocCallOverrides {
   checkCallback?: boolean;
@@ -84,6 +87,22 @@ export type FtTransferCallToMallocCallActionReturn = (parameters?: {
   tokenIn?: string;
 }) => () => Action<FtTransferCallToMallocCall>;
 
+// ------------------ WithdrawFromMallocCall Interface
+export interface IWithdrawFromMallocCall {
+  mallocCallContractID: AccountId;
+  tokenIn?: AccountId;
+  recipient?: AccountId;
+}
+
+export interface WithdrawFromMallocCallParams {
+  tokenIn?: string;
+  recipient?: AccountId;
+}
+
+export type WithdrawFromMallocCallReturn = (
+  parameters?: WithdrawFromMallocCallParams
+) => () => Action<WithdrawFromMallocCall>;
+
 // ------------------------- Construction Interfaces
 export interface ActionOutputsForConstructionWithParamsFilled {
   [token_id: string]: ActionOrConstructionWithSplitParametersFilled[];
@@ -112,10 +131,9 @@ export type ConstructionReturn = (
   parameters?: GenericParameters
 ) => (parametersFromParent?: GenericParameters) => _InternalConstruction;
 
-// ---- Compile Construction Args
-export interface ICompileConstruction {
-  startingConstructionOrActions: ActionOrConstructionWithSplit[];
-  parameters?: GenericParameters;
+// --------------- Run ephemeral interfaces
+export interface IRunEphemeralConstruction<AccountType extends SpecialAccount> {
+  mallocClient: MallocClient<AccountType>;
+  amount: string;
+  initialConstructionOrActions: ActionOrConstructionWithSplitParametersFilled[];
 }
-
-export type RunEphemeralInstr = Omit<IRunEphemeralConstruction, "amount">;

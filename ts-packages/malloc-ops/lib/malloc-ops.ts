@@ -4,6 +4,9 @@ import {
   Action,
   ActionCall,
   FtTransferCallToMallocCall,
+  WithdrawFromMallocCall as MallocClientWithdrawFromMallocCall,
+  SpecialAccount,
+  ActionTypesLibraryFacing,
 } from "@malloc/sdk";
 import {
   ConstructionReturn,
@@ -20,8 +23,15 @@ import {
   ActionOrConstructionWithSplitParametersFilled,
   ActionOutputsForConstruction,
   ActionOutputsForConstructionWithParamsFilled,
+  IWithdrawFromMallocCall,
+  WithdrawFromMallocCallReturn,
+  WithdrawFromMallocCallParams,
+  IRunEphemeralConstruction,
 } from "./interfaces";
-import { _InternalConstruction } from "./internal/construction-internal";
+import {
+  INTERNAL_CONSTRUCTION_TYPE,
+  _InternalConstruction,
+} from "./internal/construction-internal";
 import { resolveParameters } from "./internal/parameter-replacement-internal";
 
 export const MallocCallAction = <T>(
@@ -42,13 +52,12 @@ export const MallocCallAction = <T>(
         return prev;
       }, {} as any);
 
-      const tokenId = input.prefilledParameters?.tokenIn || params?.tokenIn;
-      if (!tokenId)
-        throw "AAAExpected a tokenIn from either the prefilled parameters of from the given parameters";
+      const tokenId = validateInputToken(
+        input.prefilledParameters?.tokenIn || params?.tokenIn
+      );
       const ret: Action<MallocCall> = {
         MallocCall: {
           malloc_call_id: input.mallocCallContractID,
-          // TODO: json args go how????
           json_args: JSON.stringify({
             ...callArgsFiltered,
           }),
@@ -60,16 +69,31 @@ export const MallocCallAction = <T>(
   };
 };
 
+export const WithdrawFromMallocCall = (
+  input: IWithdrawFromMallocCall
+): WithdrawFromMallocCallReturn => {
+  return (parameters?: WithdrawFromMallocCallParams) => {
+    return (parametersFromParents?: GenericParameters) => {
+      const params = resolveParameters(parameters || {}, parametersFromParents);
+      const tokenIn = validateInputToken(input.tokenIn || params?.tokenIn);
+      return {
+        WithdrawFromMallocCall: {
+          malloc_call_id: input.mallocCallContractID,
+          token_id: tokenIn,
+          recipient: input.recipient || params?.recipient || undefined,
+        },
+      } as Action<MallocClientWithdrawFromMallocCall>;
+    };
+  };
+};
+
 export const FtTransferCallToMallocCallAction = (
   input: IFtTransferCallToMallocCallAction
 ): FtTransferCallToMallocCallActionReturn => {
   return (parameters?: { tokenIn?: string }) => {
     return (parametersFromParent?: { tokenIn?: string }) => {
       const params = resolveParameters(parameters || {}, parametersFromParent);
-      console.log(params);
-      const tokenIn = input.tokenIn || params?.tokenIn;
-      if (!tokenIn)
-        throw "AAAExpected a tokenIn from either the prefilled parameters of from the given parameters";
+      const tokenIn = validateInputToken(input.tokenIn || params?.tokenIn);
       return {
         FtTransferCallToMallocCallAction: {
           malloc_call_id: input.mallocCallContractID,
@@ -94,20 +118,41 @@ export const Construction = (input: IConstruction): ConstructionReturn => {
   };
 };
 
-export const compileConstruction = (
-  input: ICompileConstruction
-): Promise<RunEphemeralInstr> => {
-  throw "TODO";
-};
-
-export const runEphemeralConstruction = (
-  instruction: RunEphemeralInstr,
-  amount: string
+export const runEphemeralConstruction = async <AccountType extends SpecialAccount>(
+  input: IRunEphemeralConstruction<AccountType>
 ): Promise<void> => {
-  throw "TODO";
+  const initialInternalConstructions: _InternalConstruction[] =
+    input.initialConstructionOrActions.map((e) => {
+      const elem = e.element;
+      if ((elem as _InternalConstruction).type === INTERNAL_CONSTRUCTION_TYPE) {
+        return elem as _InternalConstruction;
+      } else {
+        return _InternalConstruction.fromActionEndpoint(
+          elem as Action<ActionTypesLibraryFacing>
+        );
+      }
+    });
+  const merged = _InternalConstruction.mergeMulti(initialInternalConstructions);
+  if (!merged)
+    throw "Expected there to be at least 1 valid construction or action in initial construction or actions";
+  let initSplits =  input.initialConstructionOrActions.map(e => e.fraction)
+  await input.mallocClient.runEphemeralConstruction({
+    actions: merged.actions,
+    nextActionsIndices: merged.nextActionsIndices,
+    nextActionsSplits: merged.nextActionsSplits,
+    initialActionIndices: merged.initialIndices,
+    initialSplits: initSplits,
+    amount: input.amount
+  })
 };
 
 // ---------------- Helper functions
+
+const validateInputToken = (tokenId?: string): string => {
+  if (!tokenId)
+    throw "Expected a tokenIn from either the prefilled parameters of from the given parameters";
+  return tokenId;
+};
 
 const fillFractionSplitsAndToken = (
   actionOutput: ActionOutputsForConstruction,
@@ -116,8 +161,11 @@ const fillFractionSplitsAndToken = (
   return Object.keys(actionOutput).reduce((prior, tokenIdOrParam: string) => {
     // First guess that the tokenId is a parameter. If no such parameter exists, assume that it is the raw token id
     const outputsForTok = actionOutput[tokenIdOrParam];
-    const tokenIdOut = params[tokenIdOrParam] || tokenIdOrParam
-    const paramsWithToken: GenericParameters = { tokenIn: tokenIdOut, ...params };
+    const tokenIdOut = params[tokenIdOrParam] || tokenIdOrParam;
+    const paramsWithToken: GenericParameters = {
+      tokenIn: tokenIdOut,
+      ...params,
+    };
     const withSplitsFilled: ActionOrConstructionWithSplitParametersFilled[] =
       outputsForTok.map((o) => {
         // If the fraction part is a string, assume that it needs to be filled in
