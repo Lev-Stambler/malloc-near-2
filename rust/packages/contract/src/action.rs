@@ -8,7 +8,6 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::{ValidAccountId, U128};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
-    bs58::alphabet::Error,
     env, log,
     serde_json::{self, json},
     AccountId, Promise,
@@ -17,7 +16,6 @@ use near_sdk::{utils, Gas};
 
 use crate::actions::{self, ActionFunctions};
 use crate::errors::PanicError;
-use crate::gas::CALLBACK_GAS;
 use crate::malloc_utils::GenericId;
 use crate::{
     errors::panic_errors, vector_wrapper::VectorWrapper, Construction, ConstructionCall,
@@ -293,6 +291,11 @@ impl ActionCall {
             .iter()
             .map(|r| r.amount.parse::<u128>().unwrap())
             .collect();
+
+        if amounts.len() != next_actions_indices.0.len() as usize {
+            // TODO: error handling
+            panic!("Expected the returned number of tokens to be the same length as next actions")
+        }
 
         for i in 0..next_actions_indices.0.len() {
             construction_call = self.handle_next_split_set(

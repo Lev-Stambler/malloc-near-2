@@ -18,15 +18,14 @@ import {
   MallocCallOpts,
   ActionOrConstructionWithSplit,
   GenericParameters,
-  RunEphemeralInstr,
-  ICompileConstruction,
   ActionOrConstructionWithSplitParametersFilled,
   ActionOutputsForConstruction,
   ActionOutputsForConstructionWithParamsFilled,
   IWithdrawFromMallocCall,
   WithdrawFromMallocCallReturn,
   WithdrawFromMallocCallParams,
-  IRunEphemeralConstruction,
+  ICompile,
+  CompileReturn,
 } from "./interfaces";
 import {
   INTERNAL_CONSTRUCTION_TYPE,
@@ -95,7 +94,7 @@ export const FtTransferCallToMallocCallAction = (
       const params = resolveParameters(parameters || {}, parametersFromParent);
       const tokenIn = validateInputToken(input.tokenIn || params?.tokenIn);
       return {
-        FtTransferCallToMallocCallAction: {
+        FtTransferCallToMallocCall: {
           malloc_call_id: input.mallocCallContractID,
           token_id: tokenIn,
         },
@@ -118,12 +117,10 @@ export const Construction = (input: IConstruction): ConstructionReturn => {
   };
 };
 
-export const runEphemeralConstruction = async <AccountType extends SpecialAccount>(
-  input: IRunEphemeralConstruction<AccountType>
-): Promise<void> => {
+export const compile = (input: ICompile): CompileReturn => {
   const initialInternalConstructions: _InternalConstruction[] =
     input.initialConstructionOrActions.map((e) => {
-      const elem = e.element;
+      const elem = e.element();
       if ((elem as _InternalConstruction).type === INTERNAL_CONSTRUCTION_TYPE) {
         return elem as _InternalConstruction;
       } else {
@@ -135,15 +132,17 @@ export const runEphemeralConstruction = async <AccountType extends SpecialAccoun
   const merged = _InternalConstruction.mergeMulti(initialInternalConstructions);
   if (!merged)
     throw "Expected there to be at least 1 valid construction or action in initial construction or actions";
-  let initSplits =  input.initialConstructionOrActions.map(e => e.fraction)
-  await input.mallocClient.runEphemeralConstruction({
-    actions: merged.actions,
-    nextActionsIndices: merged.nextActionsIndices,
-    nextActionsSplits: merged.nextActionsSplits,
-    initialActionIndices: merged.initialIndices,
-    initialSplits: initSplits,
-    amount: input.amount
-  })
+  let initSplits = input.initialConstructionOrActions.map((e) => e.fraction);
+  return (amount: string) => {
+    return {
+      actions: merged.actions,
+      nextActionsIndices: merged.nextActionsIndices,
+      nextActionsSplits: merged.nextActionsSplits,
+      initialActionIndices: merged.initialIndices,
+      initialSplits: initSplits,
+      amount,
+    };
+  };
 };
 
 // ---------------- Helper functions

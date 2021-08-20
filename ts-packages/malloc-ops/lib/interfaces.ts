@@ -10,10 +10,21 @@ import {
   MallocClient,
   SpecialAccountType,
   SpecialAccount,
+  IRunEphemeralConstruction,
 } from "@malloc/sdk";
 import { _InternalConstruction } from "./internal/construction-internal";
 
 // ---------------- Base interface
+
+export interface ActionOrConstructionWithSplitParametersFilledLazy {
+  element:
+    | ReturnType<MallocCallActionReturn>
+    | ReturnType<FtTransferCallToMallocCallActionReturn>
+    | ReturnType<WithdrawFromMallocCallReturn>
+    | ReturnType<ConstructionReturn>;
+  // If a string is used, assume that a parameter is being used for the fraction
+  fraction: number;
+}
 
 export interface ActionOrConstructionWithSplitParametersFilled {
   element:
@@ -24,11 +35,12 @@ export interface ActionOrConstructionWithSplitParametersFilled {
   // If a string is used, assume that a parameter is being used for the fraction
   fraction: number;
 }
+
 export interface ActionOrConstructionWithSplit {
   element:
     | ReturnType<MallocCallActionReturn>
     | ReturnType<FtTransferCallToMallocCallActionReturn>
-    | ReturnType<ReturnType<WithdrawFromMallocCallReturn>>
+    | ReturnType<WithdrawFromMallocCallReturn>
     | ReturnType<ConstructionReturn>;
   // If a string is used, assume that a parameter is being used for the fraction
   fraction: number | string;
@@ -131,9 +143,9 @@ export type ConstructionReturn = (
   parameters?: GenericParameters
 ) => (parametersFromParent?: GenericParameters) => _InternalConstruction;
 
-// --------------- Run ephemeral interfaces
-export interface IRunEphemeralConstruction<AccountType extends SpecialAccount> {
-  mallocClient: MallocClient<AccountType>;
-  amount: string;
-  initialConstructionOrActions: ActionOrConstructionWithSplitParametersFilled[];
+// --------------- Compile Interfaces
+export interface ICompile {
+  initialConstructionOrActions: ActionOrConstructionWithSplitParametersFilledLazy[];
 }
+
+export type CompileReturn = (amount: string) => IRunEphemeralConstruction;

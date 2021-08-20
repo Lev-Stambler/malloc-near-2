@@ -30,7 +30,7 @@ export class _InternalConstruction {
   public static fromActionEndpoint(
     action: Action<ActionTypesLibraryFacing>
   ): _InternalConstruction {
-    return new _InternalConstruction([action], [[[]]], [[[]]], [0]);
+    return new _InternalConstruction([action], [[]], [[]], [0]);
   }
 
   /**
@@ -67,19 +67,23 @@ export class _InternalConstruction {
       throw "Internal error, expected merged construction to not be null";
     }
 
-    const nextSplits: number[][] = outputsByToken.map((o) => o.splits);
+    const nextSplits = outputsByToken.map((o) => o.splits);
 
+    console.log(mergedConstructions.initialIndices);
     // TODO: seperate function for like scanl accum
     let totalActions: number[] = scanlAccum(
-      outputsByToken.map((o) => o.internalConstruction?.actions.length || 0)
+      outputsByToken.map((o) => o.numberOfNextActionsOrConstructions || 0)
     );
 
-    const nextIndices: number[][] = outputsByToken.map((o, i) => {
+    console.log("TOTAL ACTIONS", totalActions);
+
+    const nextIndices: number[][] = outputsByToken.map((o, tokIndx) => {
       if (!o.internalConstruction) return [];
-      const indices: number[] = Array.from(
-        Array(o.numberOfNextActionsOrConstructions).keys()
+      const indices: number[] = o.internalConstruction.initialIndices.map(
+        (initIndex) => initIndex + totalActions[tokIndx]
       );
-      return indices.map((e) => e + totalActions[i]);
+      return indices;
+      // return indices.map((e, nextActionIndex) => e + totalActions[nextActionIndex]);
     });
 
     return mergedConstructions.pushActionToParent(

@@ -83,7 +83,7 @@ const mallocClientDefaultOpts: MallocClientOpts = {};
 
 /**
  * @param extraAmount - The extra amount in Near Lamports to give to each deposit
- * @param executeTransactions - Whether to execute the transactions or simply just return an array of transactions
+ * @param executeTransactions - Whether to execute the transactions or simply just return an array of transactions, defaults to true
  */
 interface RegisterAccountDepositsOpts {
   extraAmount?: BigNumberish;
@@ -295,7 +295,8 @@ export class MallocClient<
       this.account,
       opts?.extraAmount
     );
-    if (opts?.executeTransactions) {
+    const executeTransactions = opts?.executeTransactions ?? true
+    if (executeTransactions ) {
       await executeMultipleTx(this.account, txs);
     }
     return {

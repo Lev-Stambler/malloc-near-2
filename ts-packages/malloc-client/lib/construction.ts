@@ -259,7 +259,8 @@ export const runEphemeralConstruction = async (
         mallocAccountId,
         action_call_id as any
       );
-
+      // console.log(action_call);
+      console.log(constructionCallData);
       const txs: Transaction[] = new Array(
         constructionCallData.next_action_calls_stack.length
       )
@@ -293,7 +294,6 @@ export const runEphemeralConstruction = async (
         mallocAccountId,
         construction_call_id
       );
-      console.log(constructionCallData);
     }
     return txHashes;
   };

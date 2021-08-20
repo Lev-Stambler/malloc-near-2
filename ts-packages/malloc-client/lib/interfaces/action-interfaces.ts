@@ -14,14 +14,14 @@ export interface MallocCallWithGasAndAttached extends MallocCall {
 }
 
 export interface FtTransferCallToMallocCall {
-  malloc_call_id: string;
-  token_id: string;
+  malloc_call_id: AccountId;
+  token_id: AccountId;
 }
 
 export interface WithdrawFromMallocCall {
-  malloc_call_id: string;
-  token_id: string;
-  recipient?: string;
+  malloc_call_id: AccountId;
+  token_id: AccountId;
+  recipient?: AccountId;
 }
 
 export interface Action<
