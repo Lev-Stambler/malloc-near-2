@@ -1,7 +1,7 @@
 use std::{u64, usize, vec};
 
 // To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
-use malloc_call_core::{GasUsage, MallocCallFT, MallocCallWithCallback, ReturnItem, ft::{FungibleTokenHandlers, FungibleTokenBalances}};
+use malloc_call_core::{MallocCallFT, MallocCallWithCallback, ReturnItem, ft::{FungibleTokenHandlers, FungibleTokenBalances}, gas::{MAX_MALLOC_CALL_GAS}};
 use near_sdk::{Balance, borsh::{self, BorshDeserialize, BorshSerialize}, serde_json};
 use near_sdk::collections::{LookupMap, UnorderedMap, Vector};
 use near_sdk::env::predecessor_account_id;
@@ -30,9 +30,9 @@ mod ref_interfaces;
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct RefSwapArgs {
-    pool_id: u64,
-    token_out: AccountId,
-    min_amount_out: U128,
+    pool_ids: Vec<u64>,
+    token_outs: Vec<AccountId>,
+    min_amount_outs: Vec<U128>,
     register_tokens: Vec<ValidAccountId>,
     recipient: Option<AccountId>,
 }
@@ -130,14 +130,29 @@ impl Contract {
         token_contract: &AccountId,
         swap_args: &RefSwapArgs,
     ) -> u64 {
+        let mut swap_actions: Vec<SwapAction> = vec![];
+        let mut token_in= token_contract;
+        for (i, &pool_id) in swap_args.pool_ids.iter().enumerate() {
+            let token_out = &swap_args.token_outs[i];
+            swap_actions.push(SwapAction {
+                pool_id,
+                token_in: token_in.to_owned(),
+                token_out: token_out.clone(),
+               min_amount_out: swap_args.min_amount_outs[i], 
+               amount_in: if i == 0 {Some(amount.clone())} else {None }
+            });
+            token_in = token_out;
+        };
+        // let swap_actions: Vec<SwapAction> = swap_args.pool_ids.iter().enumerate().map(|(i, pool_id)| {
+        //     SwapAction {
+        //         pool_id: *pool_id,
+        //         token_in: 
+
+        //     }
+        // }).collect();
+
         let data = json!({
-            "actions": vec![json!({
-                "pool_id": swap_args.pool_id,
-                "token_in": token_contract,
-                "token_out": swap_args.token_out,
-                "min_amount_out": swap_args.min_amount_out,
-                "amount_in": amount
-            })]
+            "actions": swap_actions
         });
         env::promise_then(
             promise_idx,
@@ -150,14 +165,6 @@ impl Contract {
     }
 }
 
-// TODO: some way to fish out the funds from more than min slippage?
-
-#[near_bindgen]
-impl GasUsage for Contract {
-    fn get_gas_usage(&self) -> Gas {
-         GAS_FOR_FT_TRANSFER_CALL + BASIC_GAS + GAS_FOR_RESOLVE_GET_AMOUNT + SWAP_GAS + WITHDRAW_GAS
-    }
-}
 
 #[near_bindgen]
 impl Contract {
@@ -196,15 +203,22 @@ impl Contract {
 }
 
 #[near_bindgen]
-impl MallocCallWithCallback<RefSwapArgs, ReturnItem, ()> for Contract {
+impl MallocCallWithCallback<RefSwapArgs, ReturnItem> for Contract {
     fn resolver(&self, ret: ReturnItem) -> Vec<malloc_call_core::ReturnItem> {
         vec![ret]
     }
 
     #[payable]
     fn malloc_call(&mut self, args: RefSwapArgs, amount: U128, token_id: ValidAccountId, caller: ValidAccountId) {
+        assert!(args.min_amount_outs.len() == args.pool_ids.len(), "Expected equal length min outs and pool ids");
+        assert!(args.token_outs.len() == args.pool_ids.len(), "Expected equal length token outs and pool ids");
+        assert!(args.pool_ids.len() > 0, "Expected at least 1 pool id");
+
+        let final_token_out = args.token_outs.last().unwrap();
+
         let token_id: AccountId = token_id.into();
         // Send the funds back to the Malloc Contract if their is no recipient
+        // TODO: change this so that if there is no recipient, just skip the sending of funds and let it sit in the malloc call pls
         let recipient = args
             .recipient
             .clone()
@@ -215,7 +229,7 @@ impl MallocCallWithCallback<RefSwapArgs, ReturnItem, ()> for Contract {
 
         let callback = env::promise_batch_then(swap, env::current_account_id());
         let callback_args = json!({ 
-        "token_out_id": &args.token_out,
+        "token_out_id": final_token_out,
         "recipient": &recipient});
         env::promise_batch_action_function_call(
             callback,
@@ -228,7 +242,11 @@ impl MallocCallWithCallback<RefSwapArgs, ReturnItem, ()> for Contract {
     }
 
     fn metadata(&self) -> malloc_call_core::MallocCallMetadata {
+        // Leave 50 Tgas for the malloc processing
+        let gas = MAX_MALLOC_CALL_GAS;
         malloc_call_core::MallocCallMetadata {
+            gas_required: gas,
+            attachment_required: 15.into(),
             name: "Ref Dex Swap".to_string(),
         }
     }
@@ -276,7 +294,7 @@ mod tests {
 
 /*
 Helper for deploy:
-mallocrustcli deploy malloc-calls/ref-swap-malloc-call -n '{"ref_finance": "ref-finance.testnet", "malloc_contract_id": "<CONTRACT_ID>"}'
+mallocrustcli deploy malloc-calls/ref-swap-malloc-call -n '{"ref_finance": "ref-finance.testnet"}' -m
 
     malloc_contract_id: ValidAccountId, ref_finance: ValidAccountId
 */

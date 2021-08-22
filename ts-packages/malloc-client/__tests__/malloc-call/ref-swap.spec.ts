@@ -23,7 +23,7 @@ const TOKEN_ACCOUNT_IDS = [
 let masterAccount: Account;
 let wrappedTesterAccount: MallocClient.SpecialAccountWithKeyPair;
 const REF_FINANCE_CONTRACT = "ref-finance.testnet";
-const EXTRA_DEPOSIT_FOR_FT_STORE = "1660000000000000000000";
+const EXTRA_DEPOSIT_FOR_FT_STORE = "3660000000000000000000";
 
 export const getMallocCallRefSwapContract = () =>
   readFileSync(
@@ -114,8 +114,8 @@ describe("ref-swap call", () => {
     const minDaiRetrun = new BN(daiPoolReturn).muln(90).divn(100);
     const minBananaReturn = new BN(bananaPoolReturn).muln(90).divn(100);
 
-    const txRess = await malloc.runEphemeralConstruction(
-      [
+    const txRess = await malloc.runEphemeralConstruction({
+      actions: [
         {
           FtTransferCallToMallocCall: {
             malloc_call_id: MALLOC_CALL_SWAP_CONTRACT_ID,
@@ -129,9 +129,9 @@ describe("ref-swap call", () => {
             check_callback: false,
             skip_ft_transfer: true,
             json_args: JSON.stringify({
-              token_out: NDAI_CONTRACT,
-              pool_id: wNearToDAIPoolId,
-              min_amount_out: minDaiRetrun.toString(),
+              token_outs: [NDAI_CONTRACT],
+              pool_ids: [wNearToDAIPoolId],
+              min_amount_outs: [minDaiRetrun.toString()],
               // TODO: this will be removed
               register_tokens: [
                 NDAI_CONTRACT,
@@ -140,8 +140,6 @@ describe("ref-swap call", () => {
               recipient: masterAccount.accountId,
             }),
             // 2/3 rds of max gas and have the remaining third for processing the call
-            gas: MAX_GAS.divn(100).muln(80).toNumber(),
-            attached_amount: "16",
           },
         },
         {
@@ -151,9 +149,9 @@ describe("ref-swap call", () => {
             check_callback: false,
             skip_ft_transfer: true,
             json_args: JSON.stringify({
-              token_out: BANANA_CONTRACT,
-              pool_id: wNearToBananaPoolId,
-              min_amount_out: minBananaReturn.toString(),
+              token_outs: [BANANA_CONTRACT],
+              pool_ids: [wNearToBananaPoolId],
+              min_amount_outs: [minBananaReturn.toString()],
               // TODO: this will be removed
               register_tokens: [
                 NDAI_CONTRACT,
@@ -161,19 +159,16 @@ describe("ref-swap call", () => {
               ],
               recipient: masterAccount.accountId,
             }),
-            // 2/3 rds of max gas and have the remaining third for processing the call
-            gas: MAX_GAS.divn(100).muln(80).toNumber(),
-            attached_amount: "16",
           },
         },
       ],
-      amount.toString(),
-      [0],
-      [1],
-      [[[1, 2]], [[]], [[]]],
-      [[[1, 1]], [[]], [[]]],
-      { gas: MAX_GAS, depositTransactionHash }
-    );
+      amount: amount.toString(),
+      initialActionIndices: [0],
+      initialSplits: [1],
+      nextActionsIndices: [[[1, 2]], [[]], [[]]],
+      nextActionsSplits: [[[1, 1]], [[]], [[]]],
+      opts: { gas: MAX_GAS, depositTransactionHash },
+    });
     const ret = await malloc.resolveTransactions(txRess);
     expect(ret.flag).toBe(TransactionWithPromiseResultFlag.SUCCESS);
 
