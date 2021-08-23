@@ -209,6 +209,7 @@ const signAndSendTxFunctionCallsWalletConnectNoDeposit = async (
           methodName: action.functionCall.methodName,
           args: action.functionCall.args,
           gas: action.functionCall.gas,
+          attachedDeposit: action.functionCall.deposit
         });
         return ret.transaction.hash;
       })

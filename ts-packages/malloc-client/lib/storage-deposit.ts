@@ -1,18 +1,32 @@
 import BN from "bn.js";
 import { Account, utils } from "near-api-js";
 import { AccountId, BigNumberish, Transaction } from "./interfaces";
+import { StorageBounds } from "./interfaces/shared/near-standards";
 import { MAX_GAS_STR } from "./tx";
+
+// TODO: looks at service/storage in ref ui and just use that
+const getStorageBounds = async (
+  caller: Account,
+  contract: AccountId
+): Promise<StorageBounds> => {
+  console.log(contract)
+  return await caller.viewFunction(contract, "storage_balance_bounds", {});
+}
 
 export const doStorageDeposit = async (
   caller: Account,
   contractAddr: string,
   accountId: string,
-  extraAmount?: BigNumberish
+  opts?: {
+    extraAmount?: BigNumberish;
+  }
 ): Promise<Transaction | null> => {
   // TODO: from where??
-  const NEW_ACCOUNT_STORAGE_COST_bn = new BN(
-    utils.format.parseNearAmount("0.00125") || "0"
-  ).add(new BN(extraAmount || 0));
+
+  const storageBounds = await getStorageBounds(caller, contractAddr);
+  const NEW_ACCOUNT_STORAGE_COST_bn = new BN(storageBounds.min).add(
+    new BN(opts?.extraAmount || 0)
+  );
   const NEW_ACCOUNT_STORAGE_COST = NEW_ACCOUNT_STORAGE_COST_bn.toString();
   const storageBal = await caller.viewFunction(
     contractAddr,
@@ -33,7 +47,9 @@ export const doStorageDeposit = async (
           methodName: "storage_deposit",
           amount: NEW_ACCOUNT_STORAGE_COST,
           gas: MAX_GAS_STR,
-          args: { account_id: accountId },
+          args: {
+            account_id: accountId,
+          },
         },
       ],
     };
@@ -48,7 +64,7 @@ const registerFtTxsForSingleAccount = async (
 ): Promise<{ txs: Transaction[]; contractsToRegister: AccountId[] }> => {
   const txOptions = await Promise.all(
     ftAccountIds.map((ftAccount) =>
-      doStorageDeposit(caller, ftAccount, accountId, extraAmount)
+      doStorageDeposit(caller, ftAccount, accountId, { extraAmount })
     )
   );
   const txs: Transaction[] = txOptions.filter(
