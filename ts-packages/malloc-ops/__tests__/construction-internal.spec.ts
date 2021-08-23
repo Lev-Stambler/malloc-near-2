@@ -31,7 +31,7 @@ describe("Test instruction internal", () => {
 
     const internalConst2 = _InternalConstruction.fromConstructionInOut(
       ACTION_FT_TRANSFER,
-      {}
+      []
     );
 
     expect(expected).toEqual(internalConstructionToObj(internalConst1));
@@ -46,12 +46,15 @@ describe("Test instruction internal", () => {
       initialIndices: [2],
     };
 
-    const c1 = _InternalConstruction.fromConstructionInOut(ACTION_FT_TRANSFER, {
-      "wrap.testnet": [
-        { element: ACTION_FT_TRANSFER, fraction: 1 },
-        { element: ACTION_FT_TRANSFER, fraction: 1 },
-      ],
-    });
+    const c1 = _InternalConstruction.fromConstructionInOut(ACTION_FT_TRANSFER, [
+      {
+        token_id: "wrap.testnet",
+        next: [
+          { element: ACTION_FT_TRANSFER, fraction: 1 },
+          { element: ACTION_FT_TRANSFER, fraction: 1 },
+        ],
+      },
+    ]);
     expect(expected1).toEqual(internalConstructionToObj(c1));
   });
 
@@ -121,48 +124,52 @@ describe("Test instruction internal", () => {
         ACTION_FT_TRANSFER,
         ACTION_FT_TRANSFER,
       ],
-      nextActionsIndices: [
-        [],
-        [],
-        [[0, 1]],
-        [],
-        [],
-        [[3, 4]],
-        [[2, 5]],
-      ],
+      nextActionsIndices: [[], [], [[0, 1]], [], [], [[3, 4]], [[2, 5]]],
       nextActionsSplits: [[], [], [[1, 1]], [], [], [[1, 1]], [[1, 1]]],
       initialIndices: [6],
     };
 
-    const c1 = _InternalConstruction.fromConstructionInOut(ACTION_FT_TRANSFER, {
-      "wrap.testnet": [
-        { element: ACTION_FT_TRANSFER, fraction: 1 },
-        { element: ACTION_FT_TRANSFER, fraction: 1 },
-      ],
-    });
+    const c1 = _InternalConstruction.fromConstructionInOut(ACTION_FT_TRANSFER, [
+      {
+        token_id: "wrap.testnet",
+        next: [
+          { element: ACTION_FT_TRANSFER, fraction: 1 },
+          { element: ACTION_FT_TRANSFER, fraction: 1 },
+        ],
+      },
+    ]);
 
     const cWrapped = _InternalConstruction.fromConstructionInOut(
       ACTION_FT_TRANSFER,
-      {
-        "wrap.testnet": [
-          { element: c1, fraction: 1 },
-          { element: c1, fraction: 1 },
-        ],
-      }
+      [
+        {
+          token_id: "wrap.testnet",
+          next: [
+            { element: c1, fraction: 1 },
+            { element: c1, fraction: 1 },
+          ],
+        },
+      ]
     );
 
     const cWrappedWrapped = _InternalConstruction.fromConstructionInOut(
       ACTION_FT_TRANSFER,
-      {
-        "wrap.testnet": [
-          { element: c1, fraction: 1 },
-          { element: c1, fraction: 1 },
-        ],
-        "wrap2.testnet": [
-          { element: c1, fraction: 1 },
-          { element: c1, fraction: 1 },
-        ],
-      }
+      [
+        {
+          token_id: "wrap.testnet",
+          next: [
+            { element: c1, fraction: 1 },
+            { element: c1, fraction: 1 },
+          ],
+        },
+        {
+          token_id: "wrap2.testnet",
+          next: [
+            { element: c1, fraction: 1 },
+            { element: c1, fraction: 1 },
+          ],
+        },
+      ]
     );
     expect(expectedWrapped).toEqual(internalConstructionToObj(cWrapped));
     expect(expectedWrappedWrapped).toEqual(
@@ -194,35 +201,64 @@ describe("Test instruction internal", () => {
         [],
         [[6, 7]],
       ],
-      nextActionsSplits: [
-        [],
-        [],
-        [[1, 1]],
-        [],
-        [],
-        [[1, 1]],
-        [],
-        [],
-        [[1, 1]],
-      ],
+      nextActionsSplits: [[], [], [[1, 1]], [], [], [[1, 1]], [], [], [[1, 1]]],
       initialIndices: [2, 5, 8],
     };
 
-    const c1 = _InternalConstruction.fromConstructionInOut(ACTION_FT_TRANSFER, {
-      "wrap.testnet": [
-        { element: ACTION_FT_TRANSFER, fraction: 1 },
-        { element: ACTION_FT_TRANSFER, fraction: 1 },
-      ],
-    });
+    const c1 = _InternalConstruction.fromConstructionInOut(ACTION_FT_TRANSFER, [
+      {
+        token_id: "wrap.testnet",
+        next: [
+          { element: ACTION_FT_TRANSFER, fraction: 1 },
+          { element: ACTION_FT_TRANSFER, fraction: 1 },
+        ],
+      },
+    ]);
     const merged = _InternalConstruction.mergeMulti([c1, c1, c1]);
     expect(expected1).toEqual(internalConstructionToObj(merged));
+  });
+
+  it("Should work to create a two level construction without specifying next tokens", () => {
+    const internalConst3 = _InternalConstruction.fromConstructionInOut(
+      ACTION_FT_TRANSFER,
+      [
+        {
+          next: [
+            {
+              element: ACTION_FT_TRANSFER,
+              fraction: 1,
+            },
+          ],
+        },
+      ]
+    );
+    const expected = {
+      actions: [
+        {
+          FtTransferCallToMallocCall: {
+            malloc_call_id: "fake.testnet",
+            token_id: "wrap.testnet",
+          },
+        },
+        {
+          FtTransferCallToMallocCall: {
+            malloc_call_id: "fake.testnet",
+            token_id: "wrap.testnet",
+          },
+        },
+      ],
+      nextActionsIndices: [[], [[0]]],
+      nextActionsSplits: [[], [[1]]],
+      initialIndices: [1],
+    };
+    expect(internalConstructionToObj(internalConst3)).toEqual(expected);
   });
 
   it("Should throw if the output token has an empty array", () => {
     try {
       const internalConst3 = _InternalConstruction.fromConstructionInOut(
         ACTION_FT_TRANSFER,
-        { "wrap.testnet": [] }
+        [{ token_id: "wrap.testnet", next: [] }]
       );
       expect(false).toBe(true);
     } catch (e) {

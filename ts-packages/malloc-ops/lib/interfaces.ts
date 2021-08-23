@@ -33,7 +33,7 @@ export interface ActionOrConstructionWithSplitParametersFilled {
     | ReturnType<ReturnType<WithdrawFromMallocCallReturn>>
     | ReturnType<ReturnType<ConstructionReturn>>;
   // If a string is used, assume that a parameter is being used for the fraction
-  fraction: number;
+  fraction: number | string;
 }
 
 export interface ActionOrConstructionWithSplit {
@@ -42,8 +42,7 @@ export interface ActionOrConstructionWithSplit {
     | ReturnType<FtTransferCallToMallocCallActionReturn>
     | ReturnType<WithdrawFromMallocCallReturn>
     | ReturnType<ConstructionReturn>;
-  // If a string is used, assume that a parameter is being used for the fraction
-  fraction: number | string;
+  fraction: number | string | BindedParameter;
 }
 
 // -------------- Parameter Interfaces
@@ -116,13 +115,21 @@ export type WithdrawFromMallocCallReturn = (
 ) => () => Action<WithdrawFromMallocCall>;
 
 // ------------------------- Construction Interfaces
-export interface ActionOutputsForConstructionWithParamsFilled {
-  [token_id: string]: ActionOrConstructionWithSplitParametersFilled[];
-}
+// TODO: we would like to make this token_id be optional here
+type _ActionOutputsForConstruction<T, TOKEN_ID> = {
+  token_id?: TOKEN_ID;
+  next: T[];
+}[];
 
-export interface ActionOutputsForConstruction {
-  [token_id: string]: ActionOrConstructionWithSplit[];
-}
+export type ActionOutputsForConstruction = _ActionOutputsForConstruction<
+  ActionOrConstructionWithSplit,
+  AccountId | BindedParameter
+>;
+export type ActionOutputsForConstructionWithParamsFilled =
+  _ActionOutputsForConstruction<
+    ActionOrConstructionWithSplitParametersFilled,
+    AccountId
+  >;
 
 /**
  * Input to the construction builder.

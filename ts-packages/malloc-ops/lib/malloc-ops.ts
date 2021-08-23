@@ -31,7 +31,7 @@ import {
   INTERNAL_CONSTRUCTION_TYPE,
   _InternalConstruction,
 } from "./internal/construction-internal";
-import { resolveParameters } from "./internal/parameter-replacement-internal";
+import { fillFractionSplitsAndToken, resolveParameters } from "./internal/parameter-replacement-internal";
 
 export const MallocCallAction = <T>(
   input: IMallocCallAction
@@ -151,40 +151,4 @@ const validateInputToken = (tokenId?: string): string => {
   if (!tokenId)
     throw "Expected a tokenIn from either the prefilled parameters of from the given parameters";
   return tokenId;
-};
-
-const fillFractionSplitsAndToken = (
-  actionOutput: ActionOutputsForConstruction,
-  params: GenericParameters
-): ActionOutputsForConstructionWithParamsFilled => {
-  return Object.keys(actionOutput).reduce((prior, tokenIdOrParam: string) => {
-    // First guess that the tokenId is a parameter. If no such parameter exists, assume that it is the raw token id
-    const outputsForTok = actionOutput[tokenIdOrParam];
-    const tokenIdOut = params[tokenIdOrParam] || tokenIdOrParam;
-    const paramsWithToken: GenericParameters = {
-      tokenIn: tokenIdOut,
-      ...params,
-    };
-    const withSplitsFilled: ActionOrConstructionWithSplitParametersFilled[] =
-      outputsForTok.map((o) => {
-        // If the fraction part is a string, assume that it needs to be filled in
-        if (typeof o.fraction === "string") {
-          const val = params[o.fraction];
-          if (!val) throw "Expected param here, TODO: err lib";
-          else if (typeof val !== "number")
-            throw "Expected the parameter for fraction to be a number";
-          return {
-            element: o.element(paramsWithToken),
-            fraction: val as number,
-          };
-        }
-
-        return {
-          element: o.element(paramsWithToken),
-          fraction: o.fraction as number,
-        };
-      });
-    prior[tokenIdOut] = withSplitsFilled;
-    return prior;
-  }, {} as ActionOutputsForConstructionWithParamsFilled);
 };

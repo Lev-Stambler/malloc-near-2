@@ -49,9 +49,9 @@ export class _InternalConstruction {
       return _InternalConstruction.fromActionEndpoint(inAction);
     }
 
-    const outputsByToken = Object.keys(out).map((tokenId) => {
+    const outputsByToken = out.map((actionOrConstWithSplit) => {
       const merged = _InternalConstruction.mergeActionOrConstructionsWithSplits(
-        out[tokenId]
+        actionOrConstWithSplit.next
       );
       if (merged.internalConstruction === null) {
         throw "Expected the outputs to have at least 1 following action or construction";
