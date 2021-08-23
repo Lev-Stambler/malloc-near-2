@@ -1,6 +1,9 @@
+use crate::action::{
+    ActionCall, ActionId, NextActionsIndicesForAction, NextActionsSplitsForAction,
+};
 use crate::malloc_utils::GenericId;
-use crate::action::{NextActionsIndicesForAction, NextActionsSplitsForAction, ActionCall, ActionId};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{collections::Vector, env, AccountId};
 
@@ -40,26 +43,39 @@ pub struct ConstructionCall {
     pub next_actions_splits: NextActionsSplitsForConstruction,
 }
 
-use crate::errors::panic_errors;
-use crate::{errors::PanicError, vector_wrapper::VectorWrapper, Contract, ActionCallId};
+use crate::errors::panic_errors::{self, NUMB_OF_SPLITS_DOES_NOT_EQUAL_NUMB_AMOUNTS};
+use crate::{errors::PanicError, vector_wrapper::VectorWrapper, ActionCallId, Contract};
 
 impl Construction {
     /// Convert a vector of splits and a given amount to a Vec of amount values.
-    /// All of the amounts are rounded down, so the sum of the result may be slightly (at most the length of splits)
+    /// All of the amounts are rounded down except the last one. So, if there is any remainder, it will be summed to the last output
     /// Smaller than the input amount
-    pub fn get_split_amounts(amount: u128, splits: VectorWrapper<u128>) -> Vec<u128> {
+    pub fn get_split_amounts(amount: u128, splits: VectorWrapper<U128>) -> Vec<u128> {
         let mut amounts = vec![];
 
-        let mut split_sum = 0;
+        // TODO: to u256
+        let mut split_sum: u256 = 0;
         for i in 0..splits.0.len() {
-            split_sum += splits.0.get(i).unwrap();
+            split_sum += splits.0.get(i).unwrap().0 as u256;
         }
 
         for i in 0..splits.0.len() {
-            let frac = (splits.0.get(i).unwrap() as f64) / (split_sum as f64);
-            let transfer_amount_float = frac * amount as f64;
-            let transfer_amount = transfer_amount_float.floor() as u128;
+            let transfer_amount_u256: u256 = splits.0.get(i).unwrap().0 as u256 * amount / split_sum;
+            let transfer_amount = transfer_amount_u256 as u128;
+            // let frac = (splits.0.get(i).unwrap() as f64) / (split_sum as f64);
+            // let transfer_amount_float = frac * amount as f64;
+            // let transfer_amount = transfer_amount_float.floor() as u128;
             amounts.push(transfer_amount);
+        }
+        let unused: u128 = amount - amounts.iter().sum::<u128>();
+        assert_eq!(
+            amounts.len() as u64,
+            splits.0.len(),
+            "{}",
+            NUMB_OF_SPLITS_DOES_NOT_EQUAL_NUMB_AMOUNTS.to_owned()
+        );
+        if amounts.len() > 1 {
+            amounts[splits.0.len() as usize - 1] += unused;
         }
         amounts
     }
@@ -129,5 +145,55 @@ impl Contract {
         self.constructions
             .get(&id)
             .ok_or(panic_errors::CONSTRUCTION_NOT_FOUND.to_string())
+    }
+}
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    const INIT_ACCOUNT_BAL: u128 = 10_000;
+
+    use std::convert::TryFrom;
+
+    use crate::actions::ft_calls::FtTransferCallToMallocCall;
+    use crate::malloc_utils::GenericId;
+
+    use super::*;
+    use near_sdk::json_types::ValidAccountId;
+    use near_sdk::test_utils::{accounts, VMContextBuilder};
+    use near_sdk::testing_env;
+    use near_sdk::MockedBlockchain;
+
+    // mock the context for testing, notice "signer_account_id" that was accessed above from env::
+    fn get_context(predecessor_account_id: ValidAccountId) -> VMContextBuilder {
+        let mut builder = VMContextBuilder::new();
+        builder
+            .current_account_id(accounts(0))
+            .signer_account_id(predecessor_account_id.clone())
+            .predecessor_account_id(predecessor_account_id)
+            .account_balance(INIT_ACCOUNT_BAL);
+        builder
+    }
+
+    #[test]
+    fn test_get_split_amount_with_leftover() {
+        let mut context = get_context(accounts(0));
+        testing_env!(context.build());
+
+        let ret = Construction::get_split_amounts(
+            100,
+            VectorWrapper::from_vec(vec![10, 10, 10], "1".as_bytes()),
+        );
+        assert_eq!(ret, vec![33, 33, 34]);
+    }
+
+    #[test]
+    fn test_get_split_amount_even_numbers() {
+        let mut context = get_context(accounts(0));
+        testing_env!(context.build());
+
+        let ret = Construction::get_split_amounts(
+            1_000_000,
+            VectorWrapper::from_vec(vec![10, 40, 50], "1".as_bytes()),
+        );
+        assert_eq!(ret, vec![100_000, 400_000, 500_000]);
     }
 }

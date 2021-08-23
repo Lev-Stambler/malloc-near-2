@@ -52,4 +52,8 @@ pub mod panic_errors {
         "The number of endpoints specified does not match the number of splits";
     pub const NUMB_OF_SPLITTER_IDXS_DID_NOT_MATCH_SPLITTERS: &str =
         "The number of splitter indixes does not match the number of splitters";
+
+    // Assertion errors for code proving
+    pub const NUMB_OF_SPLITS_DOES_NOT_EQUAL_NUMB_AMOUNTS: &str =
+        "Unexpected: the number of splits does not equal the number of amounts";
 }

@@ -25,7 +25,7 @@ use crate::{
 pub type ActionId = GenericId;
 
 pub type NextActionsIndicesForAction = VectorWrapper<VectorWrapper<u64>>;
-pub type NextActionsSplitsForAction = VectorWrapper<VectorWrapper<u128>>;
+pub type NextActionsSplitsForAction = VectorWrapper<VectorWrapper<U128>>;
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
@@ -317,7 +317,7 @@ impl ActionCall {
         contract: &mut Contract,
         mut construction_call: ConstructionCall,
         next_action_indxs: VectorWrapper<u64>,
-        next_splits: VectorWrapper<u128>,
+        next_splits: VectorWrapper<U128>,
         amount: u128,
     ) -> ConstructionCall {
         let next_amounts = Construction::get_split_amounts(amount, next_splits);
