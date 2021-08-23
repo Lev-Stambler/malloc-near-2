@@ -11,6 +11,7 @@ crate-type = ["cdylib", "rlib"]
 near-contract-standards = "3.2.0"
 near-sdk = "3.1.0"
 malloc-call-core = { path = "../malloc-call-core" }
+uint = "0.9.1"
 
 [profile.release]
 codegen-units = 1

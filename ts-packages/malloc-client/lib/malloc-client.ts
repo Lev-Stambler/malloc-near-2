@@ -94,9 +94,9 @@ export interface IRunEphemeralConstruction {
   actions: Action<ActionTypesLibraryFacing>[];
   amount: string;
   initialActionIndices: number[];
-  initialSplits: number[];
+  initialSplits: BigNumberish[];
   nextActionsIndices: number[][][];
-  nextActionsSplits: number[][][];
+  nextActionsSplits: BigNumberish[][][];
   opts?: Partial<RunEphemeralOpts>;
 }
 

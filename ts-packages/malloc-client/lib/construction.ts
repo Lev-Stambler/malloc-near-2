@@ -135,9 +135,9 @@ export const runEphemeralConstruction = async (
   actions: Action<ActionTypesLibraryFacing>[],
   amount: BigNumberish,
   initial_action_indices: number[],
-  initial_splits: number[],
+  initial_splits: BigNumberish[],
   next_actions_indices: number[][][],
-  next_actions_splits: number[][][],
+  next_actions_splits: BigNumberish[][][],
   opts?: Partial<RunEphemeralOpts>
 ): Promise<string[]> => {
   const _opts: RunEphemeralOpts = {
@@ -215,9 +215,11 @@ export const runEphemeralConstruction = async (
               },
               amount: amount.toString(),
               initial_action_indices: initial_action_indices,
-              initial_splits: initial_splits,
+              initial_splits: initial_splits.map((i) => i.toString()),
               next_actions_indices,
-              next_actions_splits,
+              next_actions_splits: next_actions_splits.map((o) =>
+                o.map((o) => o.map((item) => item.toString()))
+              ),
             } as InitConstructionArgs,
             gas: MAX_GAS.divn(3).toString(),
             amount: "0", //TODO: storage deposit goes here ya heard

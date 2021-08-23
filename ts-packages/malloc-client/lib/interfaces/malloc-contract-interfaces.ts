@@ -7,9 +7,9 @@ export interface InitConstructionArgs {
   construction_id: ConstructionId;
   amount: string;
   initial_action_indices: number[];
-  initial_splits: number[];
+  initial_splits: string[];
   next_actions_indices: number[][][];
-  next_actions_splits: number[][][];
+  next_actions_splits: string[][][];
 }
 
 export interface RegisterConstructionArgs {

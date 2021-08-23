@@ -74,7 +74,7 @@ pub trait CoreFunctionality {
         construction_id: ConstructionId,
         amount: U128,
         initial_action_indices: Vec<u64>,
-        initial_splits: VectorWrapper<u128>,
+        initial_splits: VectorWrapper<U128>,
         next_actions_indices: NextActionsIndicesForConstruction,
         next_actions_splits: NextActionsSplitsForConstruction,
     );
@@ -118,7 +118,7 @@ impl CoreFunctionality for Contract {
         construction_id: ConstructionId,
         amount: U128,
         initial_action_indices: Vec<u64>,
-        initial_splits: VectorWrapper<u128>,
+        initial_splits: VectorWrapper<U128>,
         next_actions_indices: NextActionsIndicesForConstruction,
         next_actions_splits: NextActionsSplitsForConstruction,
     ) {
@@ -324,7 +324,7 @@ mod tests {
         };
         let amount = U128(100);
         let initial_action_indices = vec![0, 1];
-        let initial_splits: VectorWrapper<u128> = serde_json::from_str("[1, 2]").unwrap();
+        let initial_splits: VectorWrapper<U128> = serde_json::from_str("[\"1\", \"2\"]").unwrap();
         let next_actions_indices: NextActionsIndicesForConstruction =
             serde_json::from_str("[[[]], [[]]]").unwrap();
         let next_actions_splits: NextActionsSplitsForConstruction =

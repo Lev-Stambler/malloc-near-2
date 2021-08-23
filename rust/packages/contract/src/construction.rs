@@ -2,6 +2,7 @@ use crate::action::{
     ActionCall, ActionId, NextActionsIndicesForAction, NextActionsSplitsForAction,
 };
 use crate::malloc_utils::GenericId;
+use crate::malloc_utils::U256;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
@@ -54,14 +55,15 @@ impl Construction {
         let mut amounts = vec![];
 
         // TODO: to u256
-        let mut split_sum: u256 = 0;
+        let mut split_sum: U256 = U256::from(0);
         for i in 0..splits.0.len() {
-            split_sum += splits.0.get(i).unwrap().0 as u256;
+            split_sum += U256::from(splits.0.get(i).unwrap().0);
         }
 
         for i in 0..splits.0.len() {
-            let transfer_amount_u256: u256 = splits.0.get(i).unwrap().0 as u256 * amount / split_sum;
-            let transfer_amount = transfer_amount_u256 as u128;
+            let transfer_amount_u256: U256 =
+                U256::from(splits.0.get(i).unwrap().0) * U256::from(amount) / split_sum;
+            let transfer_amount = transfer_amount_u256.as_u128();
             // let frac = (splits.0.get(i).unwrap() as f64) / (split_sum as f64);
             // let transfer_amount_float = frac * amount as f64;
             // let transfer_amount = transfer_amount_float.floor() as u128;
@@ -90,7 +92,7 @@ impl ConstructionCall {
         construction_call_id: &ConstructionCallId,
         amount: u128,
         initial_action_indices: Vec<u64>,
-        initial_splits: VectorWrapper<u128>,
+        initial_splits: VectorWrapper<U128>,
         next_actions_indices: NextActionsIndicesForConstruction,
         next_actions_splits: NextActionsSplitsForConstruction,
     ) -> Result<ConstructionCall, PanicError> {
@@ -180,7 +182,7 @@ mod tests {
 
         let ret = Construction::get_split_amounts(
             100,
-            VectorWrapper::from_vec(vec![10, 10, 10], "1".as_bytes()),
+            VectorWrapper::from_vec(vec![U128(10), U128(10), U128(10)], "1".as_bytes()),
         );
         assert_eq!(ret, vec![33, 33, 34]);
     }
@@ -192,7 +194,7 @@ mod tests {
 
         let ret = Construction::get_split_amounts(
             1_000_000,
-            VectorWrapper::from_vec(vec![10, 40, 50], "1".as_bytes()),
+            VectorWrapper::from_vec(vec![U128(10), U128(40), U128(50)], "1".as_bytes()),
         );
         assert_eq!(ret, vec![100_000, 400_000, 500_000]);
     }
