@@ -69,7 +69,6 @@ export class _InternalConstruction {
 
     const nextSplits = outputsByToken.map((o) => o.splits);
 
-    console.log(mergedConstructions.initialIndices);
     // TODO: seperate function for like scanl accum
     let totalActions: number[] = scanlAccum(
       outputsByToken.map((o) => o.numberOfNextActionsOrConstructions || 0)
