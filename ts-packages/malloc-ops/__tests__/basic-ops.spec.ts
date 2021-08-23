@@ -71,39 +71,44 @@ describe("using the basic Action, Group, Construction, and Compile ops to create
       in: coolPassThrough({
         myCoolPassThroughToken: BindParameter("tokenIn"),
       }),
-      out: {
-        "wrap.testnet": [
-          {
-            element: ftTransfer(),
-            fraction: 9,
-          },
-          {
-            element: coolBlackWhole({
-              log_message: BindParameter("fromTheTop"),
-            }),
-            fraction: 1,
-          },
-        ],
-      },
+      out: [
+        {
+          token_id: "wrap.testnet",
+          next: [
+            {
+              element: ftTransfer(),
+              fraction: 9,
+            },
+            {
+              element: coolBlackWhole({
+                log_message: BindParameter("fromTheTop"),
+              }),
+              fraction: 1,
+            },
+          ],
+        },
+      ],
     });
 
     const construction = Construction({
       in: ftTransfer({ tokenIn: "wrap.testnet" }),
-      out: {
-        // TODO: ORDER IN HOW YOU DEFINE IT MATTERS HERE!!!!
-        parameterTokenId: [
-          {
-            element: constructionPassThroughSimp({ tokenIn: "wrap.testnet" }),
-            fraction: 1,
-          },
-          {
-            element: coolBlackWhole({
-              log_message: "Nishad is the mans",
-            }),
-            fraction: "fractionBlackwhole",
-          },
-        ],
-      },
+      out: [
+        {
+          token_id: BindParameter("parameterTokenId"),
+          next: [
+            {
+              element: constructionPassThroughSimp({ tokenIn: "wrap.testnet" }),
+              fraction: 1,
+            },
+            {
+              element: coolBlackWhole({
+                log_message: "Nishad is the mans",
+              }),
+              fraction: "fractionBlackwhole",
+            },
+          ],
+        },
+      ],
     });
     const toRun = construction({
       fractionBlackwhole: 10,
@@ -115,7 +120,7 @@ describe("using the basic Action, Group, Construction, and Compile ops to create
     const inst = await compile({
       initialConstructionOrActions: [{ element: toRun, fraction: 1 }],
     });
-    console.log(JSON.stringify(inst(amountWNearPerTest.toString())))
+    console.log(JSON.stringify(inst(amountWNearPerTest.toString())));
     const txs = await malloc.runEphemeralConstruction(
       inst(amountWNearPerTest.toString())
     );
