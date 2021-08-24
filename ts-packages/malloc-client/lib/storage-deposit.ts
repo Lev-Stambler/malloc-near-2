@@ -49,13 +49,15 @@ export const doStorageDeposit = async (
   ) {
     return {
       receiverId: contractAddr,
-      functionCalls: [
+      actions: [
         {
-          methodName: "storage_deposit",
-          amount: NEW_ACCOUNT_STORAGE_COST,
-          gas: MAX_GAS_STR,
-          args: {
-            account_id: accountId,
+          functionCall: {
+            methodName: "storage_deposit",
+            amount: NEW_ACCOUNT_STORAGE_COST,
+            gas: MAX_GAS_STR,
+            args: {
+              account_id: accountId,
+            },
           },
         },
       ],

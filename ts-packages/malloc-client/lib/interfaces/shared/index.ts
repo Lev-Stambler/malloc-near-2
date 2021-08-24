@@ -1,5 +1,7 @@
 import BN from "bn.js";
 import { Account, ConnectedWalletAccount, KeyPair } from "near-api-js";
+import { AccessKey } from "near-api-js/lib/transaction";
+import { PublicKey } from "near-api-js/lib/utils";
 
 /************* Near Helpers ***************/
 export type AccountId = string;
@@ -31,9 +33,14 @@ export type SpecialAccount =
   | SpecialAccountWithKeyPair;
 
 /************ Transactions *******************/
+
+export interface TxAction {
+  functionCall?: FunctionCallOptions;
+  functionCallAccessKey?: FunctionCallAccessKey;
+}
 export interface Transaction {
   receiverId: string;
-  functionCalls: FunctionCallOptions[];
+  actions: TxAction[];
 }
 
 export enum TransactionWithPromiseResultFlag {
@@ -83,6 +90,11 @@ export interface FunctionCallOptions extends ViewFunctionOpts {
   gas?: string;
   amount?: string;
 }
+
+export type FunctionCallAccessKey = {
+  accessKey: AccessKey;
+  publicKey: PublicKey;
+};
 
 /*********** Error handling *************/
 export interface MallocError {

@@ -2,11 +2,12 @@ import BN from "bn.js";
 import { MallocErrors } from "./errors";
 import {
   SpecialAccount,
-  Action,
+  TxAction,
   MallocCallMetadata,
   AccountId,
   ActionTypesLibraryFacing,
   ActionTypesContractFacing,
+  Action,
 } from "./interfaces";
 
 /**

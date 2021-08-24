@@ -10,7 +10,7 @@ import { MallocErrors } from "./errors";
 import {
   AccountId,
   SpecialAccountWithKeyPair,
-  Action,
+  TxAction,
   SpecialAccountConnectedWallet,
   SpecialAccountType,
   SpecialAccount,
@@ -27,6 +27,7 @@ import {
   ActionTypesLibraryFacing,
   WithdrawToArgs,
   TxHashesOrUndefined,
+  Action,
 } from "./interfaces";
 import {
   deleteConstruction,
@@ -163,17 +164,19 @@ export class MallocClient<
     let txs: Transaction[] = [];
     txs.push({
       receiverId: this.mallocAccountId,
-      functionCalls: [
+      actions: [
         {
-          methodName: "withdraw_to",
-          amount: "1",
-          args: {
-            account_id: this.account.accountId,
-            amount: amount,
-            token_id: tokenAccountId,
-            recipient: this.account.accountId,
-            transfer_type: TransferTypeTransfer(),
-          } as WithdrawToArgs,
+          functionCall: {
+            methodName: "withdraw_to",
+            amount: "1",
+            args: {
+              account_id: this.account.accountId,
+              amount: amount,
+              token_id: tokenAccountId,
+              recipient: this.account.accountId,
+              transfer_type: TransferTypeTransfer(),
+            } as WithdrawToArgs,
+          },
         },
       ],
     });
@@ -205,14 +208,16 @@ export class MallocClient<
     let txs: Transaction[] = [];
     txs.push({
       receiverId: tokenAccountId,
-      functionCalls: [
+      actions: [
         {
-          methodName: "ft_transfer_call",
-          amount: "1",
-          args: {
-            receiver_id: this.mallocAccountId,
-            amount: amount.toString(),
-            msg: "",
+          functionCall: {
+            methodName: "ft_transfer_call",
+            amount: "1",
+            args: {
+              receiver_id: this.mallocAccountId,
+              amount: amount.toString(),
+              msg: "",
+            },
           },
         },
       ],

@@ -4,7 +4,7 @@ import { actionLibraryFacingToContractFacing } from "./action";
 import {
   AccountId,
   BigNumberish,
-  Action,
+  TxAction,
   SpecialAccount,
   Transaction,
   MallocCallMetadata,
@@ -24,6 +24,7 @@ import {
   CallEphemeralError,
   ActionTypesLibraryFacing,
   ActionTypesContractFacing,
+  Action,
 } from "./interfaces";
 import {
   executeMultipleTx,
@@ -64,17 +65,19 @@ export const deleteConstruction = async <
   mallocAccountId: AccountId,
   constructionId: ConstructionId
 ): Promise<TxHashOrUndefined<SpecialAccountGeneric>> => {
-  const txs = [
+  const txs: Transaction[] = [
     {
       receiverId: mallocAccountId,
-      functionCalls: [
+      actions: [
         {
-          methodName: "delete_construction",
-          args: {
-            construction_id: constructionId,
+          functionCall: {
+            methodName: "delete_construction",
+            args: {
+              construction_id: constructionId,
+            },
+            gas: MAX_GAS_STR,
+            amount: "0", //TODO: storage deposit goes here ya heard
           },
-          gas: MAX_GAS_STR,
-          amount: "0", //TODO: storage deposit goes here ya heard
         },
       ],
     },
@@ -169,59 +172,65 @@ export const runEphemeralConstruction = async (
     //   callerAccount,
     //   actions[0]
     // );
-    const txs = [
+    const txs: Transaction[] = [
       {
         receiverId: mallocAccountId,
-        functionCalls: [
+        actions: [
           {
-            methodName: "register_actions",
-            args: {
-              action_names: actionNames,
-              actions: actionsContractFacing,
-            } as RegisterActionsArgs,
-            gas: MAX_GAS.toString(),
-            amount: "0", // TODO: storage
+            functionCall: {
+              methodName: "register_actions",
+              args: {
+                action_names: actionNames,
+                actions: actionsContractFacing,
+              } as RegisterActionsArgs,
+              gas: MAX_GAS.toString(),
+              amount: "0", // TODO: storage
+            },
           },
         ],
       },
       {
         receiverId: mallocAccountId,
-        functionCalls: [
+        actions: [
           {
-            methodName: "register_construction",
-            args: {
-              construction_name: constructionName,
-              construction,
-            } as RegisterConstructionArgs,
-            gas: MAX_GAS.toString(),
-            amount: "0", //TODO: storage deposit goes here ya heard
+            functionCall: {
+              methodName: "register_construction",
+              args: {
+                construction_name: constructionName,
+                construction,
+              } as RegisterConstructionArgs,
+              gas: MAX_GAS.toString(),
+              amount: "0", //TODO: storage deposit goes here ya heard
+            },
           },
         ],
       },
     ];
 
-    const initTx = [
+    const initTx: Transaction[] = [
       {
         receiverId: mallocAccountId,
-        functionCalls: [
+        actions: [
           {
-            methodName: "init_construction",
-            args: {
-              construction_call_id,
-              construction_id: {
-                name: constructionName,
-                owner: callerAccount.accountId,
-              },
-              amount: amount.toString(),
-              initial_action_indices: initial_action_indices,
-              initial_splits: initial_splits.map((i) => i.toString()),
-              next_actions_indices,
-              next_actions_splits: next_actions_splits.map((o) =>
-                o.map((o) => o.map((item) => item.toString()))
-              ),
-            } as InitConstructionArgs,
-            gas: MAX_GAS.divn(3).toString(),
-            amount: "0", //TODO: storage deposit goes here ya heard
+            functionCall: {
+              methodName: "init_construction",
+              args: {
+                construction_call_id,
+                construction_id: {
+                  name: constructionName,
+                  owner: callerAccount.accountId,
+                },
+                amount: amount.toString(),
+                initial_action_indices: initial_action_indices,
+                initial_splits: initial_splits.map((i) => i.toString()),
+                next_actions_indices,
+                next_actions_splits: next_actions_splits.map((o) =>
+                  o.map((o) => o.map((item) => item.toString()))
+                ),
+              } as InitConstructionArgs,
+              gas: MAX_GAS.divn(3).toString(),
+              amount: "0", //TODO: storage deposit goes here ya heard
+            },
           },
         ],
       },
@@ -268,14 +277,16 @@ export const runEphemeralConstruction = async (
         .map((_) => {
           return {
             receiverId: mallocAccountId,
-            functionCalls: [
+            actions: [
               {
-                methodName: "process_next_action_call",
-                args: {
-                  construction_call_id,
-                } as ProcessNextActionCallArgs,
-                gas: _opts.gas.toString(),
-                amount: "0", //TODO: consider adding back //attachedDeposit.toString(),
+                functionCall: {
+                  methodName: "process_next_action_call",
+                  args: {
+                    construction_call_id,
+                  } as ProcessNextActionCallArgs,
+                  gas: _opts.gas.toString(),
+                  amount: "0", //TODO: consider adding back //attachedDeposit.toString(),
+                },
               },
             ],
           };

@@ -3,14 +3,17 @@ import { baseDecode, serialize } from "borsh";
 import { sha256 } from "js-sha256";
 import * as nearAPI from "near-api-js";
 import {
-  Action,
+  Action as NearAction,
+  addKey,
   createTransaction as nearCreateTransaction,
+  functionCallAccessKey,
   signTransaction,
   Transaction as NearTransaction,
 } from "near-api-js/lib/transaction";
 import { KeyPair, PublicKey } from "near-api-js/lib/utils";
 import { functionCall, SCHEMA } from "near-api-js/lib/transaction";
 import {
+  TxAction,
   AccountId,
   Transaction,
   SpecialAccount,
@@ -49,7 +52,7 @@ const provider = new nearAPI.providers.JsonRpcProvider(
 export const createTransactionKP = async (
   account: SpecialAccountWithKeyPair,
   receiverId: AccountId,
-  actions: Action[],
+  actions: NearAction[],
   nonceOffset = 1
 ) => {
   const publicKey = account.keypair.getPublicKey();
@@ -75,7 +78,7 @@ export const createTransactionKP = async (
 export const createTransactionWalletAccount = async (
   account: ConnectedWalletAccount,
   receiverId: AccountId,
-  actions: Action[],
+  actions: NearAction[],
   nonceOffset = 1
 ): Promise<nearAPI.transactions.Transaction> => {
   console.log(account);
@@ -129,19 +132,14 @@ export const signAndSendKP = async (
       }),
     });
 
-    // encodes transaction to serialized Borsh (required for all transactions)
-    const signedSerializedTx = signedTransaction.encode();
     // sends transaction to NEAR blockchain via JSON RPC call and records the result
-    // TODO: may have to use promises and set timeout to stagger the txs
     return async () => {
-      const ret = await provider.sendJsonRpc("broadcast_tx_commit", [
-        Buffer.from(signedSerializedTx).toString("base64"),
-      ]);
-      return (ret as any).transaction.hash as string;
+      const ret = await provider.sendTransaction(signedTransaction);
+      return ret.transaction.hash;
     };
   });
 
-  const sleepMS = 100;
+  const sleepMS = 20;
   const txHashProms: Promise<string>[] = [];
   for (let i = 0; i < lazyTxCalls.length; i++) {
     await new Promise<void>((res, rej) => {
@@ -153,6 +151,23 @@ export const signAndSendKP = async (
   }
 
   return await Promise.all(txHashProms);
+};
+
+const actionToNearAction = (action: TxAction): NearAction => {
+  if (action.functionCall) {
+    return functionCall(
+      action.functionCall.methodName,
+      action.functionCall.args || {},
+      new BN(action.functionCall.gas || MAX_GAS),
+      new BN(action.functionCall.amount || 0)
+    );
+  } else if (action.functionCallAccessKey) {
+    return addKey(
+      PublicKey.from(action.functionCallAccessKey.publicKey),
+      action.functionCallAccessKey.accessKey
+    );
+  }
+  throw MallocErrors.EXPECTED_ACTION_PROPERTY();
 };
 
 // TODO: how can we have the tx hashes here... maybe something w/ callback url??
@@ -177,29 +192,9 @@ const signAndSendTxFunctionCallsWalletConnectNoDeposit = async (
   txs: NearTransaction[],
   account: SpecialAccountConnectedWallet
 ): Promise<string[]> => {
-  // class TmpAccount extends Account {
-  //   constructor(connection: Connection, accountId: string) {
-  //     super(connection, accountId);
-  //   }
-  //   public signAndSendTransactionWrap(opts: SignAndSendTransactionOptions) {
-  //     return super.signAndSendTransaction(opts);
-  //   }
-  // }
-  // const tmpAccount = new TmpAccount(account.connection, account.accountId);
-
-  // account.functionCall({
-
-  // })
   const signAndSendActionsInTx = async (
     tx: NearTransaction
   ): Promise<string[]> => {
-    // const contract = new Contract(account, tx.receiverId, {
-    //   viewMethods: [],
-    //   changeMethods: tx.actions.reduce(
-    //     (prev, action) => [...prev, action?.functionCall.methodName || ""],
-    //     [] as string[]
-    //   ),
-    // });
     return await Promise.all(
       tx.actions.map(async (action) => {
         if (!action.functionCall) {
@@ -216,8 +211,6 @@ const signAndSendTxFunctionCallsWalletConnectNoDeposit = async (
       })
     );
   };
-  // const txProms = txs.map(signAndSendActionsInTx);
-  // const txHashes: string[][] = await Promise.all(txProms);
   let txHashes = [] as string[];
   for (let i = 0; i < txs.length; i++) {
     txHashes.push(...(await signAndSendActionsInTx(txs[i])));
@@ -288,14 +281,7 @@ const _executeMultipleTx = async <
       return createTransaction(
         signerAccount as any,
         t.receiverId,
-        t.functionCalls.map((fc) =>
-          functionCall(
-            fc.methodName,
-            fc.args || {},
-            new BN(fc.gas || MAX_GAS),
-            new BN(fc.amount || 0)
-          )
-        ),
+        t.actions.map(actionToNearAction),
         i + 1
       );
     })
