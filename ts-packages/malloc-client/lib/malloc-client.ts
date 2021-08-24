@@ -19,13 +19,14 @@ import {
   Transaction,
   ConstructionCallId,
   ConstructionId,
-  TxHashOrVoid,
+  TxHashOrUndefined,
   ConstructionCall,
   BigNumberish,
   MallocCallMetadata,
   ExecuteMultipleTxOpts,
   ActionTypesLibraryFacing,
   WithdrawToArgs,
+  TxHashesOrUndefined,
 } from "./interfaces";
 import {
   deleteConstruction,
@@ -77,17 +78,35 @@ interface RunEphemeralOpts {
   depositTransactionHash: string;
 }
 
-interface MallocClientOpts {}
+interface MallocClientOpts {
+  executeTxsByDefault: boolean;
+}
 
-const mallocClientDefaultOpts: MallocClientOpts = {};
+const mallocClientDefaultOpts: MallocClientOpts = {
+  executeTxsByDefault: false,
+};
+
+interface OptsBase<
+  AccountType extends SpecialAccountConnectedWallet | SpecialAccountWithKeyPair
+> extends ExecuteMultipleTxOpts<AccountType> {
+  priorTransactions?: Transaction[];
+  executeTransactions?: boolean;
+}
+
+interface DefaultReturn<
+  AccountType extends SpecialAccountConnectedWallet | SpecialAccountWithKeyPair
+> {
+  txs: Transaction[];
+  hashes?: TxHashesOrUndefined<AccountType>;
+}
 
 /**
  * @param extraAmount - The extra amount in Near Lamports to give to each deposit
  * @param executeTransactions - Whether to execute the transactions or simply just return an array of transactions, defaults to true
  */
-interface RegisterAccountDepositsOpts {
+interface RegisterAccountDepositsOpts<T extends SpecialAccount>
+  extends OptsBase<T> {
   extraAmount?: BigNumberish;
-  executeTransactions?: boolean;
 }
 
 export interface IRunEphemeralConstruction {
@@ -139,8 +158,8 @@ export class MallocClient<
   public async withdraw(
     amount: string,
     tokenAccountId: string,
-    opts?: ExecuteMultipleTxOpts<AccountType>
-  ): Promise<TxHashOrVoid<AccountType>> {
+    opts?: OptsBase<AccountType>
+  ): Promise<DefaultReturn<AccountType>> {
     let txs: Transaction[] = [];
     txs.push({
       receiverId: this.mallocAccountId,
@@ -158,24 +177,31 @@ export class MallocClient<
         },
       ],
     });
-    const ret = await executeMultipleTx(this.account, txs, opts);
-    //@ts-ignore
-    if (!ret || !ret?.length) return;
+    let hashes: TxHashesOrUndefined<AccountType> | undefined = undefined;
+    if (opts?.executeTransactions || this.opts.executeTxsByDefault) {
+      hashes = await executeMultipleTx(
+        this.account,
+        [...(opts?.priorTransactions || []), ...txs],
+        opts
+      );
+    }
 
-    return (ret as string[])[0] as TxHashOrVoid<AccountType>;
+    return {
+      txs,
+      hashes,
+    };
   }
 
   public async addAccessKey() {
     // TODO: use this!!!
-    this.account.addKey
+    this.account.addKey;
   }
 
   public async deposit(
     amount: string,
     tokenAccountId: string,
-    registerAccountDepositTransactions?: Transaction[],
-    opts?: ExecuteMultipleTxOpts<AccountType>
-  ): Promise<TxHashOrVoid<AccountType>> {
+    opts?: OptsBase<AccountType>
+  ): Promise<DefaultReturn<AccountType>> {
     let txs: Transaction[] = [];
     txs.push({
       receiverId: tokenAccountId,
@@ -191,14 +217,23 @@ export class MallocClient<
         },
       ],
     });
-    if (registerAccountDepositTransactions) {
-      txs = [...registerAccountDepositTransactions, ...txs];
+    if (opts?.priorTransactions) {
+      txs = [...opts.priorTransactions, ...txs];
     }
-    const ret = await executeMultipleTx(this.account, txs, opts);
-    //@ts-ignore
-    if (!ret || !ret?.length) return;
+    let hashes;
+    if (opts?.executeTransactions || this.opts.executeTxsByDefault) {
+      hashes = await executeMultipleTx(this.account, txs, opts);
+    }
 
-    return (ret as string[])[0] as TxHashOrVoid<AccountType>;
+    if (!hashes || !hashes?.length)
+      return {
+        txs,
+      };
+
+    return {
+      txs,
+      hashes,
+    };
   }
 
   public getMallocCallMetadata(
@@ -226,9 +261,10 @@ export class MallocClient<
     );
   }
 
+  // TODO: implement delete construction
   public deleteConstruction(
     constructionID: ConstructionId
-  ): Promise<TxHashOrVoid<AccountType>> {
+  ): Promise<TxHashOrUndefined<AccountType>> {
     return deleteConstruction(
       this.account,
       this.mallocAccountId,
@@ -292,21 +328,27 @@ export class MallocClient<
   public async registerAccountDeposits(
     contracts: AccountId[],
     registerForAccounts: AccountId[],
-    opts?: RegisterAccountDepositsOpts
-  ): Promise<{ txs: Transaction[]; contractsToRegisterWith: AccountId[] }> {
+    opts?: RegisterAccountDepositsOpts<AccountType>
+  ): Promise<
+    { contractsToRegisterWith: AccountId[] } & DefaultReturn<AccountType>
+  > {
     const { txs, contractsToRegister } = await registerDepositsTxs(
       contracts,
       registerForAccounts,
       this.account,
       opts?.extraAmount
     );
-    const executeTransactions = opts?.executeTransactions ?? true
-    if (executeTransactions ) {
-      await executeMultipleTx(this.account, txs);
+    let hashes;
+    if (opts?.executeTransactions || this.opts.executeTxsByDefault) {
+      hashes = await executeMultipleTx(this.account, [
+        ...(opts?.priorTransactions || []),
+        ...txs,
+      ]);
     }
     return {
       txs,
       contractsToRegisterWith: contractsToRegister,
+      hashes,
     };
   }
 }

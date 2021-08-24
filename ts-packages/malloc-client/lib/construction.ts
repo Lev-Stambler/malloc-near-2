@@ -13,7 +13,7 @@ import {
   SpecialAccountWithKeyPair,
   TransactionWithPromiseResultFlag,
   ConstructionCallId,
-  TxHashOrVoid,
+  TxHashOrUndefined,
   RegisterConstructionArgs,
   RegisterActionsArgs,
   Construction,
@@ -27,6 +27,7 @@ import {
 } from "./interfaces";
 import {
   executeMultipleTx,
+  executeMultipleTxNoDeposit,
   MAX_GAS,
   MAX_GAS_STR,
   resolveTransactionsReducedWithPromises,
@@ -62,7 +63,7 @@ export const deleteConstruction = async <
   callerAccount: SpecialAccountGeneric,
   mallocAccountId: AccountId,
   constructionId: ConstructionId
-): Promise<TxHashOrVoid<SpecialAccountGeneric>> => {
+): Promise<TxHashOrUndefined<SpecialAccountGeneric>> => {
   const txs = [
     {
       receiverId: mallocAccountId,
@@ -79,9 +80,7 @@ export const deleteConstruction = async <
     },
   ];
 
-  const txRetsInit = await executeMultipleTx(callerAccount, txs, {
-    callingMallocAndNoDeposit: true,
-  });
+  const txRetsInit = await executeMultipleTxNoDeposit(callerAccount, txs, {});
 
   //@ts-ignore
   if (txRetsInit instanceof Array) return txRetsInit[0];
@@ -228,11 +227,10 @@ export const runEphemeralConstruction = async (
       },
     ];
 
-    const txRetsInit = await executeMultipleTx(
-      callerAccount,
-      [...txs, ...initTx],
-      { callingMallocAndNoDeposit: true }
-    );
+    const txRetsInit = await executeMultipleTxNoDeposit(callerAccount, [
+      ...txs,
+      ...initTx,
+    ]);
 
     // Throws if unsuccessful
     await checkTransactionSuccessful(txRetsInit || [], callerAccount.accountId);
@@ -283,9 +281,7 @@ export const runEphemeralConstruction = async (
           };
         });
 
-      const txRets = await executeMultipleTx(callerAccount, txs, {
-        callingMallocAndNoDeposit: true,
-      });
+      const txRets = await executeMultipleTxNoDeposit(callerAccount, txs, {});
 
       // Throws if unsuccessful
       await checkTransactionSuccessful(txRets || [], callerAccount.accountId);

@@ -22,7 +22,10 @@ describe("malloc-client's ft capabilities", () => {
     ) as MallocClient.SpecialAccountWithKeyPair;
     malloc = new MallocClient.MallocClient(
       wrappedAccount,
-      TestingUtils.getMallocContract()
+      TestingUtils.getMallocContract(),
+      {
+        executeTxsByDefault: true,
+      }
     );
   });
 
@@ -31,14 +34,11 @@ describe("malloc-client's ft capabilities", () => {
   it("should register an accountId with the given fungible tokens with one tx call, then ensure that the tokens are not reregistered", async () => {
     const bob = await TestingUtils.newRandAccount(wrappedAccount);
     const alice = await TestingUtils.newRandAccount(wrappedAccount);
-    const { txs, contractsToRegisterWith } = await malloc.registerAccountDeposits(
-      TOKEN_ACCOUNT_IDS,
-      [bob.accountId],
-      {
+    const { txs, contractsToRegisterWith } =
+      await malloc.registerAccountDeposits(TOKEN_ACCOUNT_IDS, [bob.accountId], {
         executeTransactions: true,
-      }
-    );
-    const tokensRegistered = contractsToRegisterWith
+      });
+    const tokensRegistered = contractsToRegisterWith;
     console.log(tokensRegistered);
     expect(tokensRegistered.sort()).toEqual(TOKEN_ACCOUNT_IDS.sort());
     for (let i = 0; i < tokensRegistered.length; i++) {

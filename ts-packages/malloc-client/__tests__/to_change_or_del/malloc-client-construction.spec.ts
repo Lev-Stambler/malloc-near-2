@@ -18,7 +18,7 @@ const TOKEN_ACCOUNT_IDS = [
 let masterAccount: Account;
 let wrappedTesterAccount: MallocClient.SpecialAccountWithKeyPair;
 
-describe("malloc-client's ft capabilities", () => {
+xdescribe("malloc-client's ft capabilities", () => {
   jest.setTimeout(60 * 1000);
   beforeAll(async () => {
     masterAccount = await TestingUtils.getDefaultTesterAccountNear();
@@ -26,11 +26,12 @@ describe("malloc-client's ft capabilities", () => {
     wrappedTesterAccount = testerAccount;
     malloc = new MallocClient.MallocClient(
       wrappedTesterAccount,
-      TestingUtils.getMallocContract()
+      TestingUtils.getMallocContract(),
+      { executeTxsByDefault: true }
     );
   });
 
-    it("should make calls to a multi level splitter with pass throughs and black whole at then end", async () => {
+  it("should make calls to a multi level splitter with pass throughs and black whole at then end", async () => {
     const MALLOC_CALL_BLACKWHOLE_CONTRACT_ID =
       TestingUtils.getMallocCallBlackwholeContract();
     const MALLOC_CALL_PASSTHROUGH_CONTRACT_ID =
@@ -52,7 +53,7 @@ describe("malloc-client's ft capabilities", () => {
         malloc.mallocAccountId,
         MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
         MALLOC_CALL_PASSTHROUGH_CONTRACT_ID,
-      ],
+      ]
     );
 
     const myBal = await TestingUtils.ftBalOf(
@@ -74,7 +75,7 @@ describe("malloc-client's ft capabilities", () => {
             {
               MallocCall: {
                 contract_id: MALLOC_CALL_PASSTHROUGH_CONTRACT_ID,
-                
+
                 json_args: JSON.stringify({
                   log_message: "hello for alice level 1",
                 }),
@@ -85,7 +86,7 @@ describe("malloc-client's ft capabilities", () => {
             {
               MallocCall: {
                 contract_id: MALLOC_CALL_PASSTHROUGH_CONTRACT_ID,
-                
+
                 json_args: JSON.stringify({
                   log_message: "hello for karen level 1",
                 }),
@@ -113,7 +114,7 @@ describe("malloc-client's ft capabilities", () => {
             {
               MallocCall: {
                 contract_id: MALLOC_CALL_PASSTHROUGH_CONTRACT_ID,
-                
+
                 json_args: JSON.stringify({
                   log_message: "hello for alice level 1",
                 }),
@@ -125,7 +126,7 @@ describe("malloc-client's ft capabilities", () => {
               MallocCall: {
                 contract_id: MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
                 check_callback: false,
-                
+
                 json_args: JSON.stringify({
                   log_message: "hello for karen level 1",
                 }),
@@ -143,7 +144,7 @@ describe("malloc-client's ft capabilities", () => {
               MallocCall: {
                 check_callback: false,
                 contract_id: MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
-                
+
                 json_args: JSON.stringify({
                   log_message: "hello for alice level 1",
                 }),
@@ -211,7 +212,7 @@ describe("malloc-client's ft capabilities", () => {
               MallocCall: {
                 contract_id: MALLOC_CALL_BLACKWHOLE_CONTRACT_ID,
                 check_callback: false,
-                
+
                 json_args: JSON.stringify({
                   log_message: "hello for alice",
                 }),
@@ -303,7 +304,7 @@ describe("malloc-client's ft capabilities", () => {
             {
               MallocCall: {
                 contract_id: MALLOC_CALL_SEND_CONTRACT_ID,
-                
+
                 json_args: JSON.stringify({
                   recipient: alice.accountId,
                 }),

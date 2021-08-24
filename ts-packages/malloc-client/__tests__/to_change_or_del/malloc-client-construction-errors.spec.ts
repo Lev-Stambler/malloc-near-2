@@ -20,7 +20,7 @@ const TOKEN_ACCOUNT_IDS = [
 let masterAccount: Account;
 let wrappedTesterAccount: MallocClient.SpecialAccountWithKeyPair;
 
-describe("malloc-client's error handling", () => {
+xdescribe("malloc-client's error handling", () => {
   jest.setTimeout(60 * 1000);
   beforeAll(async () => {
     masterAccount = await TestingUtils.getDefaultTesterAccountNear();

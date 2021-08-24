@@ -26,7 +26,10 @@ describe("malloc-client's ft capabilities", () => {
     wrappedTesterAccount = testerAccount;
     malloc = new MallocClient.MallocClient(
       wrappedTesterAccount,
-      TestingUtils.getMallocContract()
+      TestingUtils.getMallocContract(),
+      {
+        executeTxsByDefault: true,
+      }
     );
   });
 
@@ -64,7 +67,7 @@ describe("malloc-client's ft capabilities", () => {
       wrappedTesterAccount
     );
 
-    const depositTransactionHash = await malloc.deposit(
+    const { hashes: depositTransactionHash }= await malloc.deposit(
       amount.toString(),
       TestingUtils.WRAP_TESTNET_CONTRACT
     );
@@ -120,7 +123,7 @@ describe("malloc-client's ft capabilities", () => {
       initialSplits: [1, 2, 3],
       nextActionsIndices: [[[1]], [[2]], [[3]], []],
       nextActionsSplits: [[[1]], [[1]], [[1]], []],
-      opts: { gas: MAX_GAS, depositTransactionHash },
+      opts: { gas: MAX_GAS,  depositTransactionHash: depositTransactionHash[0] },
     });
     const ret = await malloc.resolveTransactions(txRess);
     expect(ret.flag).toBe(TransactionWithPromiseResultFlag.SUCCESS);
@@ -164,7 +167,7 @@ describe("malloc-client's ft capabilities", () => {
       wrappedTesterAccount
     );
 
-    const depositTransactionHash = await malloc.deposit(
+    const { hashes: depositTransactionHash }= await malloc.deposit(
       amount.toString(),
       TestingUtils.WRAP_TESTNET_CONTRACT
     );
@@ -198,7 +201,7 @@ describe("malloc-client's ft capabilities", () => {
       initialSplits: [1, 1],
       nextActionsIndices: [[], []],
       nextActionsSplits: [[], []],
-      opts: { gas: MAX_GAS, depositTransactionHash },
+      opts: { gas: MAX_GAS, depositTransactionHash: depositTransactionHash[0] },
     });
     const ret = await malloc.resolveTransactions(txRess);
     expect(ret.flag).toBe(TransactionWithPromiseResultFlag.SUCCESS);

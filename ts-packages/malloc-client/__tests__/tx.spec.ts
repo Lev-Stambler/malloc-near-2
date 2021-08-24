@@ -1,10 +1,15 @@
 import { utils } from "near-api-js";
 import * as TestingUtils from "../../testing-utils/lib/testing-utils";
-import { SpecialAccount, SpecialAccountType } from "../lib/interfaces";
-import { wrapAccountKeyPair } from "../lib/malloc-client";
-import { executeMultipleTx } from "../lib/tx";
+import {
+  SpecialAccount,
+  SpecialAccountType,
+  SpecialAccountWithKeyPair,
+} from "../lib/interfaces";
+import { MallocClient, wrapAccountKeyPair } from "../lib/malloc-client";
+import { executeMultipleTx, executeMultipleTxNoDeposit } from "../lib/tx";
 
 const TOKEN_ACCOUNT_IDS = [TestingUtils.WRAP_TESTNET_CONTRACT];
+let malloc: MallocClient<SpecialAccountWithKeyPair>;
 
 describe("test transaction utils", () => {
   jest.setTimeout(30 * 1000);
@@ -15,6 +20,13 @@ describe("test transaction utils", () => {
     wrappedAccount = wrapAccountKeyPair(
       account,
       TestingUtils.getDefaultTesterKeypair()
+    );
+    malloc = new MallocClient(
+      wrappedAccount,
+      TestingUtils.getMallocContract(),
+      {
+        executeTxsByDefault: true,
+      }
     );
   });
 
@@ -41,17 +53,17 @@ describe("test transaction utils", () => {
         account_id: alice.accountId,
       }
     );
-    expect(storageBal.total).toEqual(NEW_ACCOUNT_STORAGE_COST)
+    expect(storageBal.total).toEqual(NEW_ACCOUNT_STORAGE_COST);
   });
 
-  xit("should register an accountId with the given fungible tokens with one tx call, then ensure that the tokens are not reregistered", async () => {
+  it("should register an accountId with the given fungible tokens with one tx call, then ensure that the tokens are not reregistered", async () => {
     const bob = await TestingUtils.newRandAccount(wrappedAccount);
     const alice = await TestingUtils.newRandAccount(wrappedAccount);
-    const tokensRegistered = await malloc.registerAccountDeposits(
-      TOKEN_ACCOUNT_IDS,
-      [bob.accountId]
-    );
-    expect(tokensRegistered).toBe(TOKEN_ACCOUNT_IDS);
+    const { contractsToRegisterWith: tokensRegistered } =
+      await malloc.registerAccountDeposits(TOKEN_ACCOUNT_IDS, [bob.accountId], {
+        executeTransactions: true,
+      });
+    expect(tokensRegistered).toEqual(TOKEN_ACCOUNT_IDS);
     for (let i = 0; i < tokensRegistered.length; i++) {
       expect(
         await TestingUtils.isFtRegistered(
@@ -61,11 +73,11 @@ describe("test transaction utils", () => {
         )
       ).toBeTruthy();
     }
-    const newTokensRegistered = await malloc.registerAccountDeposits(
-      TOKEN_ACCOUNT_IDS,
-      [bob.accountId]
-    );
-    expect(newTokensRegistered).toBe([]);
+    const { contractsToRegisterWith: newTokensRegistered } =
+      await malloc.registerAccountDeposits(TOKEN_ACCOUNT_IDS, [bob.accountId], {
+        executeTransactions: true,
+      });
+    expect(newTokensRegistered).toEqual([]);
   });
 
   afterAll(async () => {

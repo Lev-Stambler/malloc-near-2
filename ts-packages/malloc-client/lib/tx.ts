@@ -20,6 +20,7 @@ import {
   TransactionWithPromiseResult,
   TransactionWithPromiseResultFlag,
   ExecuteMultipleTxOpts,
+  TxHashesOrUndefined,
 } from "./interfaces";
 import {
   Account,
@@ -209,7 +210,7 @@ const signAndSendTxFunctionCallsWalletConnectNoDeposit = async (
           methodName: action.functionCall.methodName,
           args: action.functionCall.args,
           gas: action.functionCall.gas,
-          attachedDeposit: action.functionCall.deposit
+          attachedDeposit: action.functionCall.deposit,
         });
         return ret.transaction.hash;
       })
@@ -224,24 +225,64 @@ const signAndSendTxFunctionCallsWalletConnectNoDeposit = async (
   return txHashes;
 };
 
-// TODO: have signerAccount be some idiomatic thingy where ConnectedWalletAccount is wrapped in interface
+export const executeMultipleTxNoDeposit = async <
+  T extends SpecialAccountConnectedWallet | SpecialAccountWithKeyPair
+>(
+  signerAccount: T,
+  transactions: Transaction[],
+  opts?: ExecuteMultipleTxOpts<T>
+): Promise<string[]> => {
+  const signAndSendTxsMethod =
+    signerAccount.type === SpecialAccountType.KeyPair
+      ? signAndSendKP
+      : signAndSendTxFunctionCallsWalletConnectNoDeposit;
+  return (await _executeMultipleTx<T>(
+    signerAccount,
+    transactions,
+    //@ts-ignore
+    signAndSendTxsMethod,
+    opts
+  )) as string[];
+};
+
 export const executeMultipleTx = async <
   T extends SpecialAccountConnectedWallet | SpecialAccountWithKeyPair
 >(
   signerAccount: T,
   transactions: Transaction[],
   opts?: ExecuteMultipleTxOpts<T>
-): Promise<T extends SpecialAccountConnectedWallet ? void : string[]> => {
+): Promise<TxHashesOrUndefined<T>> => {
+  const signAndSendTxsMethod =
+    signerAccount.type === SpecialAccountType.KeyPair
+      ? signAndSendKP
+      : signAndSendTxsWalletConnect;
+  return (await _executeMultipleTx<T>(
+    signerAccount,
+    transactions,
+    //@ts-ignore
+    signAndSendTxsMethod,
+    opts
+  )) as TxHashesOrUndefined<T>;
+};
+
+// TODO: have signerAccount be some idiomatic thingy where ConnectedWalletAccount is wrapped in interface
+const _executeMultipleTx = async <
+  T extends SpecialAccountConnectedWallet | SpecialAccountWithKeyPair
+>(
+  signerAccount: T,
+  transactions: Transaction[],
+  signAndSendTxsMethod: (
+    txs: NearTransaction[],
+    account: SpecialAccount,
+    callbackUrl?: string
+  ) => Promise<TxHashesOrUndefined<T> | string[]>,
+  opts?: ExecuteMultipleTxOpts<T>
+): Promise<TxHashesOrUndefined<T> | string[]> => {
   const createTransaction =
     signerAccount.type === SpecialAccountType.KeyPair
       ? createTransactionKP
       : createTransactionWalletAccount;
-  const signAndSendTxsMethod =
-    signerAccount.type === SpecialAccountType.KeyPair
-      ? signAndSendKP
-      : opts?.callingMallocAndNoDeposit
-      ? signAndSendTxFunctionCallsWalletConnectNoDeposit
-      : signAndSendTxsWalletConnect;
+
   const nearTransactions = await Promise.all(
     transactions.map((t, i) => {
       return createTransaction(
@@ -263,7 +304,7 @@ export const executeMultipleTx = async <
     nearTransactions,
     signerAccount as any,
     opts?.callbackUrl || ""
-  )) as T extends SpecialAccountConnectedWallet ? void : string[];
+  )) as TxHashesOrUndefined<T>;
 };
 
 export const resolveTransactionsWithPromise = async (

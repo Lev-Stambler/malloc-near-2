@@ -32,7 +32,10 @@ describe("FtTransferCallToMallocCall and WithdrawFromMallocCall", () => {
     wrappedTesterAccount = masterAccount;
     malloc = new MallocClient.MallocClient(
       wrappedTesterAccount,
-      TestingUtils.getMallocContract()
+      TestingUtils.getMallocContract(),
+      {
+        executeTxsByDefault: true,
+      }
     );
     await TestingUtils.setupWNearAccount(
       TestingUtils.WRAP_TESTNET_CONTRACT,

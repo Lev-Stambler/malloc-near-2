@@ -47,16 +47,20 @@ export interface TransactionWithPromiseResult {
   message?: string;
 }
 
-export type TxHashOrVoid<SpecialAccountTypeGeneric> =
+export type TxHashesOrUndefined<SpecialAccountTypeGeneric> =
   SpecialAccountTypeGeneric extends SpecialAccountConnectedWallet
-    ? void
+    ? undefined
+    : string[];
+
+export type TxHashOrUndefined<SpecialAccountTypeGeneric> =
+  SpecialAccountTypeGeneric extends SpecialAccountConnectedWallet
+    ? undefined
     : string;
 
 export interface ExecuteMultipleTxOpts<
   T extends SpecialAccountConnectedWallet | SpecialAccountWithKeyPair
 > {
   callbackUrl?: T extends SpecialAccountConnectedWallet ? string : never;
-  callingMallocAndNoDeposit?: boolean;
 }
 
 /********** ID interfaces *************/
