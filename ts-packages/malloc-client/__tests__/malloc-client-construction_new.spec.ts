@@ -123,7 +123,7 @@ describe("malloc-client's ft capabilities", () => {
       initialSplits: [1, 2, 3],
       nextActionsIndices: [[[1]], [[2]], [[3]], []],
       nextActionsSplits: [[[1]], [[1]], [[1]], []],
-      opts: { gas: MAX_GAS,  depositTransactionHash: depositTransactionHash[0] },
+      opts: { gas: MAX_GAS,  depositTransactionHashes: depositTransactionHash },
     });
     const ret = await malloc.resolveTransactions(txRess);
     expect(ret.flag).toBe(TransactionWithPromiseResultFlag.SUCCESS);
@@ -136,7 +136,7 @@ describe("malloc-client's ft capabilities", () => {
     TestingUtils.checkBalDifferences(myBal, newmyBal, -1 * amount, expect);
   });
 
-  it.only("should make a couple black whole calls and make sure that the most basic splitter succeeds", async () => {
+  it("should make a couple black whole calls and make sure that the most basic splitter succeeds", async () => {
     const MALLOC_CALL_BLACKWHOLE_CONTRACT_ID =
       TestingUtils.getMallocCallBlackwholeContract();
 
@@ -201,7 +201,7 @@ describe("malloc-client's ft capabilities", () => {
       initialSplits: [1, 1],
       nextActionsIndices: [[], []],
       nextActionsSplits: [[], []],
-      opts: { gas: MAX_GAS, depositTransactionHash: depositTransactionHash[0] },
+      opts: { gas: MAX_GAS, depositTransactionHashes: depositTransactionHash },
     });
     const ret = await malloc.resolveTransactions(txRess);
     expect(ret.flag).toBe(TransactionWithPromiseResultFlag.SUCCESS);

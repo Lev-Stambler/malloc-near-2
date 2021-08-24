@@ -38,10 +38,14 @@ describe("ref-swap call", () => {
   beforeAll(async () => {
     masterAccount = await TestingUtils.getDefaultTesterAccountNear();
     // const testerAccount = await TestingUtils.newRandAccount(masterAccount);
+    //@ts-ignore
     wrappedTesterAccount = masterAccount;
     malloc = new MallocClient.MallocClient(
       wrappedTesterAccount,
-      TestingUtils.getMallocContract()
+      TestingUtils.getMallocContract(),
+      {
+        executeTxsByDefault: true,
+      }
     );
   });
 
@@ -82,7 +86,7 @@ describe("ref-swap call", () => {
       wrappedTesterAccount
     );
 
-    const depositTransactionHash = await malloc.deposit(
+    const { hashes: depositTransactionHash } = await malloc.deposit(
       amount.toString(),
       TestingUtils.WRAP_TESTNET_CONTRACT
     );
@@ -167,7 +171,7 @@ describe("ref-swap call", () => {
       initialSplits: [1],
       nextActionsIndices: [[[1, 2]], [[]], [[]]],
       nextActionsSplits: [[[1, 1]], [[]], [[]]],
-      opts: { gas: MAX_GAS, depositTransactionHash },
+      opts: { gas: MAX_GAS, depositTransactionHashes: depositTransactionHash },
     });
     const ret = await malloc.resolveTransactions(txRess);
     expect(ret.flag).toBe(TransactionWithPromiseResultFlag.SUCCESS);

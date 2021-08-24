@@ -75,7 +75,7 @@ export const wrapAccountKeyPair = (
 
 interface RunEphemeralOpts {
   gas: BigNumberish;
-  depositTransactionHash: string;
+  depositTransactionHashes: string[];
 }
 
 interface MallocClientOpts {
@@ -295,9 +295,9 @@ export class MallocClient<
     opts,
   }: IRunEphemeralConstruction): Promise<string[]> {
     // Wait for the deposit transactions to go through
-    if (opts?.depositTransactionHash) {
+    if (opts?.depositTransactionHashes) {
       const depositResult = await resolveTransactionsWithPromise(
-        [opts.depositTransactionHash],
+        [...opts.depositTransactionHashes],
         this.account.accountId
       );
       if (depositResult[0].flag !== TransactionWithPromiseResultFlag.SUCCESS) {
