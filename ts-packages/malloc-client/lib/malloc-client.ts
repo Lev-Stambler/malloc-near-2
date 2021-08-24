@@ -4,6 +4,7 @@ import {
   Contract,
   KeyPair,
   Near,
+  utils,
   WalletConnection,
 } from "near-api-js";
 import { MallocErrors } from "./errors";
@@ -43,6 +44,12 @@ import {
 import { getTokenBalance, TransferTypeTransfer } from "./ft-token";
 import { registerDepositsTxs } from "./storage-deposit";
 import { getMallocCallMetadata } from "./action";
+import {
+  addAccessKeyForFunctionCalls,
+  loadKeyPair,
+  storeKeyPair,
+} from "./access-key";
+import BN from "bn.js";
 
 export * from "./interfaces";
 
@@ -94,6 +101,12 @@ interface OptsBase<
   executeTransactions?: boolean;
 }
 
+interface AddAccessKeyOpts<
+  AccountType extends SpecialAccountConnectedWallet | SpecialAccountWithKeyPair
+> extends OptsBase<AccountType> {
+  allowance?: BigNumberish;
+}
+
 interface DefaultReturn<
   AccountType extends SpecialAccountConnectedWallet | SpecialAccountWithKeyPair
 > {
@@ -133,7 +146,6 @@ export class MallocClient<
   private readonly account: AccountType;
   public readonly mallocAccountId: AccountId;
   private readonly opts: MallocClientOpts;
-  // private readonly contract: Contract;
 
   constructor(
     account: AccountType,
@@ -195,9 +207,37 @@ export class MallocClient<
     };
   }
 
-  public async addAccessKey() {
-    // TODO: use this!!!
-    this.account.addKey;
+  public async addAccessKey(opts?: AddAccessKeyOpts<AccountType>) {
+    if (this.account.type !== SpecialAccountType.WebConnected) {
+      throw MallocErrors.ONLY_WEB_WALLET_SUPPORTED(
+        "Adding an access key for malloc"
+      );
+    }
+    const { tx, kp } = await addAccessKeyForFunctionCalls(
+      this.account,
+      this.mallocAccountId,
+      [
+        "register_actions",
+        "register_construction",
+        "init_construction",
+        "process_next_action_call",
+        "delete_construction",
+      ],
+      new BN(
+        // this is a couple of hundred calls at max gas for the default
+        // TODO: document calculation
+        opts?.allowance || (utils.format.parseNearAmount("0.02") as string)
+      )
+    );
+    storeKeyPair(kp);
+    let hashes;
+    if (opts?.executeTransactions || this.opts.executeTxsByDefault) {
+      hashes = await executeMultipleTx(this.account, [tx]);
+    }
+    return {
+      txs: [tx],
+      hashes,
+    };
   }
 
   public async deposit(
@@ -239,6 +279,13 @@ export class MallocClient<
       txs,
       hashes,
     };
+  }
+
+  public executeMultipleTransaction(
+    txs: Transaction[],
+    opts?: ExecuteMultipleTxOpts<AccountType>
+  ): Promise<TxHashesOrUndefined<AccountType>> {
+    return executeMultipleTx(this.account, txs, opts);
   }
 
   public getMallocCallMetadata(
@@ -299,6 +346,16 @@ export class MallocClient<
     nextActionsSplits: next_actions_splits,
     opts,
   }: IRunEphemeralConstruction): Promise<string[]> {
+    let kp =
+      this.account.type === SpecialAccountType.KeyPair
+        ? (this.account as SpecialAccountWithKeyPair).keypair
+        : loadKeyPair();
+    if (!kp) {
+      throw MallocErrors.EXPECTED_A_MALLOC_ACCESS_KEY(
+        "Running an ephemeral construction"
+      );
+    }
+
     // Wait for the deposit transactions to go through
     if (opts?.depositTransactionHashes) {
       const depositResult = await resolveTransactionsWithPromise(
@@ -319,6 +376,7 @@ export class MallocClient<
       initial_splits,
       next_actions_indices,
       next_actions_splits,
+      kp,
       opts
     );
     // return txRets;

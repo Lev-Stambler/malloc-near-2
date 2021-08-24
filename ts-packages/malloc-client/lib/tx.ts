@@ -6,6 +6,7 @@ import {
   Action as NearAction,
   addKey,
   createTransaction as nearCreateTransaction,
+  deleteKey,
   functionCallAccessKey,
   signTransaction,
   Transaction as NearTransaction,
@@ -81,12 +82,10 @@ export const createTransactionWalletAccount = async (
   actions: NearAction[],
   nonceOffset = 1
 ): Promise<nearAPI.transactions.Transaction> => {
-  console.log(account);
   const localKey = await account.connection.signer.getPublicKey(
     account.accountId,
     account.connection.networkId
   );
-  console.log(account);
   let accessKey = await (
     account as ConnectedWalletAccount
   ).accessKeyForTransaction(receiverId, actions, localKey);
@@ -114,16 +113,17 @@ export const createTransactionWalletAccount = async (
   );
 };
 
-export const signAndSendKP = async (
+const signAndSendKPSpecified = async (
   txs: nearAPI.transactions.Transaction[],
-  account: SpecialAccountWithKeyPair
-): Promise<string[]> => {
+  account: SpecialAccount,
+  kp: KeyPair
+) => {
   const lazyTxCalls = txs.map((tx) => {
-    tx.publicKey = new PublicKey(account.keypair.getPublicKey());
+    tx.publicKey = new PublicKey(kp.getPublicKey());
     const serializedTx = tx.encode();
     const serializedTxHash = new Uint8Array(sha256.array(serializedTx));
 
-    const signature = account.keypair.sign(serializedTxHash);
+    const signature = kp.sign(serializedTxHash);
     const signedTransaction = new nearAPI.transactions.SignedTransaction({
       transaction: tx,
       signature: new nearAPI.transactions.Signature({
@@ -153,6 +153,13 @@ export const signAndSendKP = async (
   return await Promise.all(txHashProms);
 };
 
+export const signAndSendKP = async (
+  txs: nearAPI.transactions.Transaction[],
+  account: SpecialAccountWithKeyPair
+): Promise<string[]> => {
+  return signAndSendKPSpecified(txs, account, account.keypair);
+};
+
 const actionToNearAction = (action: TxAction): NearAction => {
   if (action.functionCall) {
     return functionCall(
@@ -162,12 +169,19 @@ const actionToNearAction = (action: TxAction): NearAction => {
       new BN(action.functionCall.amount || 0)
     );
   } else if (action.functionCallAccessKey) {
+    const accessKey = functionCallAccessKey(
+      action.functionCallAccessKey.accessKey.receiverId,
+      action.functionCallAccessKey.accessKey.methodNames,
+      // new BN(action.functionCallAccessKey.accessKey.allowance)
+    );
     return addKey(
       PublicKey.from(action.functionCallAccessKey.publicKey),
-      action.functionCallAccessKey.accessKey
+      accessKey
     );
+  } else if (action.deleteKey) {
+    return deleteKey(action.deleteKey.publicKey);
   }
-  throw MallocErrors.EXPECTED_ACTION_PROPERTY();
+  throw MallocErrors.EXPECTED_TX_ACTION_PROPERTY();
 };
 
 // TODO: how can we have the tx hashes here... maybe something w/ callback url??
@@ -188,47 +202,65 @@ const signAndSendTxsWalletConnect = async (
  * This is useful for sending transactions without a popup
  */
 // TODO: this is really slow and should be parallelized somehow, maybe either reaching out to near team or having malloc add a key pair
-const signAndSendTxFunctionCallsWalletConnectNoDeposit = async (
-  txs: NearTransaction[],
-  account: SpecialAccountConnectedWallet
-): Promise<string[]> => {
-  const signAndSendActionsInTx = async (
-    tx: NearTransaction
-  ): Promise<string[]> => {
-    return await Promise.all(
-      tx.actions.map(async (action) => {
-        if (!action.functionCall) {
-          throw "Only function calls are allowed when signing and sending a tx to malloc";
-        }
-        const ret = await account.functionCall({
-          contractId: tx.receiverId,
-          methodName: action.functionCall.methodName,
-          args: action.functionCall.args,
-          gas: action.functionCall.gas,
-          attachedDeposit: action.functionCall.deposit,
-        });
-        return ret.transaction.hash;
-      })
-    );
-  };
-  let txHashes = [] as string[];
-  for (let i = 0; i < txs.length; i++) {
-    txHashes.push(...(await signAndSendActionsInTx(txs[i])));
-  }
-  return txHashes;
-};
+// const signAndSendTxFunctionCallsWalletConnectNoDeposit = async (
+//   txs: NearTransaction[],
+//   account: SpecialAccountConnectedWallet,
+// ): Promise<string[]> => {
+//   const signAndSendActionsInTx = async (
+//     tx: NearTransaction
+//   ): Promise<string[]> => {
+//     return await Promise.all(
+//       tx.actions.map(async (action) => {
+//         if (!action.functionCall) {
+//           throw "Only function calls are allowed when signing and sending a tx to malloc";
+//         }
+//         const ret = await account.functionCall({
+//           contractId: tx.receiverId,
+//           methodName: action.functionCall.methodName,
+//           args: action.functionCall.args,
+//           gas: action.functionCall.gas,
+//           attachedDeposit: action.functionCall.deposit,
+//         });
+//         return ret.transaction.hash;
+//       })
+//     );
+//   };
+//   let txHashes = [] as string[];
+//   for (let i = 0; i < txs.length; i++) {
+//     txHashes.push(...(await signAndSendActionsInTx(txs[i])));
+//   }
+//   return txHashes;
+// };
+
+type ExecuteMultiTxNoDepositOpts<
+  T extends SpecialAccountConnectedWallet | SpecialAccountWithKeyPair
+> = {
+  keyPair?: KeyPair;
+} & ExecuteMultipleTxOpts<T>;
 
 export const executeMultipleTxNoDeposit = async <
   T extends SpecialAccountConnectedWallet | SpecialAccountWithKeyPair
 >(
   signerAccount: T,
   transactions: Transaction[],
-  opts?: ExecuteMultipleTxOpts<T>
+  opts?: ExecuteMultiTxNoDepositOpts<T>
 ): Promise<string[]> => {
+  if (
+    signerAccount.type === SpecialAccountType.WebConnected &&
+    (!opts || !opts?.keyPair)
+  )
+    throw MallocErrors.EXPECTED_A_MALLOC_ACCESS_KEY(
+      "Sending a tx with no deposit"
+    );
   const signAndSendTxsMethod =
     signerAccount.type === SpecialAccountType.KeyPair
       ? signAndSendKP
-      : signAndSendTxFunctionCallsWalletConnectNoDeposit;
+      : (txs: NearTransaction[], account: SpecialAccount) =>
+          signAndSendKPSpecified(
+            txs,
+            account,
+            (opts as ExecuteMultiTxNoDepositOpts<T>).keyPair as KeyPair
+          );
   return (await _executeMultipleTx<T>(
     signerAccount,
     transactions,
@@ -286,6 +318,7 @@ const _executeMultipleTx = async <
       );
     })
   );
+  console.log("Transactions", JSON.stringify(nearTransactions));
   return (await signAndSendTxsMethod(
     nearTransactions,
     signerAccount as any,

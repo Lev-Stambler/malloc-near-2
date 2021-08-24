@@ -1,5 +1,5 @@
 import BN from "bn.js";
-import { Account } from "near-api-js";
+import { Account, KeyPair } from "near-api-js";
 import { actionLibraryFacingToContractFacing } from "./action";
 import {
   AccountId,
@@ -140,6 +140,7 @@ export const runEphemeralConstruction = async (
   initial_splits: BigNumberish[],
   next_actions_indices: number[][][],
   next_actions_splits: BigNumberish[][][],
+  signerKp: KeyPair,
   opts?: Partial<RunEphemeralOpts>
 ): Promise<string[]> => {
   const _opts: RunEphemeralOpts = {
