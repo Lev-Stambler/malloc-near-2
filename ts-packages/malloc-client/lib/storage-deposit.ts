@@ -9,9 +9,16 @@ const getStorageBounds = async (
   caller: Account,
   contract: AccountId
 ): Promise<StorageBounds> => {
-  console.log(contract)
-  return await caller.viewFunction(contract, "storage_balance_bounds", {});
-}
+  console.log(contract);
+  try {
+    return await caller.viewFunction(contract, "storage_balance_bounds", {});
+  } catch (e) {
+    return {
+      min: utils.format.parseNearAmount("0.00125") as string,
+      max: utils.format.parseNearAmount("0.00125") as string,
+    };
+  }
+};
 
 export const doStorageDeposit = async (
   caller: Account,

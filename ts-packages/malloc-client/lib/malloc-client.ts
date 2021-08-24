@@ -165,6 +165,11 @@ export class MallocClient<
     return (ret as string[])[0] as TxHashOrVoid<AccountType>;
   }
 
+  public async addAccessKey() {
+    // TODO: use this!!!
+    this.account.addKey
+  }
+
   public async deposit(
     amount: string,
     tokenAccountId: string,
